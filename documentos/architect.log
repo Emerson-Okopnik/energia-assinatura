@@ -34,3 +34,9 @@
 179884420 [AWT-EventQueue-0] INFO  ca.sqlpower.architect.swingui.DBTree  - DBTree: exporting list of DnD-type tree paths
 180659560 [AWT-EventQueue-0] INFO  ca.sqlpower.architect.swingui.PlayPen  - Drop: I am over dtde=java.awt.dnd.DropTargetDropEvent[source=java.awt.dnd.DropTarget@8e46407]
 191128096 [AWT-EventQueue-0] INFO  ca.sqlpower.architect.swingui.DBTree  - DBTree: exporting list of DnD-type tree paths
+0    [AWT-EventQueue-0] INFO  ca.sqlpower.architect.ArchitectUtils  - Log4J configured successfully
+302  [AWT-EventQueue-0] INFO  ca.sqlpower.sql.PlDotIni  - Beginning to read/merge new pl.ini data
+362  [AWT-EventQueue-0] INFO  ca.sqlpower.sql.PlDotIni  - Finished reading file.
+363  [AWT-EventQueue-0] INFO  ca.sqlpower.sql.PlDotIni  - Beginning to read/merge new pl.ini data
+395  [AWT-EventQueue-0] INFO  ca.sqlpower.sql.PlDotIni  - Finished reading file.
+21962 [Thread-5] ERROR ca.sqlpower.architect.swingui.action.CheckForUpdateAction  - Fail to retrieve current version number!
