@@ -4,6 +4,15 @@ Este projeto é uma aplicação para **gerenciamento de usinas fotovoltaicas**, 
 
 ---
 
+## 📄 Requisitos
+
+- Node.js
+- Composer
+- PHP >= 7.4
+- MySQL ou PostgreSQL
+
+---
+
 ## ⚡ Funcionalidades
 
 - Cadastro de **Usinas** (com dados de geração, localização, comercialização e status de processo).
