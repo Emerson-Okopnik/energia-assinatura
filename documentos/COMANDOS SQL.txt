@@ -1,0 +1,66 @@
+COMANDOS SQL
+
+
+
+Clientes que não são consumidores
+
+SELECT *
+  FROM cliente
+ WHERE cli_id NOT IN (
+       SELECT cli_id FROM consumidor
+);
+
+
+Clientes que são consumidores
+
+select * 
+  from consumidor
+ inner  join cliente
+    on  consumidor.cli_id = cliente.cli_id
+
+Usinas
+
+SELECT USINA.USI_ID, CLIENTE.NOME, ENDERECO.CIDADE, COMERCIALIZACAO.VALOR_KWH, COMERCIALIZACAO.VALOR_FIXO, COMERCIALIZACAO.CIA_ENERGIA, COMERCIALIZACAO.VALOR_FINAL_MEDIA 
+  FROM USINA
+  JOIN CLIENTE
+    ON USINA.CLI_ID = CLIENTE.CLI_ID
+  JOIN ENDERECO
+    ON CLIENTE.END_ID = ENDERECO.END_ID
+  JOIN COMERCIALIZACAO
+    ON USINA.COM_ID = COMERCIALIZACAO.COM_ID
+  JOIN DADOS_GERACAO
+    ON USINA.DGER_ID = DADOS_GERACAO.DGER_ID
+
+
+Usinas e seus consumidores
+
+SELECT cliente.nome, consumidor, cliente_consumidor.nome
+  FROM usina
+  JOIN cliente
+    ON usina.cli_id = cliente.cli_id
+  JOIN comercializacao
+    ON usina.com_id = comercializacao.com_id
+  JOIN consumidor
+    ON usina.con_id = consumidor.con_id
+  JOIN cliente as cliente_consumidor	
+    ON consumidor.cli_id = cliente.cli_id
+
+
+Consulta meus consumidores na Usina
+
+SELECT
+    u.usi_id,
+    u.cli_id AS usina_cliente_id,
+    c.cli_id AS consumidor_cliente_id,
+    c.con_id,
+    c.cia_energia,
+    cli.nome AS nome_cliente_consumidor
+FROM
+    usina u
+JOIN usina_consumidor uc ON uc.usi_id = u.usi_id
+JOIN consumidor c ON c.con_id = uc.con_id
+JOIN cliente cli ON cli.cli_id = c.cli_id
+
+
+
+   

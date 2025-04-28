@@ -1,0 +1,88 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\EnderecoController;
+use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\ConsumidorController;
+use App\Http\Controllers\DadoConsumoController;
+use App\Http\Controllers\DadoGeracaoController;
+use App\Http\Controllers\ComercializacaoController;
+use App\Http\Controllers\UsinaController;
+use App\Http\Controllers\UsinaConsumidorController;
+use App\Http\Controllers\CreditosDistribuidosController;
+use App\Http\Controllers\CreditosDistribuidosUsinaController;
+
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
+Route::middleware('auth:api')->get('/user', [AuthController::class, 'user']);
+
+Route::middleware('auth:api')->group(function () {
+    Route::get('/home', [AuthController::class, 'user']);
+    Route::get('/users',[AuthController::class,'index']);
+    Route::get('/users/{id}',[AuthController::class,'show']);
+    
+    Route::post('/endereco', [EnderecoController::class, 'store']);
+    Route::get('/endereco', [EnderecoController::class, 'index']);
+    Route::get('/endereco/{id}', [EnderecoController::class, 'show']);
+    Route::put('/endereco/{id}', [EnderecoController::class, 'update']);
+    Route::delete('/endereco/{id}', [EnderecoController::class, 'destroy']);
+    
+    Route::post('/cliente', [ClienteController::class, 'store']);
+    Route::get('/cliente', [ClienteController::class, 'index']);
+    Route::get('/cliente/{id}', [ClienteController::class, 'show']);
+    Route::put('/cliente/{id}', [ClienteController::class, 'update']);
+    Route::delete('/cliente/{id}', [ClienteController::class, 'destroy']);
+    
+    Route::post('/consumo', [DadoConsumoController::class, 'store']);
+    Route::get('/consumo', [DadoConsumoController::class, 'index']);
+    Route::get('/consumo/{id}', [DadoConsumoController::class, 'show']);
+    Route::put('/consumo/{id}', [DadoConsumoController::class, 'update']);
+    Route::delete('/consumo/{id}', [DadoConsumoController::class, 'destroy']);
+    
+    Route::post('/consumidor', [ConsumidorController::class, 'store']);
+    Route::get('/consumidor', [ConsumidorController::class, 'index']);
+    Route::get('/consumidor/{id}', [ConsumidorController::class, 'show']);
+    Route::put('/consumidor/{id}', [ConsumidorController::class, 'update']);
+    Route::delete('/consumidor/{id}', [ConsumidorController::class, 'destroy']);
+    Route::get('/consumidores/nao-vinculados', [ConsumidorController::class, 'consumidoresNaoVinculados']);
+
+    Route::post('/geracao', [DadoGeracaoController::class, 'store']);
+    Route::get('/geracao', [DadoGeracaoController::class, 'index']);
+    Route::get('/geracao/{id}', [DadoGeracaoController::class, 'show']);
+    Route::put('/geracao/{id}', [DadoGeracaoController::class, 'update']);
+    Route::delete('/geracao/{id}', [DadoGeracaoController::class, 'destroy']);
+
+    Route::post('/comercializacao', [ComercializacaoController::class, 'store']);
+    Route::get('/comercializacao', [ComercializacaoController::class, 'index']);
+    Route::get('/comercializacao/{id}', [ComercializacaoController::class, 'show']);
+    Route::put('/comercializacao/{id}', [ComercializacaoController::class, 'update']);
+    Route::delete('/comercializacao/{id}', [ComercializacaoController::class, 'destroy']);
+
+    Route::post('/usina', [UsinaController::class, 'store']);
+    Route::get('/usina', [UsinaController::class, 'index']);
+    Route::get('/usina/{id}', [UsinaController::class, 'show']);
+    Route::put('/usina/{id}', [UsinaController::class, 'update']);
+    Route::delete('/usina/{id}', [UsinaController::class, 'destroy']);
+    Route::get('/usinas/nao-vinculadas', [UsinaController::class, 'usinasNaoVinculadas']);
+
+    Route::post('/usina-consumidor', [UsinaConsumidorController::class, 'store']);
+    Route::get('/usina-consumidor', [UsinaConsumidorController::class, 'index']);
+    Route::get('/usina-consumidor/{id}', [UsinaConsumidorController::class, 'show']);
+    Route::put('/usina-consumidor/{id}', [UsinaConsumidorController::class, 'update']);
+    Route::delete('/usina-consumidor/{id}', [UsinaConsumidorController::class, 'destroy']);
+    Route::delete('/usina-consumidor/usina/{usi_id}/consumidor/{con_id}', [UsinaConsumidorController::class, 'destroyVinculo']);
+
+    Route::post('/creditos-distribuidos', [CreditosDistribuidosController::class, 'store']);
+    Route::get('/creditos-distribuidos', [CreditosDistribuidosController::class, 'index']);
+    Route::get('/creditos-distribuidos/{id}', [CreditosDistribuidosController::class, 'show']);
+    Route::put('/creditos-distribuidos/{id}', [CreditosDistribuidosController::class, 'update']);
+    Route::delete('/creditos-distribuidos/{id}', [CreditosDistribuidosController::class, 'destroy']);
+
+    Route::post('/creditos-distribuidos-usina', [CreditosDistribuidosUsinaController::class, 'store']);
+    Route::get('/creditos-distribuidos-usina', [CreditosDistribuidosUsinaController::class, 'index']);
+    Route::get('/creditos-distribuidos-usina/{id}', [CreditosDistribuidosUsinaController::class, 'show']);
+    Route::put('/creditos-distribuidos-usina/{id}', [CreditosDistribuidosUsinaController::class, 'update']);
+    Route::delete('/creditos-distribuidos-usina/{id}', [CreditosDistribuidosUsinaController::class, 'destroy']);
+});
