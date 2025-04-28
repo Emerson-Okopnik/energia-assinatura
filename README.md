@@ -31,7 +31,7 @@ Este projeto é uma aplicação para **gerenciamento de usinas fotovoltaicas**, 
 ## 🛠️ Tecnologias Utilizadas
 
 - **Vue 3** + **Vite** (Frontend)
-- **Laravel 11** + **Sanctum** (Backend/API RESTful)
+- **Laravel 11** + **JWT** (Backend/API RESTful)
 - **Postgresql** (Banco de dados)
 - **Chart.js** + **vue-chartjs** (Gráficos)
 - **Bootstrap 5** (Estilização e responsividade)
