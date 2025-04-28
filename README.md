@@ -94,7 +94,8 @@ Este projeto é uma aplicação para **gerenciamento de usinas fotovoltaicas**, 
 
 ---
 
-##🧑‍💻 Autor
+## 🧑‍💻 Autor
+
 Desenvolvido por Emerson Okopnik
 
 Contato: emer00k@gmail.com
