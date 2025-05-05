@@ -60,6 +60,9 @@ class UsinaService {
             'cliente.endereco',
             'comercializacao',
             'dadoGeracao',
+            'creditosDistribuidosUsina.creditosDistribuidos',
+            'creditosDistribuidosUsina.valorAcumuladoReserva',
+            'creditosDistribuidosUsina.faturamentoUsina'
            /*'consumidor.cliente.endereco',
             'consumidor.dado_consumo'*/
         ])->find($id);

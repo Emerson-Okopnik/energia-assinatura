@@ -13,6 +13,9 @@ use App\Http\Controllers\UsinaController;
 use App\Http\Controllers\UsinaConsumidorController;
 use App\Http\Controllers\CreditosDistribuidosController;
 use App\Http\Controllers\CreditosDistribuidosUsinaController;
+use App\Http\Controllers\PDFController;
+use App\Http\Controllers\ValorAcumuladoReservaController;
+use App\Http\Controllers\FaturamentoUsinaController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -77,7 +80,7 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/creditos-distribuidos', [CreditosDistribuidosController::class, 'store']);
     Route::get('/creditos-distribuidos', [CreditosDistribuidosController::class, 'index']);
     Route::get('/creditos-distribuidos/{id}', [CreditosDistribuidosController::class, 'show']);
-    Route::put('/creditos-distribuidos/{id}', [CreditosDistribuidosController::class, 'update']);
+    Route::patch('/creditos-distribuidos/{id}', [CreditosDistribuidosController::class, 'update']);
     Route::delete('/creditos-distribuidos/{id}', [CreditosDistribuidosController::class, 'destroy']);
 
     Route::post('/creditos-distribuidos-usina', [CreditosDistribuidosUsinaController::class, 'store']);
@@ -85,4 +88,18 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/creditos-distribuidos-usina/{id}', [CreditosDistribuidosUsinaController::class, 'show']);
     Route::put('/creditos-distribuidos-usina/{id}', [CreditosDistribuidosUsinaController::class, 'update']);
     Route::delete('/creditos-distribuidos-usina/{id}', [CreditosDistribuidosUsinaController::class, 'destroy']);
+
+    Route::post('/valor-acumulado-reserva', [ValorAcumuladoReservaController::class, 'store']);
+    Route::get('/valor-acumulado-reserva', [ValorAcumuladoReservaController::class, 'index']);
+    Route::get('/valor-acumulado-reserva/{id}', [ValorAcumuladoReservaController::class, 'show']);
+    Route::patch('/valor-acumulado-reserva/{id}', [ValorAcumuladoReservaController::class, 'update']);
+    Route::delete('/valor-acumulado-reserva/{id}', [ValorAcumuladoReservaController::class, 'destroy']);
+
+    Route::post('/faturamento-usina', [FaturamentoUsinaController::class, 'store']);
+    Route::get('/faturamento-usina', [FaturamentoUsinaController::class, 'index']);
+    Route::get('/faturamento-usina/{id}', [FaturamentoUsinaController::class, 'show']);
+    Route::patch('/faturamento-usina/{id}', [FaturamentoUsinaController::class, 'update']);
+    Route::delete('/faturamento-usina/{id}', [FaturamentoUsinaController::class, 'destroy']);
+
+    Route::get('/gerar-pdf-usina/{id}', [PDFController::class, 'gerarUsinaPDF']);
 });

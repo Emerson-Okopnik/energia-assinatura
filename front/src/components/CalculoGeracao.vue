@@ -70,10 +70,11 @@
       </div>
       <div class="col-md-4">
         <label for="mesGeracao">Geração de {{ meses[mesSelecionado] }}:</label>
-        <input id="mesGeracao" type="number" step="0.01" class="form-control" v-model.number="mesGeracao" />
+        <input id="mesGeracao" type="number" step="0.01" class="form-control" v-model.number="mesGeracao"
+          @input="atualizarValores" />
       </div>
       <div class="col-md-4">
-        <label for="valorGeracaoMes">Valor Faturado (R$):</label>
+        <label for="valorGeracaoMes">Valor Gerado (R$):</label>
         <input id="valorGeracaoMes" type="number" step="0.01" class="form-control" v-model.number="valorGeracaoMes"
           readonly />
       </div>
@@ -84,10 +85,46 @@
         <label for="credito">Valor em Créditos (R$):</label>
         <input id="credito" type="number" step="0.01" class="form-control" v-model.number="credito" />
       </div>
+      <div class="col-md-4">
+        <label for="valorGuardado">Valor acumulado em Reserva (R$):</label>
+        <input id="valorGuardado" type="number" step="0.01" class="form-control" v-model.number="valorGuardado" />
+      </div>
+      <div class="col-md-4">
+        <label for="valorTotal">Valor Total a Ser pago (R$):</label>
+        <input id="valorTotal" type="number" step="0.01" class="form-control" v-model.number="valorTotal" />
+      </div>
     </div>
 
+    <table class="table table-bordered" v-if="usina && usina.creditos_distribuidos_usina">
+      <thead class="table-dark">
+        <tr>
+          <th>Mês</th>
+          <th>Geração</th>
+          <th>Valor Guardado</th>
+          <th>Creditado</th>
+          <th>Valor Pago</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(valor, mesExibicao) in mesesGeracao" :key="mesExibicao">
+          <td>{{ mesExibicao }}</td>
+          <td>{{ valor }} kWh</td>
+          <td>R$ {{usina.creditos_distribuidos_usina.valor_acumulado_reserva[Object.keys(meses).find(key => meses[key] === mesExibicao)]?.toFixed(2)}}</td>
+          <td>R$ {{usina.creditos_distribuidos_usina.creditos_distribuidos[Object.keys(meses).find(key => meses[key] === mesExibicao)]?.toFixed(2)}}</td>
+          <td>R$ {{usina.creditos_distribuidos_usina.faturamento_usina[Object.keys(meses).find(key => meses[key] === mesExibicao)]?.toFixed(2)}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <button @click="gerarPDF" class="btn btn-primary">
+      Baixar PDF da Usina
+    </button>
     <div class="mt-4 d-flex align-items-center">
       <button type="button" class="btn btn-primary ms-2" @click="goBack">Voltar</button>
+    </div>
+
+    <div class="d-flex justify-content-end mb-5">
+      <button class="btn btn-success" @click="salvarValoresMensais">Salvar Valores</button>
     </div>
   </div>
 </template>
@@ -128,24 +165,31 @@ export default {
         plugins: { legend: { position: 'top' } },
         scales: { y: { stacked: true }, x: { stacked: true } }
       },
-      meses: [
-        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-      ],
-      mesSelecionado: new Date().getMonth(),
+      meses: {
+        janeiro: "Janeiro",
+        fevereiro: "Fevereiro",
+        marco: "Março",
+        abril: "Abril",
+        maio: "Maio",
+        junho: "Junho",
+        julho: "Julho",
+        agosto: "Agosto",
+        setembro: "Setembro",
+        outubro: "Outubro",
+        novembro: "Novembro",
+        dezembro: "Dezembro"
+      },
+      mesSelecionado: '',
       mesGeracao: 0,
       valorGeracaoMes: 0,
-      credito: 0
+      credito: 0,
+      valorGuardado: 0,
+      valorTotal: 0,
+      cd_id: null,
+      var_id: null,
+      fa_id: null,
+      usina: null,
     };
-  },
-  watch: {
-    mesGeracao(newVal) {
-      // Atualiza o valor faturado
-      this.valorGeracaoMes = (newVal * this.valor_kwh).toFixed(2);
-
-      // Atualiza o saldo de crédito
-      this.credito = ((newVal - this.mediaGeracao) * this.valor_kwh).toFixed(2);
-    }
   },
   computed: {
     valorFinalFioB() {
@@ -166,6 +210,23 @@ export default {
       } catch (err) {
         console.error('Erro ao buscar usinas:', err);
       }
+    },
+    atualizarValores() {
+      const geracao = Number(this.mesGeracao);
+      const media = Number(this.mediaGeracao);
+      const kwh = Number(this.valor_kwh);
+
+      this.valorGeracaoMes = +(geracao * kwh).toFixed(2);
+      this.credito = this.creditado(geracao).toFixed(2);
+      this.valorGuardado = 0;
+
+      if (geracao > media) {
+        const energiaExcedente = geracao - media;
+        const valorExcedente = energiaExcedente * kwh;
+        this.valorGuardado = parseFloat(valorExcedente.toFixed(2));
+      }
+
+      this.valorTotal = this.valorFinal(geracao).toFixed(2);
     },
     injetado(valor) {
       if (valor > this.mediaGeracao) {
@@ -227,16 +288,84 @@ export default {
         };
 
         this.gerarGrafico();
+        this.cd_id = usina.creditos_distribuidos_usina.cd_id;
+        this.var_id = usina.creditos_distribuidos_usina.var_id;
+        this.fa_id = usina.creditos_distribuidos_usina.fa_id;
+        this.usina = response.data;
       } catch (error) {
         console.error('Erro ao carregar dados da usina:', error);
       }
     },
+    async salvarValoresMensais() {
+      const token = localStorage.getItem('token');
+      const mesNome = this.meses[this.mesSelecionado].toLowerCase(); // exemplo: 'abril'
+      const headers = { Authorization: `Bearer ${token}` };
+
+      try {
+        if (!this.cd_id || !this.var_id || !this.fa_id) {
+          alert("IDs de vínculo da usina não carregados. Verifique o backend.");
+          return;
+        }
+
+        // 1. CREDITOS_DISTRIBUIDOS
+        await axios.patch(`http://localhost:8000/api/creditos-distribuidos/${this.cd_id}`, {
+          [mesNome]: parseFloat(this.credito)
+        }, { headers });
+
+        // 2. VALOR_ACUMULADO_RESERVA
+        await axios.patch(`http://localhost:8000/api/valor-acumulado-reserva/${this.var_id}`, {
+          [mesNome]: parseFloat(this.valorGuardado)
+        }, { headers });
+
+        // 3. FATURAMENTO_USINA
+        await axios.patch(`http://localhost:8000/api/faturamento-usina/${this.fa_id}`, {
+          [mesNome]: parseFloat(this.valorTotal)
+        }, { headers });
+
+        alert('Valores salvos com sucesso!');
+      } catch (error) {
+        console.error("Erro ao salvar valores mensais:", error);
+        alert("Erro ao salvar. Verifique se os dados estão corretos ou se a usina foi carregada.");
+      }
+    },
     goBack() {
       this.$router.push('/Home');
+    },
+    async gerarPDF() {
+      const token = localStorage.getItem('token');
+
+      try {
+        const response = await axios.get(`http://localhost:8000/api/gerar-pdf-usina/${this.selectedUsinaId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          responseType: 'blob' // 👈 Importante: recebe como arquivo
+        });
+
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `usina_${this.selectedUsinaId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url); // libera memória
+
+      } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        alert('Erro ao gerar PDF. Faça login novamente.');
+      }
     }
   },
   mounted() {
     this.fetchUsinas();
+
+    // Define o mês atual como chave
+    const index = new Date().getMonth(); // 0 a 11
+    const chaveAtual = Object.keys(this.meses)[index];
+    this.mesSelecionado = chaveAtual;
   }
 };
 </script>

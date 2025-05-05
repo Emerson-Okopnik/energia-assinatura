@@ -3,33 +3,34 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\CreditosDistribuidosService;
 use Illuminate\Http\JsonResponse;
+use App\Services\FaturamentoUsinaService;
 
-class CreditosDistribuidosController extends Controller
-{
-    public function __construct(CreditosDistribuidosService $creditosDistribuidosservice) {
-        $this->creditosDistribuidosservice = $creditosDistribuidosservice;
+class FaturamentoUsinaController extends Controller {
+   
+    public function __construct(FaturamentoUsinaService $faturamentoUsinaService) {
+        $this->faturamentoUsinaService = $faturamentoUsinaService;
     }
 
+
     public function index(): JsonResponse {
-        $dados = $this->creditosDistribuidosservice->findAll();
+        $dados = $this->faturamentoUsinaService->findAll();
         return response()->json($dados);
     }
 
     public function store(): JsonResponse {
-        $id = $this->creditosDistribuidosservice->create();
+        $id = $this->faturamentoUsinaService->create(); // cria com defaults
         return response()->json(['id' => $id], 201);
     }
 
     public function show(int $id): JsonResponse {
-        $registro = $this->creditosDistribuidosservice->findById($id);
+        $dados = $this->faturamentoUsinaService->findById($id);
 
-        if (!$registro) {
-            return response()->json(['message' => 'Crédito não encontrado.'], 404);
+        if (!$dados) {
+            return response()->json(['message' => 'Faturamento da Usina não encontrados.'], 404);
         }
-
-        return response()->json($registro);
+ 
+        return response()->json($dados);
     }
 
     public function update(Request $request, int $id): JsonResponse {
@@ -48,22 +49,22 @@ class CreditosDistribuidosController extends Controller
             'dezembro' => 'sometimes|numeric',
         ]);
 
-        $updated = $this->creditosDistribuidosservice->update($id, $data);
+        $updated = $this->faturamentoUsinaService->update($id, $data);
 
         if (!$updated) {
-            return response()->json(['message' => 'Crédito não encontrado ou não atualizado.'], 404);
+            return response()->json(['message' => 'Faturamento da Usina não atualizados.'], 404);
         }
 
-        return response()->json(['message' => 'Crédito atualizado com sucesso.']);
+        return response()->json(['message' => 'Faturamento da Usina atualizados com sucesso.']);
     }
 
     public function destroy(int $id): JsonResponse {
-        $deleted = $this->creditosDistribuidosservice->delete($id);
+        $deleted = $this->faturamentoUsinaService->delete($id);
 
         if (!$deleted) {
-            return response()->json(['message' => 'Crédito não encontrado ou não pôde ser excluído.'], 404);
+            return response()->json(['message' => 'Faturamento da Usina não encontrados.'], 404);
         }
 
-        return response()->json(['message' => 'Crédito excluído com sucesso.']);
+        return response()->json(['message' => 'Faturamento da Usina excluídos com sucesso.']);
     }
 }

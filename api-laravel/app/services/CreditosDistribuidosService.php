@@ -11,9 +11,10 @@ class CreditosDistribuidosService {
     public function __construct(CreditosDistribuidos $creditosDistribuidos) {
         $this->creditosDistribuidos = $creditosDistribuidos;
     }
-
-    public function create(array $data): int {
-        return $this->creditosDistribuidos->create($data)->cd_id;
+    
+    public function create(): int {
+        $registro =$this->creditosDistribuidos->create(); // cria com defaults
+        return $registro->cd_id;
     }
 
     public function update(int $id, array $data): int {
@@ -27,7 +28,7 @@ class CreditosDistribuidosService {
     
         return $registro ? $registro->delete() : 0;
     }
-    
+
     public function findById(int $id): array|null {
         $dados = $this->creditosDistribuidos->find($id);
     

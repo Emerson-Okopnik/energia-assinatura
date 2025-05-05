@@ -308,18 +308,54 @@ export default {
 
         const com_id = comercializacaoResponse.data.id;
 
+        // 5. Cadastrar Créditos Distribuídos
+        const creditosDistribuidosResponse = await axios.post("http://localhost:8000/api/creditos-distribuidos", {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        const cd_id = creditosDistribuidosResponse.data.id;
+        
+        // 6. Cadastrar Faturamento da Usina
+        const faturamentoUsinaResponse = await axios.post("http://localhost:8000/api/faturamento-usina", {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        const fa_id = faturamentoUsinaResponse.data.id;
+        
+        // 7. Cadastrar Valor Acumulado em Reserva
+        const valorAcumuladoReserva = await axios.post("http://localhost:8000/api/valor-acumulado-reserva", {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        const var_id = valorAcumuladoReserva.data.id;
+        
+        const creditosDistribuidosUsinaPayload = {
+          cd_id: cd_id,
+          fa_id: fa_id,
+          var_id: var_id,
+          ano: new Date().getFullYear()
+        }
+        
+        // 8. Cadastrar Créditos Distribuídos
+        const creditosDistribuidosUsina = await axios.post("http://localhost:8000/api/creditos-distribuidos-usina", creditosDistribuidosUsinaPayload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        const cdu_id = creditosDistribuidosUsina.data.id;
+
         // 5. Cadastrar Usina
         const usinaPayload = {
           cli_id: cli_id,
           dger_id: dger_id,
           com_id: com_id,
+          cdu_id: cdu_id,
           andamento_processo: this.form.andamento_processo,
           data_ass_contrato: this.form.data_ass_contrato,
           data_limite_troca_titularidade: this.form.data_limite_troca_titularidade,
           status: this.form.status
         };
 
-        await axios.post("http://localhost:8000/api/usina", usinaPayload, {
+        Response = await axios.post("http://localhost:8000/api/usina", usinaPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

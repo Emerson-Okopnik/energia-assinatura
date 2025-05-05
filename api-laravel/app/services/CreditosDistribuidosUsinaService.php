@@ -30,10 +30,9 @@ class CreditosDistribuidosUsinaService {
 
     public function findById(int $id): array|null {
         $usina = $this->creditosDistribuidosUsina->with([
-            'usina.cliente.endereco',
-            'usina.comercializacao',
-            'usina.dadoGeracao',
-            'creditosDistribuidos'
+            'creditosDistribuidos',
+            'valorAcumuladoReserva',
+            'faturamentoUsina'
         ])->find($id);
         return $usina ? $usina->toArray() : null;
     }

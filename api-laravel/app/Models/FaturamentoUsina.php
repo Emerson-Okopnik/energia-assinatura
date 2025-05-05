@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Dadogeracao extends Model {
+class FaturamentoUsina extends Model
+{
+   
+    protected $table = 'faturamento_usina';
 
-    protected $table = 'dados_geracao';
-
-    protected $primaryKey = 'dger_id';
+    protected $primaryKey = 'fa_id';
 
     protected $fillable = [
         'janeiro',
@@ -22,9 +23,7 @@ class Dadogeracao extends Model {
         'setembro',
         'outubro',
         'novembro',
-        'dezembro',
-        'media',
-        'menor_geracao',
+        'dezembro'
     ];
 
     protected $casts = [
@@ -40,11 +39,9 @@ class Dadogeracao extends Model {
         'outubro' => 'float',
         'novembro' => 'float',
         'dezembro' => 'float',
-        'media' => 'float',
-        'menor_geracao' => 'float',
     ];
 
-    public function usina() {
-        return $this->belongsTo(Usina::class, 'dger_id', 'dger_id');
+    public function creditosDistribuidosUsina() {
+        return $this->belongsTo(CreditosDistribuidosUsina::class, 'fa_id', 'fa_id');
     }
 }

@@ -14,6 +14,7 @@ class Usina extends Model {
         'cli_id',
         'dger_id',
         'com_id',
+        'cdu_id',
         'data_limite_troca_titularidade',
         'data_ass_contrato',
         'status',
@@ -24,6 +25,7 @@ class Usina extends Model {
         'cli_id' => 'integer',
         'dger_id' => 'integer',
         'com_id' => 'integer',
+        'cdu_id' => 'integer',
         'data_limite_troca_titularidade' => 'date',
         'data_ass_contrato' => 'date',
         'status' => 'string',
@@ -40,6 +42,10 @@ class Usina extends Model {
 
     public function comercializacao() {
         return $this->belongsTo(Comercializacao::class, 'com_id', 'com_id');
+    }
+
+    public function creditosDistribuidosUsina() {
+        return $this->belongsTo(CreditosDistribuidosUsina::class, 'cdu_id', 'cdu_id');
     }
 
     // NOVO: Muitos consumidores para uma usina
