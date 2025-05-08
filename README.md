@@ -117,7 +117,6 @@ Este projeto é uma aplicação para **gerenciamento de usinas fotovoltaicas**, 
 17. Instale o Guzzle no backend:
     ```
     composer require guzzlehttp/guzzle
-    
 ---
 
 ## 🧑‍💻 Autor
