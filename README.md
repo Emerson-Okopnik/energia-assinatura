@@ -44,6 +44,11 @@ Este projeto é uma aplicação para **gerenciamento de usinas fotovoltaicas**, 
 - **Postgresql** (Banco de dados)
 - **Chart.js** + **vue-chartjs** (Gráficos)
 - **Bootstrap 5** (Estilização e responsividade)
+- Spatie/Browsershot (Geração de PDF a partir de HTML usando o Chrome headless)
+- Puppeteer (Automação do navegador Chrome para suporte à geração de PDFs e screenshots no frontend)
+- **GuzzleHTTP** (Chamadas HTTP no backend, integração com APIs externas)
+
+
 
 ---
 
@@ -101,6 +106,17 @@ Este projeto é uma aplicação para **gerenciamento de usinas fotovoltaicas**, 
      ```bash
      npm run dev
 
+15. Instale o Spatie Browsershot no backend:
+    ```bash
+    composer require spatie/browsershot
+
+16. Instale o Puppeteer no frontend:
+    ```bash
+    npm install puppeteer
+
+17. Instale o Guzzle no backend:
+    ```
+    composer require guzzlehttp/guzzle
 ---
 
 ## 🧑‍💻 Autor
