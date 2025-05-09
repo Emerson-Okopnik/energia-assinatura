@@ -63,8 +63,8 @@
       <div class="col-md-4">
         <label for="mes">Selecione o mês:</label>
         <select id="mes" v-model="mesSelecionado" class="form-select">
-          <option v-for="(mes, index) in meses" :key="index" :value="index">
-            {{ mes }}
+          <option v-for="(label, key) in meses" :key="key" :value="key">
+            {{ label }}
           </option>
         </select>
       </div>
@@ -106,30 +106,42 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(valor, mesExibicao) in mesesGeracao" :key="mesExibicao">
+        <tr v-for="([mesExibicao, valor]) in mesesComValorPago" :key="mesExibicao">
           <td>{{ mesExibicao }}</td>
           <td>{{ valor }} kWh</td>
-          <td>R$ {{usina.creditos_distribuidos_usina.valor_acumulado_reserva[Object.keys(meses).find(key => meses[key] === mesExibicao)]?.toFixed(2)}}</td>
-          <td>R$ {{usina.creditos_distribuidos_usina.creditos_distribuidos[Object.keys(meses).find(key => meses[key] === mesExibicao)]?.toFixed(2)}}</td>
-          <td>R$ {{usina.creditos_distribuidos_usina.faturamento_usina[Object.keys(meses).find(key => meses[key] === mesExibicao)]?.toFixed(2)}}</td>
+          <td>R$ {{usina.creditos_distribuidos_usina.valor_acumulado_reserva[Object.keys(meses).find(key => meses[key]
+            === mesExibicao)]?.toFixed(2)}}</td>
+          <td>R$ {{usina.creditos_distribuidos_usina.creditos_distribuidos[Object.keys(meses).find(key => meses[key] ===
+            mesExibicao)]?.toFixed(2)}}</td>
+          <td>R$ {{usina.creditos_distribuidos_usina.faturamento_usina[Object.keys(meses).find(key => meses[key] ===
+            mesExibicao)]?.toFixed(2)}}</td>
         </tr>
       </tbody>
     </table>
+
+    <div class="d-flex justify-content-end mb-5">
+      <button class="btn btn-success" @click="salvarValoresMensais">Salvar Valores</button>
+    </div>
+
+    <div v-if="usina && usina.creditos_distribuidos_usina" class="mb-4">
+      <h5>Reserva Total Acumulada</h5>
+      <p :class="['fs-5 fw-bold p-2 rounded', reservaClasse]"
+        style="background-color: rgba(0, 0, 0, 0.05); display: inline-block;">
+        R$ {{ reservaTotalFormatada }}
+      </p>
+    </div>
 
     <button @click="gerarPDF" class="btn btn-primary">
       Baixar PDF da Usina
     </button>
     <div class="mt-4 d-flex align-items-center">
-      <button type="button" class="btn btn-primary ms-2" @click="goBack">Voltar</button>
-    </div>
-
-    <div class="d-flex justify-content-end mb-5">
-      <button class="btn btn-success" @click="salvarValoresMensais">Salvar Valores</button>
+      <button type="button" class="btn btn-secondary ms-2" @click="goBack">Voltar</button>
     </div>
   </div>
 </template>
 
 <script>
+import Swal from 'sweetalert2';
 import axios from 'axios';
 import {
   Chart as ChartJS,
@@ -197,6 +209,25 @@ export default {
     },
     fixo() {
       return this.menorGeracao * this.valor_kwh;
+    },
+    mesesComValorPago() {
+      if (!this.usina || !this.usina.creditos_distribuidos_usina) return [];
+
+      return Object.entries(this.mesesGeracao).filter(([mesExibicao, _]) => {
+        const mesKey = Object.keys(this.meses).find(key => this.meses[key] === mesExibicao);
+        const valorPago = this.usina.creditos_distribuidos_usina.faturamento_usina[mesKey];
+        return valorPago && valorPago > 0;
+      });
+    },
+    reservaTotal() {
+      const total = this.usina?.creditos_distribuidos_usina?.valor_acumulado_reserva?.total ?? 0;
+      return parseFloat(total);
+    },
+    reservaTotalFormatada() {
+      return this.reservaTotal.toFixed(2);
+    },
+    reservaClasse() {
+      return this.reservaTotal >= 0 ? 'text-success' : 'text-danger';
     }
   },
   methods: {
@@ -291,6 +322,7 @@ export default {
         this.cd_id = usina.creditos_distribuidos_usina.cd_id;
         this.var_id = usina.creditos_distribuidos_usina.var_id;
         this.fa_id = usina.creditos_distribuidos_usina.fa_id;
+        this.dger_id = usina.dger_id;
         this.usina = response.data;
       } catch (error) {
         console.error('Erro ao carregar dados da usina:', error);
@@ -298,12 +330,18 @@ export default {
     },
     async salvarValoresMensais() {
       const token = localStorage.getItem('token');
-      const mesNome = this.meses[this.mesSelecionado].toLowerCase(); // exemplo: 'abril'
+      const mesNome = this.mesSelecionado;
       const headers = { Authorization: `Bearer ${token}` };
 
       try {
         if (!this.cd_id || !this.var_id || !this.fa_id) {
-          alert("IDs de vínculo da usina não carregados. Verifique o backend.");
+          Swal.fire({
+            icon: 'warning',
+            title: 'Dados incompletos!',
+            text: 'IDs de vínculo da usina não foram carregados. Verifique o backend.',
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'OK'
+          });
           return;
         }
 
@@ -312,9 +350,16 @@ export default {
           [mesNome]: parseFloat(this.credito)
         }, { headers });
 
+        if (this.credito < this.valorGuardado) {
+          var total_mes = this.valorGuardado + this.usina.creditos_distribuidos_usina.valor_acumulado_reserva.total
+        } else {
+          var total_mes = this.usina.creditos_distribuidos_usina.valor_acumulado_reserva.total - this.credito
+        }
+
         // 2. VALOR_ACUMULADO_RESERVA
         await axios.patch(`http://localhost:8000/api/valor-acumulado-reserva/${this.var_id}`, {
-          [mesNome]: parseFloat(this.valorGuardado)
+          [mesNome]: parseFloat(this.valorGuardado),
+          total: parseFloat(total_mes)
         }, { headers });
 
         // 3. FATURAMENTO_USINA
@@ -322,10 +367,29 @@ export default {
           [mesNome]: parseFloat(this.valorTotal)
         }, { headers });
 
-        alert('Valores salvos com sucesso!');
+        // 4. DADOS_GERACAO
+        await axios.patch(`http://localhost:8000/api/geracao/${this.dger_id}`, {
+          [mesNome]: parseFloat(this.mesGeracao)
+        }, { headers });
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Valores salvos!',
+          text: 'As informações da usina foram atualizadas com sucesso.',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: 'OK'
+        });
+        await this.carregarDados();
       } catch (error) {
         console.error("Erro ao salvar valores mensais:", error);
-        alert("Erro ao salvar. Verifique se os dados estão corretos ou se a usina foi carregada.");
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao salvar',
+          text: 'Verifique se os dados estão corretos ou se a usina foi carregada.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
+
       }
     },
     goBack() {
@@ -335,29 +399,48 @@ export default {
       const token = localStorage.getItem('token');
 
       try {
+        // Abre o alerta de carregamento
+        Swal.fire({
+          title: 'Gerando PDF...',
+          html: 'Aguarde enquanto preparamos o documento.',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
         const response = await axios.get(`http://localhost:8000/api/gerar-pdf-usina/${this.selectedUsinaId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-          responseType: 'blob' // 👈 Importante: recebe como arquivo
+          responseType: 'blob'
         });
+
+        Swal.close(); // Fecha o loading após o recebimento do PDF
 
         const blob = new Blob([response.data], { type: 'application/pdf' });
         const url = window.URL.createObjectURL(blob);
 
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `usina_${this.selectedUsinaId}.pdf`);
+        link.setAttribute('download', `fatura ${this.usina.cliente.nome} - ${this.selectedUsinaId}.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
-        window.URL.revokeObjectURL(url); // libera memória
+        window.URL.revokeObjectURL(url);
 
       } catch (error) {
         console.error('Erro ao gerar PDF:', error);
-        alert('Erro ao gerar PDF. Faça login novamente.');
+        Swal.close();
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao gerar PDF',
+          text: 'Não foi possível gerar o PDF.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Fechar'
+        });
       }
-    }
+    },
   },
   mounted() {
     this.fetchUsinas();

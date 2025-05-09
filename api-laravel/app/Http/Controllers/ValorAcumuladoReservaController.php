@@ -47,6 +47,7 @@ class ValorAcumuladoReservaController extends Controller {
             'outubro' => 'sometimes|numeric',
             'novembro' => 'sometimes|numeric',
             'dezembro' => 'sometimes|numeric',
+            'total' => 'sometimes|numeric',
         ]);
 
         $updated = $this->valorAcumuladoReservaService->update($id, $data);

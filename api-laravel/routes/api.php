@@ -54,7 +54,7 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/geracao', [DadoGeracaoController::class, 'store']);
     Route::get('/geracao', [DadoGeracaoController::class, 'index']);
     Route::get('/geracao/{id}', [DadoGeracaoController::class, 'show']);
-    Route::put('/geracao/{id}', [DadoGeracaoController::class, 'update']);
+    Route::patch('/geracao/{id}', [DadoGeracaoController::class, 'update']);
     Route::delete('/geracao/{id}', [DadoGeracaoController::class, 'destroy']);
 
     Route::post('/comercializacao', [ComercializacaoController::class, 'store']);
@@ -102,4 +102,5 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('/faturamento-usina/{id}', [FaturamentoUsinaController::class, 'destroy']);
 
     Route::get('/gerar-pdf-usina/{id}', [PDFController::class, 'gerarUsinaPDF']);
+
 });

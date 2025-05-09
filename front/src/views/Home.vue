@@ -1,13 +1,13 @@
 <template>
   <div class="container mt-5">
-    <h2 class="mb-4">Bem-vindo, {{ user.name }}!</h2>
-    <p>Email: {{ user.email }}</p>
-
+    <div class="text-center mb-5">
+      <img src="/src/assets/logo-consorcio-lider-energy.png" alt="Logo Consórcio Líder Energy" style="width: 30%;" />
+    </div>
     <div class="resumo-geracao mb-4">
       <h5>Resumo de Distribuição</h5>
       <p><strong>Geração Média Total:</strong> {{ geracaoTotal }} kWh</p>
       <p><strong>Consumo Alocado:</strong> {{ consumoTotal }} kWh</p>
-      <p :class="creditosClasse"><strong>Saldo Disponível:</strong> {{ saldoDisponivel }} kWh</p>
+      <p><strong>Saldo Disponível:</strong> <span :class="creditosClasse">{{ saldoDisponivel }} kWh</span></p>
     </div>
 
     <h4 class="mt-5">Relatório de Usinas e Consumidores</h4>
@@ -24,7 +24,8 @@
       </thead>
       <tbody>
         <template v-for="(usina, usinaId) in usinasMapeadas" :key="usinaId">
-          <tr @click="toggleExpandir(usinaId)" style="cursor: pointer" :style="{ backgroundColor: coresUsina[usinaId] }">
+          <tr @click="toggleExpandir(usinaId)" style="cursor: pointer"
+            :style="{ backgroundColor: coresUsina[usinaId] }">
             <td>{{ usina.usina.cliente.nome }}</td>
             <td>{{ usina.usina.cliente.endereco.cidade }}</td>
             <td>{{ usina.usina.dado_geracao.media }} kWh</td>
@@ -45,7 +46,8 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="consumidor in usina.consumidores" :key="consumidor.con_id" :style="{ backgroundColor: coresUsina[usinaId], opacity: 0.70}">
+                  <tr v-for="consumidor in usina.consumidores" :key="consumidor.con_id"
+                    :style="{ backgroundColor: coresUsina[usinaId], opacity: 0.70 }">
                     <td>{{ consumidor.cliente.nome }}</td>
                     <td>{{ consumidor.cliente.endereco.cidade }}</td>
                     <td>{{ consumidor.dado_consumo.media }} kWh</td>
@@ -219,8 +221,9 @@ export default {
   border-radius: 6px;
   background-color: #f8f9fa;
 }
+
 a {
-      text-decoration: none;
+  text-decoration: none;
 }
 
 .text-success {

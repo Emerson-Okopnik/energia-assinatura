@@ -63,8 +63,6 @@ class UsinaService {
             'creditosDistribuidosUsina.creditosDistribuidos',
             'creditosDistribuidosUsina.valorAcumuladoReserva',
             'creditosDistribuidosUsina.faturamentoUsina'
-           /*'consumidor.cliente.endereco',
-            'consumidor.dado_consumo'*/
         ])->find($id);
         return $usina ? $usina->toArray() : null;
     }
@@ -74,8 +72,6 @@ class UsinaService {
             'cliente.endereco',
             'comercializacao',
             'dadoGeracao',
-           /*consumidor.cliente.endereco',
-            'consumidor.dado_consumo'*/
         ])->get()->toArray();
     }
 

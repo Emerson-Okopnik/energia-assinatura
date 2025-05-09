@@ -22,7 +22,8 @@ class ValorAcumuladoReserva extends Model {
         'setembro',
         'outubro',
         'novembro',
-        'dezembro'
+        'dezembro',
+        'total'
     ];
 
     protected $casts = [
@@ -38,6 +39,7 @@ class ValorAcumuladoReserva extends Model {
         'outubro' => 'float',
         'novembro' => 'float',
         'dezembro' => 'float',
+        'total' => 'float',
     ];
 
     public function creditosDistribuidosUsina() {
