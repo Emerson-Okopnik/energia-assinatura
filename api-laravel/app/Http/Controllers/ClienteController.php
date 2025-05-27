@@ -28,7 +28,6 @@ class ClienteController extends Controller {
         ]);
 
         $clienteId = $this->clienteService->create($data);
-
         return response()->json(['id' => $clienteId], 201);
     }
 

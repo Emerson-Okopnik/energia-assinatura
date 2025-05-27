@@ -28,8 +28,7 @@ class Endereco extends Model
         'numero' => 'integer',
     ];
 
-    public function clientes()
-    {
+    public function clientes() {
         return $this->hasMany(Cliente::class, 'end_id', 'end_id');
     }
 }

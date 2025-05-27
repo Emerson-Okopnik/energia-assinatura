@@ -22,18 +22,15 @@ class UsinaConsumidor extends Model
         'con_id' => 'integer',
     ];
 
-    public function usina()
-    {
+    public function usina() {
         return $this->belongsTo(Usina::class, 'usi_id', 'usi_id');
     }
 
-    public function cliente()
-    {
+    public function cliente() {
         return $this->belongsTo(Cliente::class, 'cli_id', 'cli_id');
     }
 
-    public function consumidor()
-    {
+    public function consumidor() {
         return $this->belongsTo(Consumidor::class, 'con_id', 'con_id');
     }
 }

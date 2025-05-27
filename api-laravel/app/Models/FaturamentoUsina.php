@@ -42,6 +42,6 @@ class FaturamentoUsina extends Model
     ];
 
     public function creditosDistribuidosUsina() {
-        return $this->belongsTo(CreditosDistribuidosUsina::class, 'fa_id', 'fa_id');
+        return $this->hasOne(CreditosDistribuidosUsina::class, 'fa_id', 'fa_id');
     }
 }

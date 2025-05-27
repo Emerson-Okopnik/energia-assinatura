@@ -43,13 +43,13 @@
       <tbody>
         <tr v-for="(valor, mes) in mesesGeracao" :key="mes">
           <td>{{ mes }}</td>
-          <td :class="{ 'text-danger': valor == menorGeracao }">{{ valor }} kWh</td>
+          <td :class="{ 'text-danger': valor == menorGeracao }">{{ valor.toFixed(2) }} kWh</td>
           <td>{{ mediaGeracao }} kWh</td>
           <td>R$ {{ fixo.toFixed(2) }}</td>
           <td>R$ {{ injetado(valor).toFixed(2) }}</td>
-          <td>R$ {{ creditado(valor).toFixed(2) }}</td>
+          <td>R$ {{ creditadoTabela(valor).toFixed(2) }}</td>
           <td>R$ {{ cuo(valor).toFixed(2) }}</td>
-          <td>R$ {{ valorFinal(valor).toFixed(2) }}</td>
+          <td>R$ {{ valorFinalTabela(valor).toFixed(2) }}</td>
         </tr>
       </tbody>
     </table>
@@ -60,7 +60,11 @@
 
     <h4 class="my-4">Faturamento da Usina no Mês</h4>
     <div class="row mb-5">
-      <div class="col-md-4">
+      <div class="col-md-2">
+        <label for="anoFaturamentoInput">Ano:</label>
+        <input id="anoFaturamentoInput" type="number" class="form-control" v-model.number="anoFaturamento" />
+      </div>
+      <div class="col-md-3">
         <label for="mes">Selecione o mês:</label>
         <select id="mes" v-model="mesSelecionado" class="form-select">
           <option v-for="(label, key) in meses" :key="key" :value="key">
@@ -68,7 +72,7 @@
           </option>
         </select>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <label for="mesGeracao">Geração de {{ meses[mesSelecionado] }}:</label>
         <input id="mesGeracao" type="number" step="0.01" class="form-control" v-model.number="mesGeracao"
           @input="atualizarValores" />
@@ -86,7 +90,7 @@
         <input id="credito" type="number" step="0.01" class="form-control" v-model.number="credito" />
       </div>
       <div class="col-md-4">
-        <label for="valorGuardado">Valor acumulado em Reserva (R$):</label>
+        <label for="valorGuardado">Energia acumulada (kWh):</label>
         <input id="valorGuardado" type="number" step="0.01" class="form-control" v-model.number="valorGuardado" />
       </div>
       <div class="col-md-4">
@@ -95,7 +99,7 @@
       </div>
     </div>
 
-    <table class="table table-bordered" v-if="usina && usina.creditos_distribuidos_usina">
+    <table class="table table-bordered mt-4">
       <thead class="table-dark">
         <tr>
           <th>Mês</th>
@@ -105,29 +109,37 @@
           <th>Valor Pago</th>
         </tr>
       </thead>
-      <tbody>
-        <tr v-for="([mesExibicao, valor]) in mesesComValorPago" :key="mesExibicao">
-          <td>{{ mesExibicao }}</td>
-          <td>{{ valor }} kWh</td>
-          <td>R$ {{usina.creditos_distribuidos_usina.valor_acumulado_reserva[Object.keys(meses).find(key => meses[key]
-            === mesExibicao)]?.toFixed(2)}}</td>
-          <td>R$ {{usina.creditos_distribuidos_usina.creditos_distribuidos[Object.keys(meses).find(key => meses[key] ===
-            mesExibicao)]?.toFixed(2)}}</td>
-          <td>R$ {{usina.creditos_distribuidos_usina.faturamento_usina[Object.keys(meses).find(key => meses[key] ===
-            mesExibicao)]?.toFixed(2)}}</td>
-        </tr>
+      <tbody v-if="dadosFaturamentoAnual && dadosFaturamentoAnual.faturamento_usina">
+        <template v-for="([chaveMes, labelMes]) in Object.entries(meses)" :key="chaveMes">
+          <tr v-if="dadosFaturamentoAnual.faturamento_usina[chaveMes] > 0">
+            <td>{{ labelMes }}</td>
+            <td>{{ dadosGeracaoRealMensal[chaveMes]?.toFixed(2) || 0 }} kWh</td>
+            <td>{{ dadosFaturamentoAnual.valor_acumulado_reserva[chaveMes]?.toFixed(2) }} kWh</td>
+            <td>R$ {{ dadosFaturamentoAnual.creditos_distribuidos[chaveMes]?.toFixed(2) }}</td>
+            <td>R$ {{ dadosFaturamentoAnual.faturamento_usina[chaveMes]?.toFixed(2) }}</td>
+          </tr>
+        </template>
       </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" class="text-center">
+            <button class="btn btn-secondary me-2" @click="voltarAno">← Ano Anterior</button>
+            <strong>{{ anoFaturamento }}</strong>
+            <button class="btn btn-secondary ms-2" @click="avancarAno">Próximo Ano →</button>
+          </td>
+        </tr>
+      </tfoot>
     </table>
+
 
     <div class="d-flex justify-content-end mb-5">
       <button class="btn btn-success" @click="salvarValoresMensais">Salvar Valores</button>
     </div>
 
-    <div v-if="usina && usina.creditos_distribuidos_usina" class="mb-4">
+    <div class="mb-4">
       <h5>Reserva Total Acumulada</h5>
-      <p :class="['fs-5 fw-bold p-2 rounded', reservaClasse]"
-        style="background-color: rgba(0, 0, 0, 0.05); display: inline-block;">
-        R$ {{ reservaTotalFormatada }}
+      <p :class="['fs-5 fw-bold p-2 rounded', reservaClasse]">
+        {{ reservaTotalFormatada }} kWh
       </p>
     </div>
 
@@ -178,18 +190,9 @@ export default {
         scales: { y: { stacked: true }, x: { stacked: true } }
       },
       meses: {
-        janeiro: "Janeiro",
-        fevereiro: "Fevereiro",
-        marco: "Março",
-        abril: "Abril",
-        maio: "Maio",
-        junho: "Junho",
-        julho: "Julho",
-        agosto: "Agosto",
-        setembro: "Setembro",
-        outubro: "Outubro",
-        novembro: "Novembro",
-        dezembro: "Dezembro"
+        janeiro: "Janeiro", fevereiro: "Fevereiro", marco: "Março", abril: "Abril",
+        maio: "Maio", junho: "Junho", julho: "Julho", agosto: "Agosto",
+        setembro: "Setembro", outubro: "Outubro", novembro: "Novembro", dezembro: "Dezembro"
       },
       mesSelecionado: '',
       mesGeracao: 0,
@@ -201,6 +204,9 @@ export default {
       var_id: null,
       fa_id: null,
       usina: null,
+      anoFaturamento: new Date().getFullYear(),
+      dadosFaturamentoAnual: null,
+      dadosGeracaoRealMensal: {},
     };
   },
   computed: {
@@ -220,7 +226,7 @@ export default {
       });
     },
     reservaTotal() {
-      const total = this.usina?.creditos_distribuidos_usina?.valor_acumulado_reserva?.total ?? 0;
+      const total = this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total ?? 0;
       return parseFloat(total);
     },
     reservaTotalFormatada() {
@@ -228,7 +234,7 @@ export default {
     },
     reservaClasse() {
       return this.reservaTotal >= 0 ? 'text-success' : 'text-danger';
-    }
+    },
   },
   methods: {
     async fetchUsinas() {
@@ -242,33 +248,91 @@ export default {
         console.error('Erro ao buscar usinas:', err);
       }
     },
+    async carregarFaturamentoAno() {
+      const token = localStorage.getItem('token');
+      try {
+        const [faturamentoResp, geracaoResp] = await Promise.all([
+          axios.get(`http://localhost:8000/api/creditos-distribuidos-usina/usina/${this.selectedUsinaId}/ano/${this.anoFaturamento}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          axios.get(`http://localhost:8000/api/dados-geracao-real-usina/usina/${this.selectedUsinaId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+
+        this.dadosFaturamentoAnual = faturamentoResp.data[0];
+        this.dadosGeracaoRealMensal = geracaoResp.data[0]?.dados_geracao_real || {};
+
+      } catch (error) {
+        console.error('Erro ao carregar dados de faturamento ou geração:', error);
+        this.dadosFaturamentoAnual = null;
+        this.dadosGeracaoRealMensal = {};
+      }
+    },
+    avancarAno() {
+      this.anoFaturamento++;
+      this.carregarFaturamentoAno();
+    },
+    voltarAno() {
+      if (this.anoFaturamento > 2024) { // limite inferior
+        this.anoFaturamento--;
+        this.carregarFaturamentoAno();
+      }
+    },
     atualizarValores() {
       const geracao = Number(this.mesGeracao);
       const media = Number(this.mediaGeracao);
       const kwh = Number(this.valor_kwh);
+      const reservaTotal = parseFloat(this.usina?.creditos_distribuidos_usina?.valor_acumulado_reserva?.total || 0);
 
       this.valorGeracaoMes = +(geracao * kwh).toFixed(2);
-      this.credito = this.creditado(geracao).toFixed(2);
       this.valorGuardado = 0;
 
-      if (geracao > media) {
-        const energiaExcedente = geracao - media;
-        const valorExcedente = energiaExcedente * kwh;
-        this.valorGuardado = parseFloat(valorExcedente.toFixed(2));
-      }
+      if (geracao >= media) {
+        // Geração >= média → sem crédito, gera reserva
+        const excedente = geracao - media;
+        this.credito = 0;
+        this.valorGuardado = +excedente.toFixed(2);
+      } else {
+        // Geração < média → tenta creditar (limitado à reserva)
+        const faltante = media - geracao;
+        const valorCredito = +(faltante * kwh).toFixed(2);
 
+        this.credito = reservaTotal > 0 ? Math.min(valorCredito, reservaTotal) : 0;
+      }
       this.valorTotal = this.valorFinal(geracao).toFixed(2);
     },
     injetado(valor) {
-      if (valor > this.mediaGeracao) {
-        return (this.mediaGeracao - this.menorGeracao) * this.valor_kwh;
+      const media = this.mediaGeracao;
+      const menor = this.menorGeracao;
+      const kwh = this.valor_kwh;
+
+      if (valor >= media) {
+        return (media - menor) * kwh;
       } else {
-        return (valor - this.menorGeracao) * this.valor_kwh;
+        return (valor - menor) * kwh;
       }
     },
     creditado(valor) {
-      if (valor < this.mediaGeracao) {
-        return (this.mediaGeracao - valor) * this.valor_kwh;
+      const media = this.mediaGeracao;
+      const kwh = this.valor_kwh;
+      const reservaTotal = parseFloat(this.usina?.creditos_distribuidos_usina?.valor_acumulado_reserva?.total || 0);
+
+      if (valor < media && reservaTotal > 0) {
+        const faltante = media - valor;
+        const valorCredito = faltante * kwh;
+        return Math.min(valorCredito, reservaTotal);
+      } else {
+        return 0;
+      }
+    },
+    creditadoTabela(valor) {
+      const media = this.mediaGeracao;
+      const kwh = this.valor_kwh;
+      const reservaTotal = parseFloat(this.usina?.creditos_distribuidos_usina?.valor_acumulado_reserva?.total || 0);
+
+      if (valor < media) {
+        return (media - valor) * kwh;
       } else {
         return 0;
       }
@@ -279,6 +343,9 @@ export default {
     valorFinal(valor) {
       return this.fixo + this.injetado(valor) + this.creditado(valor) + this.cuo(valor);
     },
+    valorFinalTabela(valor) {
+      return this.fixo + this.injetado(valor) + this.creditadoTabela(valor) + this.cuo(valor);
+    },
     gerarGrafico() {
       const meses = Object.keys(this.mesesGeracao);
       if (!meses.length) return;
@@ -288,9 +355,9 @@ export default {
         datasets: [
           { type: 'bar', label: 'Fixo', data: meses.map(() => this.fixo), backgroundColor: '#60a5fa', stack: 'montagem', order: 2 },
           { type: 'bar', label: 'Injetado', data: meses.map(m => this.injetado(this.mesesGeracao[m])), backgroundColor: '#FFA500', stack: 'montagem', order: 3 },
-          { type: 'bar', label: 'Creditado', data: meses.map(m => this.creditado(this.mesesGeracao[m])), backgroundColor: '#4ade80', stack: 'montagem', order: 4 },
+          { type: 'bar', label: 'Creditado', data: meses.map(m => this.creditadoTabela(this.mesesGeracao[m])), backgroundColor: '#4ade80', stack: 'montagem', order: 4 },
           { type: 'bar', label: 'CUO', data: meses.map(m => this.cuo(this.mesesGeracao[m])), backgroundColor: '#f87171', stack: 'montagem', order: 5 },
-          { type: 'line', label: 'Valor Final a Receber', data: meses.map(m => this.valorFinal(this.mesesGeracao[m])), borderColor: '#1e40af', borderWidth: 2, fill: false, pointRadius: 3, tension: 0.3, order: 1 }
+          { type: 'line', label: 'Valor Final a Receber', data: meses.map(m => this.valorFinalTabela(this.mesesGeracao[m])), borderColor: '#1e40af', borderWidth: 2, fill: false, pointRadius: 3, tension: 0.3, order: 1 }
         ]
       };
     },
@@ -319,57 +386,110 @@ export default {
         };
 
         this.gerarGrafico();
-        this.cd_id = usina.creditos_distribuidos_usina.cd_id;
-        this.var_id = usina.creditos_distribuidos_usina.var_id;
-        this.fa_id = usina.creditos_distribuidos_usina.fa_id;
-        this.dger_id = usina.dger_id;
         this.usina = response.data;
+        await this.carregarFaturamentoAno();
       } catch (error) {
         console.error('Erro ao carregar dados da usina:', error);
       }
     },
     async salvarValoresMensais() {
       const token = localStorage.getItem('token');
-      const mesNome = this.mesSelecionado;
       const headers = { Authorization: `Bearer ${token}` };
+      const mesNome = this.mesSelecionado;
+      const ano = this.anoFaturamento;
 
       try {
-        if (!this.cd_id || !this.var_id || !this.fa_id) {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Dados incompletos!',
-            text: 'IDs de vínculo da usina não foram carregados. Verifique o backend.',
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'OK'
-          });
-          return;
+        if (!this.usina?.usi_id || !ano) throw new Error("Usina ou ano não definido");
+
+        const geracao = parseFloat(this.mesGeracao);
+        const media = parseFloat(this.mediaGeracao);
+        const reservaTotal = parseFloat(this.reservaTotal || 0);
+
+        let registroAnual;
+
+        const response = await axios.get(
+          `http://localhost:8000/api/usina/${this.selectedUsinaId}/anos`,
+          { headers }
+        );
+
+        const registrosAnos = response.data.anos || [];
+        const anoExiste = registrosAnos.includes(parseInt(ano));
+
+        if (!anoExiste) {
+
+          const crecitosDistribuidosNovo = await axios.post('http://localhost:8000/api/creditos-distribuidos', {}, { headers });
+          const valorAcumuladoReservaNovo = await axios.post('http://localhost:8000/api/valor-acumulado-reserva', {}, { headers });
+          const faturamentoUsinaNovo = await axios.post('http://localhost:8000/api/faturamento-usina', {}, { headers });
+
+          await axios.post('http://localhost:8000/api/creditos-distribuidos-usina', {
+            usi_id: this.usina.usi_id,
+            cd_id: crecitosDistribuidosNovo.data.id,
+            var_id: valorAcumuladoReservaNovo.data.id,
+            fa_id: faturamentoUsinaNovo.data.id,
+            ano: ano
+          }, { headers });
+
+          const dadosGeracaoReal = await axios.post('http://localhost:8000/api/dados-geracao-real', { [mesNome]: geracao }, { headers });
+
+          await axios.post('http://localhost:8000/api/dados-geracao-real-usina', {
+            usi_id: this.usina.usi_id,
+            cli_id: this.usina.cli_id,
+            dgr_id: dadosGeracaoReal.data.id,
+            ano: ano
+          }, { headers });
+
+          registroAnual = {
+            cd_id: crecitosDistribuidosNovo.data.id,
+            var_id: valorAcumuladoReservaNovo.data.id,
+            fa_id: faturamentoUsinaNovo.data.id,
+            dgr_id: dadosGeracaoReal.data.id
+          };
+        } else {
+          // Buscar o vínculo existente para este ano
+          const vinculo = await axios.get(
+            `http://localhost:8000/api/creditos-distribuidos-usina/usina/${this.usina.usi_id}/ano/${ano}`,
+            { headers }
+          );
+
+          const vinculoGeracao = await axios.get(
+            `http://localhost:8000/api/dados-geracao-real-usina/usina/${this.usina.usi_id}`,
+            { headers }
+          );
+
+          registroAnual = vinculo.data[0];
+          registroAnual['dgr_id'] = vinculoGeracao.data[0]?.dados_geracao_real?.dgr_id;
         }
 
-        // 1. CREDITOS_DISTRIBUIDOS
+        this.cd_id = registroAnual.cd_id;
+        this.var_id = registroAnual.var_id;
+        this.fa_id = registroAnual.fa_id;
+        this.dgr_id = registroAnual.dgr_id;
+
+        if (geracao < media && reservaTotal <= 0) this.credito = 0;
+
+        // Atualiza CREDITOS_DISTRIBUIDOS
         await axios.patch(`http://localhost:8000/api/creditos-distribuidos/${this.cd_id}`, {
           [mesNome]: parseFloat(this.credito)
         }, { headers });
 
-        if (this.credito < this.valorGuardado) {
-          var total_mes = this.valorGuardado + this.usina.creditos_distribuidos_usina.valor_acumulado_reserva.total
-        } else {
-          var total_mes = this.usina.creditos_distribuidos_usina.valor_acumulado_reserva.total - this.credito
-        }
+        // Atualiza VALOR_ACUMULADO_RESERVA
+        const valorGuardadoFloat = parseFloat(this.valorGuardado || 0);
+        const creditoFloat = parseFloat(this.credito || 0);
+        const total_mes = reservaTotal + valorGuardadoFloat - (creditoFloat / this.valor_kwh);
 
-        // 2. VALOR_ACUMULADO_RESERVA
         await axios.patch(`http://localhost:8000/api/valor-acumulado-reserva/${this.var_id}`, {
-          [mesNome]: parseFloat(this.valorGuardado),
-          total: parseFloat(total_mes)
+          [mesNome]: valorGuardadoFloat,
+          total: total_mes
         }, { headers });
 
-        // 3. FATURAMENTO_USINA
+        // Atualiza FATURAMENTO_USINA
         await axios.patch(`http://localhost:8000/api/faturamento-usina/${this.fa_id}`, {
           [mesNome]: parseFloat(this.valorTotal)
         }, { headers });
 
-        // 4. DADOS_GERACAO
-        await axios.patch(`http://localhost:8000/api/geracao/${this.dger_id}`, {
-          [mesNome]: parseFloat(this.mesGeracao)
+        // Atualiza DADOS_GERACAO
+        await axios.patch(`http://localhost:8000/api/dados-geracao-real/${this.dgr_id}`, {
+          [mesNome]: geracao
         }, { headers });
 
         Swal.fire({
@@ -379,7 +499,9 @@ export default {
           confirmButtonColor: '#3085d6',
           confirmButtonText: 'OK'
         });
-        await this.carregarDados();
+
+        await this.carregarFaturamentoAno();
+
       } catch (error) {
         console.error("Erro ao salvar valores mensais:", error);
         Swal.fire({
@@ -389,17 +511,12 @@ export default {
           confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
-
       }
-    },
-    goBack() {
-      this.$router.push('/Home');
     },
     async gerarPDF() {
       const token = localStorage.getItem('token');
 
       try {
-        // Abre o alerta de carregamento
         Swal.fire({
           title: 'Gerando PDF...',
           html: 'Aguarde enquanto preparamos o documento.',
@@ -441,6 +558,9 @@ export default {
         });
       }
     },
+    goBack() {
+      this.$router.push('/Home');
+    },
   },
   mounted() {
     this.fetchUsinas();
@@ -450,7 +570,7 @@ export default {
     const chaveAtual = Object.keys(this.meses)[index];
     this.mesSelecionado = chaveAtual;
   }
-};
+}
 </script>
 
 <style scoped>

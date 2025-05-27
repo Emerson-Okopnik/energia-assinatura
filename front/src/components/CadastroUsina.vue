@@ -78,6 +78,15 @@
           <h5 class="mt-4">Informações do Processo</h5>
           <div class="row mb-2">
             <div class="col-md-4">
+              <label for="vendedor">Vendedor</label>
+              <select id="vendedor" class="form-control" v-model="form.vendedor">
+                <option disabled value="">Selecione o Vendedor</option>
+                <option v-for="v in vendedor" :key="v.ven_id" :value="v.ven_id">
+                  {{ v.nome }}
+                </option>
+              </select>
+            </div>
+            <div class="col-md-4">
               <label for="andamento_processo">Status de Consumo</label>
               <input id="andamento_processo" type="text" class="form-control" v-model="form.andamento_processo" />
             </div>
@@ -85,19 +94,19 @@
               <label for="data_ass_contrato">Data Assinatura Contrato</label>
               <input id="data_ass_contrato" type="date" class="form-control" v-model="form.data_ass_contrato" />
             </div>
+          </div>
+          <div class="row mb-3">
             <div class="col-md-4">
               <label for="data_limite_troca">Data Limite Troca Titularidade</label>
               <input id="data_limite_troca" type="date" class="form-control"
                 v-model="form.data_limite_troca_titularidade" />
             </div>
-          </div>
-
-          <div class="row mb-3">
             <div class="col-md-4">
               <label for="status_usina">Status da Usina</label>
               <select id="status_usina" class="form-control" v-model="form.status">
                 <option disabled value="">Selecione o status</option>
-                <option v-for="valorStatus in statusUsina" :key="valorStatus" :value="valorStatus">{{ valorStatus }}
+                <option v-for="valorStatus in statusUsina" :key="valorStatus" :value="valorStatus">
+                  {{ valorStatus }}
                 </option>
               </select>
             </div>
@@ -191,6 +200,7 @@ export default {
         telefone: '',
         email: '',
         cia_energia: '',
+        vendedor: '', 
         valor_kwh: 0,
         valor_fixo: 0,
         valor_final_medio: 0,
@@ -206,6 +216,7 @@ export default {
         setembro: 0, outubro: 0, novembro: 0, dezembro: 0,
         media: 0,
       },
+      vendedor: [],
       ciasEnergia: ['CELESC', 'COPEL', 'RGE'],
       statusUsina: ["Aguardando troca de titularidade", "Troca solicitada", "Concluído"],
       meses: {
@@ -214,7 +225,7 @@ export default {
         setembro: 'Set', outubro: 'Out', novembro: 'Nov', dezembro: 'Dez'
       },
       successMessage: '',
-      errorMessage: ''
+      errorMessage: '',
     };
   },
   computed: {
@@ -232,7 +243,21 @@ export default {
       return parseFloat((this.menorGeracao * this.form.valor_kwh).toFixed(2)) || 0;
     }
   },
+  mounted() {
+    this.fetchVendedores();
+  },
   methods: {
+    async fetchVendedores() {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:8000/api/vendedor', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        this.vendedor = response.data;
+      } catch (error) {
+        console.error("Erro ao carregar vendedores:", error);
+      }
+    },
     async submitForm() {
       try {
         const token = localStorage.getItem('token');
@@ -312,50 +337,69 @@ export default {
         const creditosDistribuidosResponse = await axios.post("http://localhost:8000/api/creditos-distribuidos", {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        
+
         const cd_id = creditosDistribuidosResponse.data.id;
-        
+
         // 6. Cadastrar Faturamento da Usina
         const faturamentoUsinaResponse = await axios.post("http://localhost:8000/api/faturamento-usina", {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        
+
         const fa_id = faturamentoUsinaResponse.data.id;
-        
+
         // 7. Cadastrar Valor Acumulado em Reserva
         const valorAcumuladoReserva = await axios.post("http://localhost:8000/api/valor-acumulado-reserva", {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        
-        const var_id = valorAcumuladoReserva.data.id;
-        
-        const creditosDistribuidosUsinaPayload = {
-          cd_id: cd_id,
-          fa_id: fa_id,
-          var_id: var_id,
-          ano: new Date().getFullYear()
-        }
-        
-        // 8. Cadastrar Créditos Distribuídos
-        const creditosDistribuidosUsina = await axios.post("http://localhost:8000/api/creditos-distribuidos-usina", creditosDistribuidosUsinaPayload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        
-        const cdu_id = creditosDistribuidosUsina.data.id;
 
-        // 5. Cadastrar Usina
+        const var_id = valorAcumuladoReserva.data.id;
+
+        // 8. Cadastrar Usina
         const usinaPayload = {
           cli_id: cli_id,
           dger_id: dger_id,
           com_id: com_id,
-          cdu_id: cdu_id,
+          ven_id: this.form.vendedor,
           andamento_processo: this.form.andamento_processo,
           data_ass_contrato: this.form.data_ass_contrato,
           data_limite_troca_titularidade: this.form.data_limite_troca_titularidade,
           status: this.form.status
         };
-
+        
         Response = await axios.post("http://localhost:8000/api/usina", usinaPayload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const usi_id = Response.data.id;
+
+        const creditosDistribuidosUsinaPayload = {
+          usi_id: usi_id,
+          cli_id: cli_id,
+          cd_id: cd_id,
+          fa_id: fa_id,
+          var_id: var_id,
+          ano: new Date().getFullYear()
+        }
+
+        // 9. Cadastrar Créditos Distribuídos Usina
+        await axios.post("http://localhost:8000/api/creditos-distribuidos-usina", creditosDistribuidosUsinaPayload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // 10. Cadastrar Dados Geração Real
+        const dadosGeracaoReal = await axios.post("http://localhost:8000/api/dados-geracao-real", {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const dadosGeracaoUsinaPayload = {
+          usi_id: usi_id,
+          cli_id: cli_id,
+          dgr_id: dadosGeracaoReal.data.id,
+          ano: new Date().getFullYear()
+        }
+
+        // 11. Cadastrar Dados Geração Real
+        await axios.post("http://localhost:8000/api/dados-geracao-real-usina", dadosGeracaoUsinaPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

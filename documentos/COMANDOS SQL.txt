@@ -62,5 +62,13 @@ JOIN consumidor c ON c.con_id = uc.con_id
 JOIN cliente cli ON cli.cli_id = c.cli_id
 
 
+Anos de faturamento Usina
+SELECT DISTINCT ANO
+FROM CREDITOS_DISTRIBUIDOS_USINA
+WHERE USI_ID = 34
+ORDER BY ANO;
+
+
+
 
    

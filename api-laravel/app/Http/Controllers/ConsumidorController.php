@@ -22,8 +22,8 @@ class ConsumidorController extends Controller {
         $data = $request->validate([
             'cli_id' => 'required|integer|exists:cliente,cli_id',
             'dcon_id' => 'required|integer|exists:dados_consumo,dcon_id',
+            'ven_id' => 'required|integer|exists:vendedor,ven_id',
             'cia_energia' => 'required|string',
-            'vendedor' => 'nullable|string|max:255',
             'data_entrega' => 'nullable|date',
             'status' => 'nullable|string|max:255',
             'alocacao' => 'nullable|string|max:255',
@@ -47,8 +47,8 @@ class ConsumidorController extends Controller {
         $data = $request->validate([
             'cli_id' => 'required|integer|exists:cliente,cli_id',
             'dcon_id' => 'required|integer|exists:dados_consumo,dcon_id',
+            'ven_id' => 'required|integer|exists:vendedor,ven_id',
             'cia_energia' => 'required|string',
-            'vendedor' => 'nullable|string|max:255',
             'data_entrega' => 'nullable|date',
             'status' => 'nullable|string|max:255',
             'alocacao' => 'nullable|string|max:255',

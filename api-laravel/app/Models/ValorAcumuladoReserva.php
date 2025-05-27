@@ -43,6 +43,6 @@ class ValorAcumuladoReserva extends Model {
     ];
 
     public function creditosDistribuidosUsina() {
-        return $this->belongsTo(CreditosDistribuidosUsina::class, 'var_id', 'var_id');
+        return $this->hasOne(CreditosDistribuidosUsina::class, 'var_id', 'var_id');
     }
 }

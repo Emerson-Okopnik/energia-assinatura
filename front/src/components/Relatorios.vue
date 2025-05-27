@@ -86,10 +86,6 @@
             <Bar :data="barChartData" :options="chartOptions" />
         </div>
     </div>
-    <!-- Ações -->
-    <div class="mt-4 d-flex align-items-center">
-        <button type="button" class="btn btn-primary ms-2" @click="goBack">Voltar</button>
-    </div>
 </template>
 
 <script setup>
@@ -209,8 +205,18 @@ async function fetchGraficos() {
     if (!selectedUsinaId.value) return
 
     try {
-        // 1. Tenta buscar os dados da usina + consumidores
-        let response = await axios.get(`http://localhost:8000/api/usina-consumidor/${selectedUsinaId.value}`, {
+        const usinaId = selectedUsinaId.value
+
+        // Busca dados da geração real
+        const geracaoRealResponse = await axios.get(`http://localhost:8000/api/dados-geracao-real-usina/usina/${usinaId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+
+        const dadosGeracaoReal = geracaoRealResponse.data[0]?.dados_geracao_real || {}
+        const geracaoRealMensal = meses.map(m => dadosGeracaoReal[m] ?? null)
+
+        // Busca dados da usina + consumidores
+        let response = await axios.get(`http://localhost:8000/api/usina-consumidor/${usinaId}`, {
             headers: { Authorization: `Bearer ${token}` }
         })
 
@@ -220,19 +226,16 @@ async function fetchGraficos() {
         let consumoTotal = []
         let mediaArray = []
 
-        // 2. Se a resposta estiver vazia, busca apenas os dados da usina
         if (!data.length) {
-            const fallbackResponse = await axios.get(`http://localhost:8000/api/usina/${selectedUsinaId.value}`, {
+            const fallbackResponse = await axios.get(`http://localhost:8000/api/usina/${usinaId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
             const usina = fallbackResponse.data
-
             dadosGeracao = usina?.dado_geracao
             geracaoMensal = meses.map(m => dadosGeracao?.[m] || 0)
-            consumoTotal = null // sem consumidores
+            consumoTotal = null
             mediaArray = new Array(12).fill(dadosGeracao?.media || 0)
 
-            // Gráfico de linhas só com geração
             lineChartData.value = {
                 labels: meses.map(m => m[0].toUpperCase() + m.slice(1)),
                 datasets: [
@@ -243,9 +246,19 @@ async function fetchGraficos() {
                         data: geracaoMensal,
                         tension: 0.3,
                         fill: false
+                    },
+                    {
+                        label: 'Geração Real (kWh)',
+                        borderColor: '#facc15',
+                        backgroundColor: '#fde68a',
+                        data: geracaoRealMensal,
+                        tension: 0.3,
+                        fill: false,
+                        borderDash: [5, 5]
                     }
                 ]
             }
+
         } else {
             dadosGeracao = data[0].usina?.dado_geracao
             geracaoMensal = meses.map(m => dadosGeracao?.[m] || 0)
@@ -259,10 +272,18 @@ async function fetchGraficos() {
                 })
             })
 
-            // Gráfico com geração + consumo
             lineChartData.value = {
                 labels: meses.map(m => m[0].toUpperCase() + m.slice(1)),
                 datasets: [
+                    {
+                        label: 'Geração Real (kWh)',
+                        borderColor: '#facc15',
+                        backgroundColor: '#fde68a',
+                        data: geracaoRealMensal,
+                        tension: 0.3,
+                        fill: false,
+                        borderDash: [5, 5]
+                    },
                     {
                         label: 'Geração da Usina (kWh)',
                         borderColor: '#4ade80',
@@ -278,21 +299,32 @@ async function fetchGraficos() {
                         data: consumoTotal,
                         tension: 0.3,
                         fill: false
-                    }
+                    },
                 ]
             }
         }
 
-        // Gráfico de barras (sempre é mostrado)
         barChartData.value = {
             labels: meses.map(m => m[0].toUpperCase() + m.slice(1)),
             datasets: [
+                {
+                    type: 'line',
+                    label: 'Geração Real (kWh)',
+                    data: geracaoRealMensal,
+                    borderColor: '#facc15',
+                    borderWidth: 2,
+                    fill: false,
+                    pointRadius: 4,
+                    borderDash: [5, 5],
+                    tension: 0.1,
+                    order: 2
+                },
                 {
                     type: 'bar',
                     label: 'Geração mensal (kWh)',
                     data: geracaoMensal,
                     backgroundColor: '#60a5fa',
-                    order: 2
+                    order: 1
                 },
                 {
                     type: 'line',
@@ -303,15 +335,16 @@ async function fetchGraficos() {
                     fill: false,
                     pointRadius: 0,
                     tension: 0.1,
-                    order: 1
-                }
+                    order: 0
+                },
             ]
         }
 
     } catch (error) {
-        console.error('Erro ao buscar dados da usina:', error)
+        console.error('Erro ao buscar dados dos gráficos:', error)
     }
 }
+
 
 async function fetchTotaisGeracaoConsumo() {
     const token = localStorage.getItem('token')

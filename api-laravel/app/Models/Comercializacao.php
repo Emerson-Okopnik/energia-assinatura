@@ -28,8 +28,7 @@ class Comercializacao extends Model {
         'data_conexao' => 'date',
     ];
 
-    public function usinas()
-    {
+    public function usinas() {
         return $this->hasMany(Usina::class, 'com_id', 'com_id');
     }
 }

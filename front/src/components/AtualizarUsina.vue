@@ -78,8 +78,13 @@
                     <h5 class="mt-4">Informações do Processo</h5>
                     <div class="row mb-2">
                         <div class="col-md-4">
-                            <label for="andamento_processo">Status de Consumo</label>
-                            <input id="andamento_processo" type="text" class="form-control" v-model="form.andamento_processo" />
+                            <label for="vendedor">Vendedor</label>
+                            <select id="vendedor" class="form-control" v-model="form.vendedor">
+                                <option disabled value="">Selecione o Vendedor</option>
+                                <option v-for="v in vendedor" :key="v.ven_id" :value="v.ven_id">
+                                    {{ v.nome }}
+                                </option>
+                            </select>
                         </div>
                         <div class="col-md-4">
                             <label for="data_ass_contrato">Data Assinatura Contrato</label>
@@ -95,10 +100,16 @@
 
                     <div class="row mb-3">
                         <div class="col-md-4">
+                            <label for="andamento_processo">Status de Consumo</label>
+                            <input id="andamento_processo" type="text" class="form-control"
+                                v-model="form.andamento_processo" />
+                        </div>
+                        <div class="col-md-4">
                             <label for="status_usina">Status da Usina</label>
                             <select id="status_usina" class="form-control" v-model="form.status">
                                 <option disabled value="">Selecione o status</option>
-                                <option v-for="valorStatus in  statusUsina" :key="valorStatus" :value="valorStatus">{{ valorStatus }}</option>
+                                <option v-for="valorStatus in statusUsina" :key="valorStatus" :value="valorStatus">{{
+                                    valorStatus }}</option>
                             </select>
                         </div>
                     </div>
@@ -195,6 +206,7 @@ export default {
                 telefone: '',
                 email: '',
                 cia_energia: '',
+                vendedor: '',
                 valor_kwh: 0,
                 valor_fixo: 0,
                 valor_final_medio: 0,
@@ -210,8 +222,9 @@ export default {
                 setembro: 0, outubro: 0, novembro: 0, dezembro: 0,
                 media: 0,
             },
-            ciasEnergia: ['CELESC','COPEL','RGE'],
-            statusUsina: ["Aguardando troca de titularidade","Troca solicitada","Concluído"],
+            vendedor: [],
+            ciasEnergia: ['CELESC', 'COPEL', 'RGE'],
+            statusUsina: ["Aguardando troca de titularidade", "Troca solicitada", "Concluído"],
             meses: {
                 janeiro: 'Jan', fevereiro: 'Fev', marco: 'Mar', abril: 'Abr',
                 maio: 'Mai', junho: 'Jun', julho: 'Jul', agosto: 'Ago',
@@ -234,6 +247,17 @@ export default {
         }
     },
     methods: {
+        async fetchVendedores() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await axios.get('http://localhost:8000/api/vendedor', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                this.vendedor = response.data;
+            } catch (error) {
+                console.error("Erro ao carregar vendedores:", error);
+            }
+        },
         async carregarDados() {
             try {
                 const token = localStorage.getItem('token');
@@ -257,6 +281,7 @@ export default {
                     telefone: data.cliente.telefone,
                     email: data.cliente.email,
                     cia_energia: data.cia_energia,
+                    vendedor: data.vendedor.ven_id,
                     andamento_processo: data.andamento_processo,
                     data_ass_contrato: this.formatarDataISOParaDate(data.data_ass_contrato),
                     data_limite_troca_titularidade: this.formatarDataISOParaDate(data.data_limite_troca_titularidade),
@@ -322,7 +347,7 @@ export default {
                 });
 
                 // Atualizar Dados de Geração
-                await axios.put(`http://localhost:8000/api/geracao/${this.form.dger_id}`, {
+                await axios.patch(`http://localhost:8000/api/geracao/${this.form.dger_id}`, {
                     janeiro: this.form.janeiro,
                     fevereiro: this.form.fevereiro,
                     marco: this.form.marco,
@@ -355,13 +380,14 @@ export default {
 
                 // Atualizar Usina
                 await axios.put(`http://localhost:8000/api/usina/${this.form.usi_id}`, {
-                    cli_id : this.form.cli_id,
-                    dger_id : this.form.dger_id,
-                    com_id : this.form.com_id,
-                    andamento_processo : this.form.andamento_processo,
-                    data_ass_contrato : this.form.data_ass_contrato,
-                    data_limite_troca_titularidade : this.form.data_limite_troca_titularidade,
-                    status : this.form.status,
+                    cli_id: this.form.cli_id,
+                    dger_id: this.form.dger_id,
+                    com_id: this.form.com_id,
+                    ven_id: this.form.vendedor,
+                    andamento_processo: this.form.andamento_processo,
+                    data_ass_contrato: this.form.data_ass_contrato,
+                    data_limite_troca_titularidade: this.form.data_limite_troca_titularidade,
+                    status: this.form.status,
                 }, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
@@ -386,6 +412,7 @@ export default {
         },
     },
     mounted() {
+        this.fetchVendedores();
         this.carregarDados();
     }
 };

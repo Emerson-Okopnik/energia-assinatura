@@ -69,9 +69,11 @@
           <div class="row mb-2 mt-2">
             <div class="col-md-3">
               <label for="vendedor">Vendedor</label>
-              <select id="vendedor" class="form-control"v-model="form.vendedor">
+              <select id="vendedor" class="form-control" v-model="form.vendedor">
                 <option disabled value="">Selecione o Vendedor</option>
-                <option v-for="valorVendedor in vendedor" :key="valorVendedor" :value="valorVendedor">{{ valorVendedor }}</option>
+                <option v-for="v in vendedor" :key="v.ven_id" :value="v.ven_id">
+                  {{ v.nome }}
+                </option>
               </select>
             </div>
             <div class="col-md-3">
@@ -82,14 +84,18 @@
               <label for="status">Status</label>
               <select id="status" class="form-control" v-model="form.status">
                 <option disabled value="">Selecione o status</option>
-                <option v-for="valorStatus in status" :key="valorStatus" :value="valorStatus">{{ valorStatus }}</option>
+                <option v-for="valorStatus in status" :key="valorStatus" :value="valorStatus">
+                  {{ valorStatus }}
+                </option>
               </select>
             </div>
             <div class="col-md-3">
               <label for="alocacao">Alocação</label>
               <select id="alocacao" class="form-control" v-model="form.alocacao">
                 <option disabled value="">Selecione o status da Alocação</option>
-                <option v-for="valorAlocacao in opcoesAlocacao" :key="valorAlocacao" :value="valorAlocacao">{{ valorAlocacao }}</option>
+                <option v-for="valorAlocacao in opcoesAlocacao" :key="valorAlocacao" :value="valorAlocacao">
+                  {{ valorAlocacao }}
+                </option>
               </select>
             </div>
           </div>
@@ -143,7 +149,7 @@ export default {
         telefone: '',
         email: '',
         cia_energia: '',
-        vendedor: '',
+        vendedor: '', 
         data_entrega: '',
         status: '',
         alocacao: '',
@@ -152,74 +158,10 @@ export default {
         setembro: 0, outubro: 0, novembro: 0, dezembro: 0,
         media: 0
       },
+      vendedor: [],
       status: ['Envio dos documentos para assinatura', 'Aderido'],
       opcoesAlocacao: ['Parado', 'Alocado'],
-      ciasEnergia: ['CELESC','COPEL','RGE'],
-      vendedor: [
-        "Adilson Valdecir Ansini",
-        "Adrina Aparecida Pereira Torres",
-        "Agner Fernanda Costa Luz",
-        "Ailton Passos",
-        "AlaMir Francisco Bazzani",
-        "Algacir Losi",
-        "Aline Schardong",
-        "Alexandre Felix",
-        "Anderson Barbosa Da Silva",
-        "Anderson Jorge Hoffmann",
-        "Cleberson Caetano De Oliveira",
-        "Cristiano Gonçalves Da Silva",
-        "Cristy Da Costa Carvalho",
-        "Dilcimara Westarb",
-        "Eder Zanata",
-        "Edenilson Stafin",
-        "Edison Rettka Dias",
-        "Edson Antunes Coelho",
-        "Edson Jose Worm",
-        "Edson Mateus Rech Giovanella",
-        "Elizeu Bento",
-        "Elton Fernandes",
-        "Everton Pereira",
-        "Fábio Capistrano",
-        "Felix Pablo Morais Bleichwehl",
-        "Fernando Vitorino",
-        "Flavio Puntel",
-        "Francis Alex Tavares Lima",
-        "Gean Carlos Rodrigues",
-        "Gilberto Gonçalves Da Rocha",
-        "Gilmar Schwetler",
-        "Gilson Rosinei Koderer",
-        "Hugo Henrique Negrello",
-        "Ilario Marcos",
-        "Ivanildo Varela",
-        "Jederson Felacio Fernandes",
-        "João Victor Dos Santos",
-        "Joniclei Rodrigues",
-        "Jose Carlos Kutti",
-        "Jucemar Schetz Junior",
-        "Joziel Euclides Pinto Da Silva",
-        "Laercio João Laurindo",
-        "Luciano Borgonha",
-        "Mateus Medeiros",
-        "Moacir Bernardino Luiz",
-        "Osmar Stopa",
-        "Rafael De Souza",
-        "Renan Ferro",
-        "Renato Krueger",
-        "Ricardo Da Silva",
-        "Roberto Carlos Rodrigues De Franca",
-        "Rodrigo Figura",
-        "Roque Nogueira",
-        "Sandro Valentin",
-        "Sidinei Campestrini",
-        "Silvia Aparecida Koman",
-        "Thales Cadona",
-        "Tiago Rafael Alves",
-        "Tony Willian Caetano",
-        "Vitoldo Paulhak",
-        "Wagner Bernardino Cerqueira",
-        "Wagner Felipe Dos Santos",
-        "Wilson Wan Zuit"
-      ],
+      ciasEnergia: ['CELESC', 'COPEL', 'RGE'],
       meses: {
         janeiro: 'Jan',
         fevereiro: 'Fev',
@@ -246,7 +188,21 @@ export default {
       return this.form.media;
     }
   },
+  mounted() {
+    this.fetchVendedores();
+  },
   methods: {
+    async fetchVendedores() {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:8000/api/vendedor', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        this.vendedor = response.data;
+      } catch (error) {
+        console.error("Erro ao carregar vendedores:", error);
+      }
+    },
     async submitForm() {
       try {
         const token = localStorage.getItem('token');
@@ -310,7 +266,7 @@ export default {
           cli_id: cli_id,
           dcon_id: dcon_id,
           cia_energia: this.form.cia_energia,
-          vendedor: this.form.vendedor,
+          ven_id: this.form.vendedor,
           data_entrega: this.form.data_entrega,
           status: this.form.status,
           alocacao: this.form.alocacao

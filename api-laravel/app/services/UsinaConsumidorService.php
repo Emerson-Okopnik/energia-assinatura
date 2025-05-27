@@ -64,8 +64,10 @@ class UsinaConsumidorService {
             'usina.dadoGeracao',
             'usina.comercializacao',
             'usina.cliente.endereco',
+            'usina.vendedor',
             'consumidor.cliente.endereco',
-            'consumidor.dado_consumo'
+            'consumidor.dado_consumo',
+            'consumidor.vendedor'
         ])->get()->toArray();
     }
 
@@ -96,8 +98,10 @@ class UsinaConsumidorService {
                 'usina.cliente.endereco',
                 'usina.comercializacao',
                 'usina.dadoGeracao',
+                'usina.vendedor',
                 'consumidor.cliente.endereco',
-                'consumidor.dado_consumo'
+                'consumidor.dado_consumo',
+                'consumidor.vendedor'
             ])->get();
     }
 }

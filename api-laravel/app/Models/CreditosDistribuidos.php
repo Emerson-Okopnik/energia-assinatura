@@ -39,4 +39,8 @@ class CreditosDistribuidos extends Model
         'novembro' => 'float',
         'dezembro' => 'float',
     ];
+
+    public function creditosDistribuidos() {
+        return $this->hasOne(CreditosDistribuidos::class, 'cd_id', 'cd_id');
+    }
 }

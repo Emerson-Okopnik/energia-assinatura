@@ -6,51 +6,53 @@ use Illuminate\Database\Eloquent\Model;
 
 class Usina extends Model {
 
-    protected $table = 'usina';
+  protected $table = 'usina';
 
-    protected $primaryKey = 'usi_id';
+  protected $primaryKey = 'usi_id';
 
-    protected $fillable = [
-        'cli_id',
-        'dger_id',
-        'com_id',
-        'cdu_id',
-        'data_limite_troca_titularidade',
-        'data_ass_contrato',
-        'status',
-        'andamento_processo',
-    ];
+  protected $fillable = [
+    'cli_id',
+    'dger_id',
+    'com_id',
+    'ven_id',
+    'data_limite_troca_titularidade',
+    'data_ass_contrato',
+    'status',
+    'andamento_processo',
+  ];
 
-    protected $casts = [
-        'cli_id' => 'integer',
-        'dger_id' => 'integer',
-        'com_id' => 'integer',
-        'cdu_id' => 'integer',
-        'data_limite_troca_titularidade' => 'date',
-        'data_ass_contrato' => 'date',
-        'status' => 'string',
-        'andamento_processo' => 'string',
-    ];
+  protected $casts = [
+    'cli_id' => 'integer',
+    'dger_id' => 'integer',
+    'com_id' => 'integer',
+    'ven_id' => 'integer',
+    'data_limite_troca_titularidade' => 'date',
+    'data_ass_contrato' => 'date',
+    'status' => 'string',
+    'andamento_processo' => 'string',
+  ];
 
-    public function cliente() {
-        return $this->belongsTo(Cliente::class, 'cli_id', 'cli_id');
-    }
+  public function cliente() {
+    return $this->belongsTo(Cliente::class, 'cli_id', 'cli_id');
+  }
 
-    public function dadoGeracao() {
-        return $this->belongsTo(DadoGeracao::class, 'dger_id', 'dger_id');
-    }
+  public function dadoGeracao() {
+    return $this->belongsTo(DadoGeracao::class, 'dger_id', 'dger_id');
+  }
 
-    public function comercializacao() {
-        return $this->belongsTo(Comercializacao::class, 'com_id', 'com_id');
-    }
+  public function comercializacao() {
+    return $this->belongsTo(Comercializacao::class, 'com_id', 'com_id');
+  }
 
-    public function creditosDistribuidosUsina() {
-        return $this->belongsTo(CreditosDistribuidosUsina::class, 'cdu_id', 'cdu_id');
-    }
+  public function creditosDistribuidosUsina() {
+    return $this->hasMany(CreditosDistribuidosUsina::class, 'usi_id', 'usi_id');
+  }
+    
+  public function vendedor() {
+    return $this->belongsTo(Vendedor::class, 'ven_id', 'ven_id');
+  }
 
-    // NOVO: Muitos consumidores para uma usina
-    /*public function consumidores() {
-        return $this->belongsToMany(Consumidor::class, 'usina_consumidor', 'usi_id', 'con_id')
-                    ->withTimestamps();
-    }*/
+  public function dadosGeracaoRealUsina() {
+    return $this->hasMany(DadosGeracaoRealUsina::class, 'usi_id', 'usi_id');
+  }
 }

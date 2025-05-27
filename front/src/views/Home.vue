@@ -17,8 +17,9 @@
           <th>Cliente Usina</th>
           <th>Cidade Usina</th>
           <th>Geração Média</th>
-          <th>Geração Total</th>
+          <th>Consumo Total</th>
           <th>Saldo Disponível</th>
+          <th>Vendedor</th>
           <th>Concessionária Usina</th>
         </tr>
       </thead>
@@ -31,10 +32,11 @@
             <td>{{ usina.usina.dado_geracao.media }} kWh</td>
             <td>{{ totalConsumo(usinaId).toFixed(2) }} kWh</td>
             <td :class="classeSaldo(usinaId)"><b>{{ saldoDisponivelUsina(usinaId).toFixed(2) }} kWh</b></td>
+            <td>{{ usina.usina.vendedor.nome }}</td>
             <td>{{ usina.usina.comercializacao.cia_energia }}</td>
           </tr>
           <tr v-if="usinasExpandida.includes(usinaId)">
-            <td colspan="6" style="padding: 0">
+            <td colspan="7" style="padding: 0">
               <table class="mb-0 table-sm w-100">
                 <thead :style="{ backgroundColor: coresUsina[usinaId] }" style="color:black">
                   <tr>
@@ -46,12 +48,11 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="consumidor in usina.consumidores" :key="consumidor.con_id"
-                    :style="{ backgroundColor: coresUsina[usinaId], opacity: 0.70 }">
+                  <tr v-for="consumidor in usina.consumidores" :key="consumidor.con_id" :style="{ backgroundColor: coresUsina[usinaId], opacity: 0.70 }">
                     <td>{{ consumidor.cliente.nome }}</td>
                     <td>{{ consumidor.cliente.endereco.cidade }}</td>
                     <td>{{ consumidor.dado_consumo.media }} kWh</td>
-                    <td>{{ consumidor.vendedor || '—' }}</td>
+                    <td>{{ consumidor.vendedor.nome || '—' }}</td>
                     <td>{{ consumidor.cia_energia }}</td>
                   </tr>
                 </tbody>

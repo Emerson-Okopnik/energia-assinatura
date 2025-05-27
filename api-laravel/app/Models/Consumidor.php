@@ -12,8 +12,8 @@ class Consumidor extends Model {
     protected $fillable = [
         'cli_id',
         'dcon_id',
+        'ven_id',
         'cia_energia',
-        'vendedor',
         'data_entrega',
         'status',
         'alocacao',
@@ -22,21 +22,23 @@ class Consumidor extends Model {
     protected $casts = [
         'cli_id' => 'integer',
         'dcon_id' => 'integer',
+        'ven_id' => 'integer',
         'cia_energia' => 'string',
-        'vendedor' => 'string',
         'data_entrega' => 'date',
         'status' => 'string',
         'alocacao' => 'string',
     ];
 
-    public function cliente()
-    {
+    public function cliente() {
         return $this->belongsTo(Cliente::class, 'cli_id', 'cli_id');
     }
 
-    public function dado_consumo()
-    {
-        return $this->hasOne(DadoConsumo::class, 'dcon_id', 'dcon_id');
+    public function dado_consumo() {
+        return $this->belongsTo(DadoConsumo::class, 'dcon_id', 'dcon_id');
+    }
+
+    public function vendedor() {
+        return $this->belongsTo(Vendedor::class, 'ven_id', 'ven_id');
     }
 
     // NOVO: Um consumidor pode estar vinculado a várias usinas

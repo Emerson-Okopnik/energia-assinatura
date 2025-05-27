@@ -5,7 +5,7 @@
     <!-- Seleção -->
     <div class="row mb-4">
       <div class="col-md-6">
-        <label for="usinaSelect">Usina</label>
+        <label for="usinaSelect"><strong>Usina</strong></label>
         <select id="usinaSelect" class="form-select" v-model="usinaSelecionada" @change="carregarConsumidores">
           <option disabled value="">Selecionar Usina</option>
           <option v-for="usina in usinas" :key="usina.usi_id" :value="usina.usi_id">
@@ -16,7 +16,8 @@
 
       <div class="col-md-6 d-flex flex-column align-items-end">
         <label class="mb-1"><strong>Créditos Disponíveis</strong></label>
-        <input class="form-control" style="width: 180px;" :class="creditosClasse" v-model="creditosDisponiveis" readonly />
+        <input class="form-control" style="width: 180px;" :class="creditosClasse" v-model="creditosDisponiveis"
+          readonly />
       </div>
     </div>
 
@@ -82,6 +83,7 @@
 
 
 <script>
+import Swal from 'sweetalert2';
 import axios from 'axios';
 
 export default {
@@ -138,7 +140,7 @@ export default {
 
           this.creditosDisponiveis = (geracaoMedia - consumoTotal).toFixed(2) + ' kWh';
         } else {
-          this.creditosDisponiveis =  this.UsinaDadosGeracao.dado_geracao.media + ' kWh';
+          this.creditosDisponiveis = this.UsinaDadosGeracao.dado_geracao.media + ' kWh';
         }
       } catch (error) {
         console.error('Erro ao carregar consumidores:', error);
@@ -155,7 +157,13 @@ export default {
     },
     async desvincularConsumidor() {
       if (!this.consumidorSelecionadoAlocado) {
-        alert('Selecione um consumidor alocado para desvincular.');
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao salvar',
+          text: 'Selecione um consumidor alocado para desvincular.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
         return;
       }
 
@@ -173,7 +181,13 @@ export default {
         await this.carregarConsumidores();
       } catch (error) {
         console.error('Erro ao desvincular consumidor:', error);
-        alert('Erro ao desvincular consumidor.');
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao salvar',
+          text: 'Não foi possível desvincular o consumidor.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
       }
     },
     alternarSelecionadoDisponivel(consumidor) {
@@ -188,7 +202,13 @@ export default {
     },
     async vincularConsumidor() {
       if (!this.consumidorSelecionadoDisponivel) {
-        alert('Selecione um consumidor disponível para vincular.');
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao salvar',
+          text: 'Selecione um consumidor disponível para vincular.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
         return;
       }
 
@@ -218,7 +238,13 @@ export default {
           // Nenhum consumidor alocado — fazer POST
           const usinaSelecionada = this.usinas.find(u => u.usi_id === parseInt(usi_id));
           if (!usinaSelecionada) {
-            alert('Dados da usina não encontrados.');
+            Swal.fire({
+              icon: 'error',
+              title: 'Erro ao salvar',
+              text: 'Dados da usina não encontrados.',
+              confirmButtonColor: '#d33',
+              confirmButtonText: 'Entendi'
+            });
             return;
           }
 
@@ -233,7 +259,13 @@ export default {
         await this.carregarConsumidores(); // Atualiza as tabelas
       } catch (error) {
         console.error('Erro ao vincular consumidor:', error);
-        alert('Erro ao vincular consumidor.');
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao salvar',
+          text: 'Não foi possível vincular o consumidor.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
       }
     }
   },

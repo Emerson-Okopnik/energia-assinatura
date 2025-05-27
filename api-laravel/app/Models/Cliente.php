@@ -26,18 +26,19 @@ class Cliente extends Model {
         'end_id' => 'integer',
     ];
 
-    public function endereco()
-    {
+    public function endereco() {
         return $this->belongsTo(Endereco::class, 'end_id', 'end_id');
     }
 
-    public function consumidores()
-    {
-        return $this->hasMany(Consumidor::class, 'cli_id', 'cli_id');
+    public function consumidores() {
+        return $this->hasOne(Consumidor::class, 'cli_id', 'cli_id');
     }
 
-    public function usinas()
-    {
-        return $this->hasMany(Usina::class, 'cli_id', 'cli_id');
+    public function usinas() {
+        return $this->hasOne(Usina::class, 'cli_id', 'cli_id');
+    }
+
+    public function dadosGeracaoRealUsina() {
+      return $this->hasMany(DadosGeracaoRealUsina::class, 'cli_id', 'cli_id');
     }
 }

@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class DadoConsumo extends Model {
-    protected $table = 'dados_consumo';
+class DadosGeracaoReal extends Model {
+    protected $table = 'dados_geracao_real';
 
-    protected $primaryKey = 'dcon_id';
+    protected $primaryKey = 'dgr_id';
 
     protected $fillable = [
         'janeiro',
@@ -22,7 +22,6 @@ class DadoConsumo extends Model {
         'outubro',
         'novembro',
         'dezembro',
-        'media',
     ];
 
     protected $casts = [
@@ -39,10 +38,9 @@ class DadoConsumo extends Model {
         'outubro' => 'float',
         'novembro' => 'float',
         'dezembro' => 'float',
-        'media' => 'float',
     ];
 
-    public function consumidor() {
-        return $this->hasOne(Consumidor::class, 'dcon_id', 'dcon_id');
+    public function DadosGeracaoRealUsina() {
+      return $this->hasOne(DadosGeracaoRealUsina::class, 'dgr_id', 'dgr_id');
     }
 }

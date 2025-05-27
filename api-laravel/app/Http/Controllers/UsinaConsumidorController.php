@@ -22,7 +22,7 @@ class UsinaConsumidorController extends Controller
 
     public function store(Request $request): JsonResponse {
         $data = $request->validate([
-            'usi_id' => 'required|integer|exists:usina,usi_id',
+            'cli_id' => 'required|integer|exists:cliente,cli_id',
             'cli_id' => 'required|integer|exists:cliente,cli_id',
             'con_ids' => 'required|array|min:1',
             'con_ids.*' => 'integer|exists:consumidor,con_id',
