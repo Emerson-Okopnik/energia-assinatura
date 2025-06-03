@@ -19,43 +19,50 @@
 </template>
 
 <script>
-import axios from 'axios';
+  import axios from 'axios';
+  import Swal from 'sweetalert2';
 
-export default {
-  data() {
-    return {
-      email: '',
-      password: '',
-    };
-  },
-  methods: {
-    async login() {
-      try {
-        const response = await axios.post('http://localhost:8000/api/login', {
-          email: this.email,
-          password: this.password,
-        });
-
-        const token = response.data.token;
-
-        // Salva o token no localStorage
-        localStorage.setItem('token', token);
-
-        // Define o header Authorization para futuras requisições
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-        // Redireciona para a página inicial
-        this.$router.push({ name: 'Home' }).then(() => {
-          window.location.reload();
-        });
-      } catch (error) {
-        console.error('Erro no login:', error);
-        alert('Login falhou. Verifique suas credenciais.');
-      }
+  export default {
+    data() {
+      return {
+        email: '',
+        password: '',
+      };
     },
-    goToRegister() {
-      this.$router.push({ name: 'Register' });
+    methods: {
+      async login() {
+        try {
+          const baseURL = import.meta.env.VITE_API_URL;
+          const response = await axios.post(`${baseURL}/login`, {
+            email: this.email,
+            password: this.password,
+          });
+
+          const token = response.data.token;
+
+          localStorage.setItem('token', token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          this.$router.push({ name: 'Home' }).then(() => window.location.reload());
+
+        } catch (error) {
+          console.error('Erro no login:', error);
+          let mensagem = 'Erro desconhecido. Verifique suas credenciais.';
+          if (error.response?.data?.error) {
+            mensagem = error.response.data.error;
+          }
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Erro ao entrar',
+            html: mensagem,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Entendi'
+          });
+        }
+      },
+      goToRegister() {
+        this.$router.push({ name: 'Register' });
+      },
     },
-  },
-};
+  };
 </script>

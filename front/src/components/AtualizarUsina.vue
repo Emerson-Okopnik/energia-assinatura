@@ -15,10 +15,12 @@
                     <div class="d-flex align-items-center mb-3">
                         <h4 class="mb-0">Cadastro de Usinas</h4>
                         <div class="mx-3">
-                            <button class="btn btn-success btn-sm me-2">Conectado</button>
-                            <button class="btn btn-danger btn-sm me-2">Não Conectado</button>
-                            <button class="btn btn-warning btn-sm">Warning</button>
+                          <span v-if="form.status === 'Concluído'" class="badge bg-success">Conectado</span>
+                          <span v-else-if="form.status === 'Aguardando troca de titularidade'" class="badge bg-danger">Não Conectado</span>
+                          <span v-else-if="form.status === 'Troca solicitada'" class="badge bg-warning text-dark">Em processo</span>
+                          <span v-else class="badge bg-secondary">Status indefinido</span>
                         </div>
+
                     </div>
 
                     <!-- Identificação -->
@@ -249,8 +251,9 @@ export default {
     methods: {
         async fetchVendedores() {
             try {
+                const baseURL = import.meta.env.VITE_API_URL;
                 const token = localStorage.getItem('token');
-                const response = await axios.get('http://localhost:8000/api/vendedor', {
+                const response = await axios.get(`${baseURL}/vendedor`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 this.vendedor = response.data;
@@ -260,11 +263,12 @@ export default {
         },
         async carregarDados() {
             try {
+                const baseURL = import.meta.env.VITE_API_URL;
                 const token = localStorage.getItem('token');
                 const { id } = this.$route.params;
                 this.conId = id;
 
-                const response = await axios.get(`http://localhost:8000/api/usina/${id}`, {
+                const response = await axios.get(`${baseURL}/usina/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -321,10 +325,11 @@ export default {
         },
         async submitForm() {
             try {
+                const baseURL = import.meta.env.VITE_API_URL;
                 const token = localStorage.getItem('token');
 
                 // Atualizar Endereço
-                await axios.put(`http://localhost:8000/api/endereco/${this.form.end_id}`, {
+                await axios.put(`${baseURL}/endereco/${this.form.end_id}`, {
                     rua: this.form.rua,
                     cidade: this.form.cidade,
                     estado: this.form.estado,
@@ -336,7 +341,7 @@ export default {
                 });
 
                 // Atualizar Cliente
-                await axios.put(`http://localhost:8000/api/cliente/${this.form.cli_id}`, {
+                await axios.put(`${baseURL}/cliente/${this.form.cli_id}`, {
                     nome: this.form.nome,
                     cpf_cnpj: this.form.cpf_cnpj,
                     telefone: this.form.telefone,
@@ -347,7 +352,7 @@ export default {
                 });
 
                 // Atualizar Dados de Geração
-                await axios.patch(`http://localhost:8000/api/geracao/${this.form.dger_id}`, {
+                await axios.patch(`${baseURL}/geracao/${this.form.dger_id}`, {
                     janeiro: this.form.janeiro,
                     fevereiro: this.form.fevereiro,
                     marco: this.form.marco,
@@ -367,7 +372,7 @@ export default {
                 });
 
                 // Atualizar Comercialização
-                await axios.put(`http://localhost:8000/api/comercializacao/${this.form.com_id}`, {
+                await axios.put(`${baseURL}/comercializacao/${this.form.com_id}`, {
                     valor_kwh: this.form.valor_kwh,
                     valor_fixo: this.form.valor_fixo,
                     cia_energia: this.form.cia_energia,
@@ -379,7 +384,7 @@ export default {
                 });
 
                 // Atualizar Usina
-                await axios.put(`http://localhost:8000/api/usina/${this.form.usi_id}`, {
+                await axios.put(`${baseURL}/usina/${this.form.usi_id}`, {
                     cli_id: this.form.cli_id,
                     dger_id: this.form.dger_id,
                     com_id: this.form.com_id,

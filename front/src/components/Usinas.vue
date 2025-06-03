@@ -9,6 +9,7 @@
             <th>CPF/CNPJ</th>
             <th>E-mail</th>
             <th>Localização</th>
+            <th>Status</th>
             <th>Média Geração (kWh)</th>
             <th>Menor Geração</th>
             <th>Valor kWh</th>
@@ -28,8 +29,14 @@
             <td>{{ usina.cliente.cpf_cnpj }}</td>
             <td>{{ usina.cliente.email }}</td>
             <td>{{ usina.cliente.endereco.cidade }} - {{ usina.cliente.endereco.estado }}</td>
-            <td>{{ usina.dado_geracao.media }}</td>
-            <td>{{ usina.dado_geracao.menor_geracao }}</td>
+            <td>
+              <span v-if="usina.status === 'Concluído'" class="badge bg-success">Conectado</span>
+              <span v-else-if="usina.status === 'Aguardando troca de titularidade'" class="badge bg-danger">Não Conectado</span>
+              <span v-else-if="usina.status === 'Troca solicitada'" class="badge bg-warning text-dark">Em processo</span>
+              <span v-else class="badge bg-secondary">Indefinido</span>
+            </td>
+            <td>{{ usina.dado_geracao.media }} Kwh</td>
+            <td>{{ usina.dado_geracao.menor_geracao }} Kwh</td>
             <td>{{ usina.comercializacao.valor_kwh }}</td>
             <td>{{ usina.comercializacao.valor_final_media }}</td>
             <td>{{ usina.comercializacao.cia_energia }}</td>
@@ -59,8 +66,9 @@ export default {
   methods: {
     async fetchUsinas() {
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8000/api/usina', {
+        const response = await axios.get(`${baseURL}/usina`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -75,7 +83,7 @@ export default {
 
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:8000/api/usina/${usi_id}`, {
+        await axios.delete(`${baseURL}/usina/${usi_id}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

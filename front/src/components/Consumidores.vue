@@ -55,8 +55,9 @@
     methods: {
       async carregarConsumidores() {
         try {
+          const baseURL = import.meta.env.VITE_API_URL;
           const token = localStorage.getItem('token');
-          const response = await axios.get('http://localhost:8000/api/consumidor', {
+          const response = await axios.get(`${baseURL}/consumidor`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
@@ -70,8 +71,9 @@
         if (!confirm("Tem certeza que deseja excluir este consumidor?")) return;
 
         try {
+          const baseURL = import.meta.env.VITE_API_URL;
           const token = localStorage.getItem('token');
-          await axios.delete(`http://localhost:8000/api/consumidor/${con_id}`, {
+          await axios.delete(`${baseURL}/consumidor/${con_id}`, {
             headers: {
               Authorization: `Bearer ${token}`
             }

@@ -194,8 +194,9 @@ export default {
   methods: {
     async fetchVendedores() {
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8000/api/vendedor', {
+        const response = await axios.get(`${baseURL}/vendedor`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         this.vendedor = response.data;
@@ -205,6 +206,7 @@ export default {
     },
     async submitForm() {
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
 
         // 1. Cadastrar Endereço
@@ -217,7 +219,7 @@ export default {
           numero: this.form.numero ?? 0
         };
 
-        const enderecoResponse = await axios.post("http://localhost:8000/api/endereco", enderecoPayload, {
+        const enderecoResponse = await axios.post(`${baseURL}/endereco`, enderecoPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -232,7 +234,7 @@ export default {
           end_id: end_id
         };
 
-        const clienteResponse = await axios.post("http://localhost:8000/api/cliente", clientePayload, {
+        const clienteResponse = await axios.post(`${baseURL}/cliente`, clientePayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -255,7 +257,7 @@ export default {
           media: this.form.media
         };
 
-        const consumoResponse = await axios.post("http://localhost:8000/api/consumo", consumoPayload, {
+        const consumoResponse = await axios.post(`${baseURL}/consumo`, consumoPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -272,7 +274,7 @@ export default {
           alocacao: this.form.alocacao
         };
 
-        await axios.post("http://localhost:8000/api/consumidor", consumidorPayload, {
+        await axios.post(`${baseURL}/consumidor`, consumidorPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

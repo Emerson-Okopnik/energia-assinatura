@@ -188,8 +188,9 @@ export default {
   methods: {
     async fetchVendedores() {
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8000/api/vendedor', {
+        const response = await axios.get(`${baseURL}/vendedor`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         this.vendedor = response.data;
@@ -199,11 +200,12 @@ export default {
     },
     async carregarDados() {
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
         const { id } = this.$route.params;
         this.conId = id;
 
-        const response = await axios.get(`http://localhost:8000/api/consumidor/${id}`, {
+        const response = await axios.get(`${baseURL}/consumidor/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -251,6 +253,7 @@ export default {
     },
     async atualizarConsumidor() {
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
 
         // 1. Atualizar Endereço
@@ -263,7 +266,7 @@ export default {
           numero: this.form.numero ?? 0
         };
 
-        await axios.put(`http://localhost:8000/api/endereco/${this.form.end_id}`, enderecoPayload, {
+        await axios.put(`${baseURL}/endereco/${this.form.end_id}`, enderecoPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -276,7 +279,7 @@ export default {
           end_id: this.form.end_id
         };
 
-        await axios.put(`http://localhost:8000/api/cliente/${this.form.cli_id}`, clientePayload, {
+        await axios.put(`${baseURL}/cliente/${this.form.cli_id}`, clientePayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -297,7 +300,7 @@ export default {
           media: this.form.media
         };
 
-        await axios.put(`http://localhost:8000/api/consumo/${this.form.dcon_id}`, consumoPayload, {
+        await axios.put(`${baseURL}/consumo/${this.form.dcon_id}`, consumoPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -312,7 +315,7 @@ export default {
           alocacao: this.form.alocacao
         };
 
-        await axios.put(`http://localhost:8000/api/consumidor/${this.conId}`, consumidorPayload, {
+        await axios.put(`${baseURL}/consumidor/${this.conId}`, consumidorPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

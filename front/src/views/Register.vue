@@ -23,45 +23,54 @@
 </template>
 
 <script>
-import axios from 'axios';
+  import axios from 'axios';
+  import Swal from 'sweetalert2';
 
-export default {
-  data() {
-    return {
-      name: '',
-      email: '',
-      password: '',
-    };
-  },
-  methods: {
-    async register() {
-      try {
-        const response = await axios.post('http://localhost:8000/api/register', {
-          name: this.name,
-          email: this.email,
-          password: this.password,
-        });
-
-        const token = response.data.token;
-
-        // Salva o token no localStorage
-        localStorage.setItem('token', token);
-
-        // Define o header Authorization para futuras requisições
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-        // Redireciona para a página inicial
-        this.$router.push({ name: 'Home' }).then(() => {
-          window.location.reload();
-        });
-      } catch (error) {
-        console.error('Erro no login:', error);
-        alert('Cadastro falhou. Verifique suas credenciais.');
-      }
+  export default {
+    data() {
+      return {
+        name: '',
+        email: '',
+        password: '',
+      };
     },
-    goToLogin() {
-      this.$router.push({ name: 'Login' });
+    methods: {
+      async register() {
+        try {
+          const baseURL = import.meta.env.VITE_API_URL;
+          const response = await axios.post(`${baseURL}/register`, {
+            name: this.name,
+            email: this.email,
+            password: this.password,
+          });
+
+          const token = response.data.token;
+          localStorage.setItem('token', token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          this.$router.push({ name: 'Home' }).then(() => window.location.reload());
+        } catch (error) {
+          console.error('Erro no cadastro:', error);
+          let mensagem = 'Erro desconhecido. Verifique seus dados.';
+
+          if (error.response?.status === 400) {
+            const data = error.response.data;
+
+            // Extrai todas as mensagens (ex: email, password) do objeto data
+            mensagem = Object.values(data).flat().join('<br>');
+          }
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Erro ao registrar',
+            html: mensagem,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Entendi'
+          });
+        }
+      },
+      goToLogin() {
+        this.$router.push({ name: 'Login' });
+      },
     },
-  },
-};
+  };
 </script>

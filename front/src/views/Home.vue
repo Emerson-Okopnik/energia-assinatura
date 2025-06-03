@@ -161,13 +161,14 @@ export default {
     }
   },
   async created() {
+    const baseURL = import.meta.env.VITE_API_URL;
     const token = localStorage.getItem('token');
     try {
       const [userRes, relatorioRes] = await Promise.all([
-        axios.get('http://localhost:8000/api/user', {
+        axios.get(`${baseURL}/user`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('http://localhost:8000/api/usina-consumidor', {
+        axios.get(`${baseURL}/usina-consumidor`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);

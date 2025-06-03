@@ -25,7 +25,7 @@ class ComercializacaoController extends Controller
             'cia_energia' => 'required|string',
             'valor_final_media' => 'required|numeric',
             'previsao_conexao' => 'required|date',
-            'data_conexao' => 'required|date',
+            'data_conexao' => 'nullable|date',
         ]);
 
         $id = $this->comercializacaoService->create($data);

@@ -35,7 +35,7 @@ class ConsumidorService {
       $consumidor->delete();
             
       // Depois apaga o dados_consumo
-      if ($consumidor->dado_consumo) {
+      if ($consumidor->dados_consumo) {
         $dados_consumo->delete();
       }
 

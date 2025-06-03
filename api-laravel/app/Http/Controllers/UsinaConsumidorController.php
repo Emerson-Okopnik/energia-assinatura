@@ -21,19 +21,19 @@ class UsinaConsumidorController extends Controller
     }
 
     public function store(Request $request): JsonResponse {
-        $data = $request->validate([
-            'cli_id' => 'required|integer|exists:cliente,cli_id',
-            'cli_id' => 'required|integer|exists:cliente,cli_id',
-            'con_ids' => 'required|array|min:1',
-            'con_ids.*' => 'integer|exists:consumidor,con_id',
-        ]);
-    
-        $inserted = $this->usinaConsumidorService->createMany($data);
-    
-        return response()->json([
-            'message' => "$inserted consumidores vinculados à usina com sucesso.",
-            'count' => $inserted
-        ], 201);
+      $data = $request->validate([
+        'usi_id' => 'required|integer|exists:usina,usi_id',
+        'cli_id' => 'required|integer|exists:cliente,cli_id',
+        'con_ids' => 'required|array|min:1',
+        'con_ids.*' => 'integer|exists:consumidor,con_id',
+      ]);
+
+      $inserted = $this->usinaConsumidorService->createMany($data);
+
+      return response()->json([
+        'message' => "$inserted consumidores vinculados à usina com sucesso.",
+        'count' => $inserted
+      ], 201);
     }
 
     public function show(int $usi_id): JsonResponse {

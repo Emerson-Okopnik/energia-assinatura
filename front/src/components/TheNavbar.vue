@@ -93,9 +93,10 @@ export default {
   },
 mounted() {
   this.isAuthenticated = !!localStorage.getItem('token');
+  const baseURL = import.meta.env.VITE_API_URL;
 
   if (this.isAuthenticated) {
-    axios.get('http://localhost:8000/api/user', {
+    axios.get(`${baseURL}/user`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
@@ -111,7 +112,7 @@ mounted() {
   async created() {
     if (this.isAuthenticated) {
       try {
-        const response = await axios.get('http://localhost:8000/api/user', {
+        const response = await axios.get(`${baseURL}/user`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },

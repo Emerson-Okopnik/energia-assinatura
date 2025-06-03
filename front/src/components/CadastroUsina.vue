@@ -14,11 +14,6 @@
           <!-- Header -->
           <div class="d-flex align-items-center mb-3">
             <h4 class="mb-0">Cadastro de Usinas</h4>
-            <div class="mx-3">
-              <button class="btn btn-success btn-sm me-2">Conectado</button>
-              <button class="btn btn-danger btn-sm me-2">Não Conectado</button>
-              <button class="btn btn-warning btn-sm">Warning</button>
-            </div>
           </div>
 
           <!-- Identificação -->
@@ -249,8 +244,9 @@ export default {
   methods: {
     async fetchVendedores() {
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8000/api/vendedor', {
+        const response = await axios.get(`${baseURL}/vendedor`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         this.vendedor = response.data;
@@ -260,6 +256,7 @@ export default {
     },
     async submitForm() {
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
 
         // 1. Cadastrar Endereço
@@ -272,7 +269,7 @@ export default {
           numero: this.form.numero ?? 0
         };
 
-        const enderecoResponse = await axios.post("http://localhost:8000/api/endereco", enderecoPayload, {
+        const enderecoResponse = await axios.post(`${baseURL}/endereco`, enderecoPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -287,7 +284,7 @@ export default {
           end_id: end_id
         };
 
-        const clienteResponse = await axios.post("http://localhost:8000/api/cliente", clientePayload, {
+        const clienteResponse = await axios.post(`${baseURL}/cliente`, clientePayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -311,7 +308,7 @@ export default {
           menor_geracao: this.menorGeracao
         };
 
-        const geracaoResponse = await axios.post("http://localhost:8000/api/geracao", geracaoPayload, {
+        const geracaoResponse = await axios.post(`${baseURL}/geracao`, geracaoPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -327,28 +324,28 @@ export default {
           data_conexao: this.form.conexao_final
         };
 
-        const comercializacaoResponse = await axios.post("http://localhost:8000/api/comercializacao", comercializacaoPayload, {
+        const comercializacaoResponse = await axios.post(`${baseURL}/comercializacao`, comercializacaoPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const com_id = comercializacaoResponse.data.id;
 
         // 5. Cadastrar Créditos Distribuídos
-        const creditosDistribuidosResponse = await axios.post("http://localhost:8000/api/creditos-distribuidos", {}, {
+        const creditosDistribuidosResponse = await axios.post(`${baseURL}/creditos-distribuidos`, {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const cd_id = creditosDistribuidosResponse.data.id;
 
         // 6. Cadastrar Faturamento da Usina
-        const faturamentoUsinaResponse = await axios.post("http://localhost:8000/api/faturamento-usina", {}, {
+        const faturamentoUsinaResponse = await axios.post(`${baseURL}/faturamento-usina`, {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const fa_id = faturamentoUsinaResponse.data.id;
 
         // 7. Cadastrar Valor Acumulado em Reserva
-        const valorAcumuladoReserva = await axios.post("http://localhost:8000/api/valor-acumulado-reserva", {}, {
+        const valorAcumuladoReserva = await axios.post(`${baseURL}/valor-acumulado-reserva`, {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -366,7 +363,7 @@ export default {
           status: this.form.status
         };
         
-        Response = await axios.post("http://localhost:8000/api/usina", usinaPayload, {
+        Response = await axios.post(`${baseURL}/usina`, usinaPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -382,12 +379,12 @@ export default {
         }
 
         // 9. Cadastrar Créditos Distribuídos Usina
-        await axios.post("http://localhost:8000/api/creditos-distribuidos-usina", creditosDistribuidosUsinaPayload, {
+        await axios.post(`${baseURL}/creditos-distribuidos-usina`, creditosDistribuidosUsinaPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         // 10. Cadastrar Dados Geração Real
-        const dadosGeracaoReal = await axios.post("http://localhost:8000/api/dados-geracao-real", {}, {
+        const dadosGeracaoReal = await axios.post(`${baseURL}/dados-geracao-real`, {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -399,7 +396,7 @@ export default {
         }
 
         // 11. Cadastrar Dados Geração Real
-        await axios.post("http://localhost:8000/api/dados-geracao-real-usina", dadosGeracaoUsinaPayload, {
+        await axios.post(`${baseURL}/dados-geracao-real-usina`, dadosGeracaoUsinaPayload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
