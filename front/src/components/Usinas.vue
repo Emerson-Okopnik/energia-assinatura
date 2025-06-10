@@ -55,6 +55,7 @@
   
 <script>
 import axios from 'axios';
+import Swal from 'sweetalert2';
 
 export default {
   name: 'ListaUsinas',
@@ -76,35 +77,75 @@ export default {
         this.usinas = response.data;
       } catch (error) {
         console.error('Erro ao buscar usinas:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao carregar',
+          text: 'Não foi possível carregar a lista de usinas.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
       }
     },
+
     async deletarUsina(usi_id) {
-      if (!confirm('Tem certeza que deseja excluir esta usina?')) return;
+      const confirmacao = await Swal.fire({
+        icon: 'warning',
+        title: 'Excluir usina?',
+        text: 'Esta ação é irreversível. Deseja continuar?',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#aaa',
+        confirmButtonText: 'Sim, excluir',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!confirmacao.isConfirmed) return;
 
       try {
+        const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
+
         await axios.delete(`${baseURL}/usina/${usi_id}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
-        this.fetchUsinas(); // atualiza a tabela
+
+        await this.fetchUsinas();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Usina excluída',
+          text: 'A usina foi removida com sucesso.',
+          confirmButtonColor: '#f28c1f'
+        });
+
       } catch (error) {
         console.error('Erro ao excluir usina:', error);
-        alert('Erro ao excluir usina.');
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao excluir',
+          text: 'Não foi possível excluir a usina.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
       }
     },
+
     formatDate(dataISO) {
       if (!dataISO) return '-';
       const data = new Date(dataISO);
       return data.toLocaleDateString('pt-BR');
     }
   },
+
   created() {
     this.fetchUsinas();
   }
 };
 </script>
+
   
   <style scoped>
     .tabela-centralizada {

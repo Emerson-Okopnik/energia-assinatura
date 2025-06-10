@@ -182,7 +182,12 @@ export default {
 
     } catch (error) {
       console.error('Erro ao buscar dados:', error);
-      alert('Sessão expirada ou erro na API.');
+      Swal.fire({
+        icon: 'error',
+        title: 'Erro ao carregar dados',
+        text: 'Sessão expirada ou erro na API.',
+        confirmButtonColor: '#d33'
+      });
       this.$router.push({ name: 'Login' });
     }
   }
@@ -190,20 +195,57 @@ export default {
 </script>
 
 <style scoped>
+
+.container {
+  max-width: 1200px;
+}
+
+.resumo-geracao {
+  background-color: #fff8e7;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.resumo-geracao h5 {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.resumo-geracao p {
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
 .tabela-usinas {
   width: 100%;
+  font-size: 0.95rem;
   border-collapse: collapse;
-  font-size: 14px;
+  margin-top: 20px;
+  background-color: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
 
 .tabela-usinas th,
-.tabela-usinas td,
-.table th,
-.table td {
-  padding: 8px;
-  border: 1px solid #dee2e6;
-  min-width: 160px;
+.tabela-usinas td {
+  padding: 12px 16px;
   text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+
+.tabela-usinas th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table-sm th,
+.table-sm td {
+  padding: 6px 10px;
+  font-size: 0.85rem;
 }
 
 .tabela-usinas thead,
@@ -217,22 +259,42 @@ export default {
   color: #212529;
 }
 
-.resumo-geracao {
-  padding: 16px;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  background-color: #f8f9fa;
-}
-
 a {
   text-decoration: none;
 }
 
-.text-success {
-  color: #198754 !important;
+table .text-success {
+  color: #16a34a;
 }
 
-.text-danger {
-  color: #dc3545 !important;
+table .text-danger {
+  color: #dc2626;
+}
+
+table .text-dark {
+  color: #111827;
+}
+
+
+.create-account a {
+  color: #f28c1f;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.create-account a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .resumo-geracao {
+    font-size: 0.9rem;
+  }
+
+  .tabela-usinas th,
+  .tabela-usinas td {
+    font-size: 0.85rem;
+    padding: 8px;
+  }
 }
 </style>

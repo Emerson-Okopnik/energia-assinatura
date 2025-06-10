@@ -180,7 +180,7 @@
 
                     <!-- Ações -->
                     <div class="mt-4 d-flex align-items-center">
-                        <button type="button" class="btn btn-primary" @click="submitForm">Atualizar</button>
+                        <button type="button" class="btn btn-submit" @click="submitForm">Atualizar</button>
                         <button type="button" class="btn btn-secondary ms-2" @click="goBack">Cancelar</button>
                     </div>
 
@@ -451,5 +451,15 @@ export default {
 
 label {
     font-weight: 500;
+}
+
+.btn-submit{
+  color: white;
+  background-color: #f28c1f;
+}
+
+.btn-submit:hover{
+  color: white;
+  background-color: #d97706;
 }
 </style>

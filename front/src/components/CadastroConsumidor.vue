@@ -122,7 +122,7 @@
           </div>
 
           <div class="mt-4">
-            <button type="submit" class="btn btn-primary" @click="submitForm">Salvar</button>
+            <button type="button" class="btn btn-submit" @click="submitForm">Salvar</button>
             <button type="button" class="btn btn-secondary ms-2" @click="goBack">Cancelar</button>
           </div>
         </div>
@@ -311,6 +311,16 @@ label {
   min-width: 250px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   animation: fadeOut 3s forwards;
+}
+
+.btn-submit{
+  color: white;
+  background-color: #f28c1f;
+}
+
+.btn-submit:hover{
+  color: white;
+  background-color: #d97706;
 }
 
 @keyframes fadeOut {

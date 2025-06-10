@@ -131,7 +131,7 @@
           <div class="row mb-2">
             <div class="col-md-4">
               <label for="valorkwh">Valor do kWh</label>
-              <input for="valorkwh" type="number" class="form-control" v-model="form.valor_kwh" />
+              <input id="valorkwh" type="number" class="form-control" v-model="form.valor_kwh" />
             </div>
             <div class="col-md-4">
               <label for="valorfixo">Valor Fixo</label>
@@ -167,7 +167,7 @@
 
           <!-- Ações -->
           <div class="mt-4 d-flex align-items-center">
-            <button type="button" class="btn btn-primary" @click="submitForm">Salvar</button>
+            <button type="button" class="btn btn-submit" @click="submitForm">Salvar</button>
             <button type="button" class="btn btn-secondary ms-2" @click="goBack">Cancelar</button>
           </div>
 
@@ -429,6 +429,16 @@ export default {
   min-width: 250px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   animation: fadeOut 3s forwards;
+}
+
+.btn-submit{
+  color: white;
+  background-color: #f28c1f;
+}
+
+.btn-submit:hover{
+  color: white;
+  background-color: #d97706;
 }
 
 @keyframes fadeOut {

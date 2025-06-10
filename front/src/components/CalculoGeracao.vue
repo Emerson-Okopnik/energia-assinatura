@@ -144,7 +144,7 @@
       </p>
     </div>
 
-    <button @click="gerarPDF" class="btn btn-primary">
+    <button @click="gerarPDF" class="btn btn-orange">
       Baixar PDF da Usina
     </button>
     <div class="mt-4 d-flex align-items-center">
@@ -648,5 +648,15 @@ label {
 
 .text-danger {
   color: #dc3545 !important;
+}
+
+.btn-orange{
+  color: white;
+  background-color: #f28c1f;
+}
+
+.btn-orange:hover{
+  color: white;
+  background-color: #d97706;
 }
 </style>

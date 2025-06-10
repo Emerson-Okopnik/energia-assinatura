@@ -6,8 +6,13 @@
   font-weight: normal;
 }
 
-a,
-.green {
+input:focus {
+  border-color: #f28c1f;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(242, 140, 31, 0.2);
+}
+
+a, .green {
   text-decoration: none;
   color: hsla(160, 100%, 37%, 1);
   transition: 0.4s;

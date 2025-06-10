@@ -1,68 +1,92 @@
 <template>
-  <div class="d-flex align-items-center justify-content-center vh-100">
-    <div class="card p-4" style="width: 24rem;">
-      <h2 class="text-center mb-4">Login</h2>
-      <form @submit.prevent="login">
-        <div class="form-group mb-3">
+  <div class="login-centered">
+    <div class="login-box">
+      <!-- Ilustração -->
+      <div class="login-illustration">
+        <img src="/src/assets/logo-consorcio-lider-energy.png" alt="Logo" />
+        <p class="tip-text">Acesse sua conta para aproveitar todos os recursos com segurança e facilidade.</p>
+      </div>
+
+      <!-- Formulário -->
+      <div class="login-form">
+        <div class="greeting">
+          <h2>Entrar</h2>
+        </div>
+
+        <form @submit.prevent="login" class="auth-form">
           <label for="email">Email</label>
-          <input type="email" v-model="email" class="form-control" id="email" placeholder="Digite seu email" required />
-        </div>
-        <div class="form-group mb-3">
+          <input type="email" id="email" v-model="email" placeholder="Digite seu email" required />
+
           <label for="password">Senha</label>
-          <input type="password" v-model="password" class="form-control" id="password" placeholder="Digite sua senha" required />
-        </div>
-        <button type="submit" class="btn btn-primary w-100 mb-2">Entrar</button>
-      </form>
-      <button @click="goToRegister" class="btn btn-link w-100">Não tem uma conta? Registre-se</button>
+          <div class="password-wrapper">
+            <input :type="showPassword ? 'text' : 'password'" id="password" v-model="password" placeholder="Digite sua senha" required/>
+            <i :class="['fas', showPassword ? 'fa-eye' : 'fa-eye-slash']" @click="togglePassword" class="toggle-password" title="Mostrar/ocultar senha"></i>
+          </div>
+
+          <div class="options">
+            <a href="#">Esqueceu a senha?</a>
+          </div>
+
+          <button type="submit" class="auth-button">Entrar</button>
+        </form>
+
+        <p class="auth-footer">
+          Ainda não tem uma conta?
+          <a @click.prevent="goToRegister" href="#">Crie agora</a>
+        </p>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-  import axios from 'axios';
-  import Swal from 'sweetalert2';
+import axios from 'axios';
+import Swal from 'sweetalert2';
+import '@/assets/css/form-login.css';
 
-  export default {
-    data() {
-      return {
-        email: '',
-        password: '',
-      };
+export default {
+  data() {
+    return {
+      email: '',
+      password: '',
+      showPassword: false
+    };
+  },
+  methods: {
+    togglePassword() {
+      this.showPassword = !this.showPassword;
     },
-    methods: {
-      async login() {
-        try {
-          const baseURL = import.meta.env.VITE_API_URL;
-          const response = await axios.post(`${baseURL}/login`, {
-            email: this.email,
-            password: this.password,
-          });
+    async login() {
+      try {
+        const baseURL = import.meta.env.VITE_API_URL;
+        const response = await axios.post(`${baseURL}/login`, {
+          email: this.email,
+          password: this.password,
+        });
 
-          const token = response.data.token;
+        const token = response.data.token;
+        localStorage.setItem('token', token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        this.$router.push({ name: 'Home' }).then(() => window.location.reload());
 
-          localStorage.setItem('token', token);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          this.$router.push({ name: 'Home' }).then(() => window.location.reload());
-
-        } catch (error) {
-          console.error('Erro no login:', error);
-          let mensagem = 'Erro desconhecido. Verifique suas credenciais.';
-          if (error.response?.data?.error) {
-            mensagem = error.response.data.error;
-          }
-
-          Swal.fire({
-            icon: 'error',
-            title: 'Erro ao entrar',
-            html: mensagem,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Entendi'
-          });
+      } catch (error) {
+        let mensagem = 'Erro desconhecido. Verifique suas credenciais.';
+        if (error.response?.data?.error) {
+          mensagem = error.response.data.error;
         }
-      },
-      goToRegister() {
-        this.$router.push({ name: 'Register' });
-      },
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao entrar',
+          html: mensagem,
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
+      }
     },
-  };
+    goToRegister() {
+      this.$router.push({ name: 'Register' });
+    },
+  },
+};
 </script>

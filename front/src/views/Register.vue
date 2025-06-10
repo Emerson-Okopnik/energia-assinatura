@@ -1,23 +1,24 @@
 <template>
-  <div class="d-flex align-items-center justify-content-center vh-100">
-    <div class="card p-4" style="width: 24rem;">
-      <h2 class="text-center mb-4">Register</h2>
-      <form @submit.prevent="register">
-        <div class="form-group mb-3">
-          <label for="email">Nome</label>
-          <input type="name" v-model="name" class="form-control" id="name" placeholder="Digite seu Nome" required />
-        </div>
-        <div class="form-group mb-3">
-          <label for="email">Email</label>
-          <input type="email" v-model="email" class="form-control" id="email" placeholder="Digite seu email" required />
-        </div>
-        <div class="form-group mb-3">
-          <label for="password">Senha</label>
-          <input type="password" v-model="password" class="form-control" id="password" placeholder="Digite sua senha" required />
-        </div>
-        <button type="submit" class="btn btn-primary w-100 mb-2">Registrar</button>
+  <div class="auth-wrapper">
+    <div class="auth-box">
+      <h2 class="auth-title">Criar Conta</h2>
+      <form @submit.prevent="register" class="auth-form">
+        <label for="name">Nome</label>
+        <input type="text" v-model="name" id="name" placeholder="Digite seu nome" required />
+
+        <label for="email">Email</label>
+        <input type="email" v-model="email" id="email" placeholder="Digite seu email" required />
+
+        <label for="password">Senha</label>
+        <input type="password" v-model="password" id="password" placeholder="Digite sua senha" required />
+
+        <button type="submit" class="auth-button">Registrar</button>
       </form>
-      <button @click="goToLogin" class="btn btn-link w-100">Já tem uma conta? Faça login</button>
+
+      <p class="auth-footer">
+        Já tem uma conta?
+        <a @click.prevent="goToLogin" href="#">Faça login</a>
+      </p>
     </div>
   </div>
 </template>
@@ -25,6 +26,7 @@
 <script>
   import axios from 'axios';
   import Swal from 'sweetalert2';
+  import '@/assets/css/form-auth.css';
 
   export default {
     data() {

@@ -290,34 +290,107 @@
 </script>
 
 <style scoped>
-  .table-wrapper {
-    height: auto;
-    min-height: 400px;
-    overflow-y: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    background-color: white;
-  }
+.container {
+  max-width: 1200px;
+}
 
-  .arrow-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    height: 100%;
-  }
+h4 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2e2e2e;
+}
 
-  .arrow {
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    user-select: none;
-  }
+label {
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: #2e2e2e;
+}
 
-  .text-success {
-    color: #198754 !important;
-  }
+select.form-select,
+input.form-control {
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  font-size: 0.95rem;
+  transition: border-color 0.3s ease;
+}
 
-  .text-danger {
-    color: #dc3545 !important;
-  }
+select.form-select:focus,
+input.form-control:focus {
+  border-color: #f28c1f;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(242, 140, 31, 0.2);
+}
+
+/* Campo de créditos */
+input[readonly] {
+  font-weight: bold;
+  background-color: #f8f9fa;
+}
+
+.table-wrapper {
+  height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background-color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+table {
+  width: 100%;
+  font-size: 0.9rem;
+  margin-bottom: 0;
+}
+
+.table-sm thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: #f28c1f;
+  color: white;
+}
+
+.table-sm tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.table-sm tbody tr:hover {
+  background-color: #fff6e5;
+}
+
+.table-active {
+  background-color: #fff3cd !important;
+}
+
+/* Setas */
+.arrow-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+.arrow {
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #f28c1f;
+  margin: 10px 0;
+  transition: transform 0.2s;
+}
+
+.arrow:hover {
+  transform: scale(1.2);
+}
+
+/* Créditos disponíveis */
+.text-success {
+  color: #198754 !important;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
 </style>

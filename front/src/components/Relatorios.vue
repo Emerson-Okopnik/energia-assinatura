@@ -365,14 +365,14 @@
               pointRadius: 4,
               borderDash: [5, 5],
               tension: 0.1,
-              order: 2
+              order: 0
             },
             {
               type: 'bar',
               label: 'Geração mensal (kWh)',
               data: geracaoMensal,
               backgroundColor: '#60a5fa',
-              order: 1
+              order: 2
             },
             {
               type: 'line',
@@ -383,7 +383,7 @@
               fill: false,
               pointRadius: 0,
               tension: 0.1,
-              order: 0
+              order: 1
             },
           ]
         }
