@@ -57,66 +57,87 @@ Este projeto é uma aplicação para **gerenciamento de usinas fotovoltaicas**, 
 1. Clone o repositório:
    ```bash
    git clone https://github.com/seu-usuario/seu-repo.git
+   ```
 
 2. Instale as dependências do frontend:
-   ````bash
+   ```bash
    npm install
+   ```
 
-3. Instale Axios no frontend:  
-     ```bash
-     npm install vue axios
+3. Instale Axios no frontend:
+   ```bash
+   npm install vue axios
+   ```
 
 4. Instale o Vite no frontend:
-     ```bash
-     npm install vite   
+   ```bash
+   npm install vite
+   ```
 
 5. Instale o Chart.js no frontend:
-     ```bash
-     npm install chart.js
+   ```bash
+   npm install chart.js
+   ```
 
 6. Instale as dependências do backend:
-   ````bash
+   ```bash
    composer install
+   ```
 
 7. Copie ou crie o .env:
-   ````bash
+   ```bash
    cp .env.example .env
+   ```
 
 8. Gere as migrations:
-    ```bash
-    php artisan migrate
-    
+   ```bash
+   php artisan migrate
+   ```
+
 9. Instale o pacote JWT do Laravel:
    ```bash
    composer require tymon/jwt-auth
-  
+   ```
+
 10. Publique o arquivo de configuração do JWT:
     ```bash
     php artisan vendor:publish --provider="Tymon\JWTAuth\Providers\LaravelServiceProvider"
-   
+    ```
+
+11. Gere a chave da aplicação do Laravel:
+    ```bash
+    php artisan key:generate
+    ```
+
 12. Gere uma chave secreta para o JWT:
     ```bash
     php artisan jwt:secret
+    ```
 
 13. Inicie o Laravel:
     ```bash
     php artisan serve --host=localhost
+    ```
 
 14. Inicie Vue.js:
-     ```bash
-     npm run dev
+    ```bash
+    npm run dev
+    ```
 
 15. Instale o Spatie Browsershot no backend:
     ```bash
     composer require spatie/browsershot
+    ```
 
 16. Instale o Puppeteer no frontend:
     ```bash
     npm install puppeteer
+    ```
 
 17. Instale o Guzzle no backend:
-    ```
+    ```bash
     composer require guzzlehttp/guzzle
+    ```
 ---
 
 ## 🧑‍💻 Autor
