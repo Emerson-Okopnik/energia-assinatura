@@ -13,8 +13,10 @@
           <div class="d-flex align-items-center mb-3">
             <h4 class="mb-0">Editar Consumidor</h4>
             <div class="mx-3">
-              <button class="btn btn-success btn-sm me-2">Conectado</button>
-              <button class="btn btn-danger btn-sm">Não Conectado</button>
+              <span v-if="form.status === 'Aderido'" class="badge bg-success">Conectado</span>
+              <span v-else-if="form.status === 'Aguardando troca de titularidade'" class="badge bg-danger">Não Conectado</span>
+              <span v-else-if="form.status === 'Envio dos documentos para assinatura'" class="badge bg-warning text-dark">Em processo</span>
+              <span v-else class="badge bg-secondary">Status indefinido</span>
             </div>
           </div>
 

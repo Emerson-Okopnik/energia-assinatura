@@ -9,7 +9,8 @@
             <th>CPF/CNPJ</th>
             <th>Telefone</th>
             <th>E-mail</th>
-            <th>Endereço</th>
+            <th>Status</th>
+            <th>Cidade</th>
             <th>Consumo Médio</th>
             <th>CIA Energia</th>
             <th>Ações</th>
@@ -26,8 +27,17 @@
             <td>{{ consumidor.cliente.telefone }}</td>
             <td>{{ consumidor.cliente.email }}</td>
             <td>
+              <span v-if="consumidor.status === 'Aderido'" class="badge bg-success">Conectado</span>
+              <span v-else-if="consumidor.status === 'Aguardando troca de titularidade'" class="badge bg-danger">Não Conectado</span>
+              <span v-else-if="consumidor.status === 'Envio dos documentos para assinatura'" class="badge bg-warning text-dark">Em processo</span>
+              <span v-else class="badge bg-secondary">Status indefinido</span>
+            </td>
+            <!--<td>
               {{ consumidor.cliente.endereco.rua }}, Nº {{ consumidor.cliente.endereco.numero }}<br>
               {{ consumidor.cliente.endereco.cidade }} - {{ consumidor.cliente.endereco.estado }}
+            </td>-->
+            <td>
+              {{ consumidor.cliente.endereco.cidade }}
             </td>
             <td>{{ consumidor.dado_consumo.media }}</td>
             <td>{{ consumidor.cia_energia }}</td>
@@ -95,7 +105,6 @@
   th, td {
     vertical-align: middle;
   }
-
   a {
     text-decoration: none;
   }

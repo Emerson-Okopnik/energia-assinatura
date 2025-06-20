@@ -20,7 +20,6 @@
                           <span v-else-if="form.status === 'Troca solicitada'" class="badge bg-warning text-dark">Em processo</span>
                           <span v-else class="badge bg-secondary">Status indefinido</span>
                         </div>
-
                     </div>
 
                     <!-- Identificação -->
