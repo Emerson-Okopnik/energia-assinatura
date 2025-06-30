@@ -37,14 +37,15 @@
           </tr>
           <tr v-if="usinasExpandida.includes(usinaId)">
             <td colspan="7" style="padding: 0">
-              <table class="mb-0 table-sm w-100">
-                <thead :style="{ backgroundColor: coresUsina[usinaId] }" style="color:black">
+              <table class="mb-0 table-sm w-100 table">
+                <thead class="tabela-usina">
                   <tr>
                     <th>Nome do Consumidor</th>
                     <th>Cidade</th>
                     <th>Consumo Médio</th>
                     <th>Vendedor</th>
                     <th>Concessionária</th>
+                    <th>Excedente de Geração</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -54,6 +55,7 @@
                     <td>{{ consumidor.dado_consumo.media }} kWh</td>
                     <td>{{ consumidor.vendedor.nome || '—' }}</td>
                     <td>{{ consumidor.cia_energia }}</td>
+                    <td>{{ ((consumidor.dado_consumo.media * 100)/ usina.usina.dado_geracao.media).toFixed(2) + ' %'}}</td>
                   </tr>
                 </tbody>
               </table>
@@ -130,7 +132,7 @@ export default {
       this.consumoTotal = consumo.toFixed(2);
       this.saldoDisponivel = (geracao - consumo).toFixed(2);
     },
-    gerarCorPastel() {
+    /*gerarCorPastel() {
       const r = Math.floor(Math.random() * 40 + 215);
       const g = Math.floor(Math.random() * 40 + 215);
       const b = Math.floor(Math.random() * 40 + 215);
@@ -144,7 +146,7 @@ export default {
         }
       });
       this.coresUsina = cores;
-    },
+    },*/
     organizarRelatorio() {
       const mapa = {};
       this.relatorio.forEach(item => {
