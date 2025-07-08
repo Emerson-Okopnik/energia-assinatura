@@ -237,7 +237,7 @@
     <column id="COL68" populated="true" UUID="c8657f6d-c162-46ff-bac2-1f802482a6da" autoIncrement="false" autoIncrementSequenceName="COMERCIALIZACAO_COM_ID_seq" defaultValue="" name="COM_ID" nullable="0" physicalName="COM_ID" precision="0" primaryKeySeq="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="4" userDefinedTypeUUID="63b011c7-c81f-4c75-8271-632b3c87f727" >
      <remarks></remarks>
     </column>
-    <column id="COL69" populated="true" UUID="136ce75e-d120-472c-989a-387abee74a59" autoIncrement="false" autoIncrementSequenceName="COMERCIALIZACAO_VALOR_KHW_seq" defaultValue="" name="VALOR_KHW" nullable="0" physicalName="VALOR_KHW" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="6" userDefinedTypeUUID="7e55bcd0-7606-4153-b749-9c397f12c4d8" >
+    <column id="COL69" populated="true" UUID="136ce75e-d120-472c-989a-387abee74a59" autoIncrement="false" autoIncrementSequenceName="COMERCIALIZACAO_VALOR_KWH_seq" defaultValue="" name="VALOR_KWH" nullable="0" physicalName="VALOR_KWH" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="6" userDefinedTypeUUID="7e55bcd0-7606-4153-b749-9c397f12c4d8" >
      <remarks></remarks>
     </column>
     <column id="COL70" populated="true" UUID="f4b3c6c3-1fbd-4db1-8052-afab72e856a3" autoIncrement="false" autoIncrementSequenceName="COMERCIALIZACAO_VALOR_FIXO_seq" defaultValue="" name="VALOR_FIXO" nullable="0" physicalName="VALOR_FIXO" precision="0" referenceCount="1" scale="0" sourceDataTypeName="UserDefinedSQLType" type="6" userDefinedTypeUUID="7e55bcd0-7606-4153-b749-9c397f12c4d8" >

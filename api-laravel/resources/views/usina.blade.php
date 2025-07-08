@@ -2,155 +2,621 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Usina - {{ $usina->cliente->nome }}</title>
+  <title>Fatura - {{ $usina->cliente->nome }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: DejaVu Sans, sans-serif;
-      font-size: 12px;
-      color: #000;
+      font-family: Arial, sans-serif;
+      background-color: #ffffff;
+      font-size: 8pt;
     }
-    .container {
-      width: 100%;
-      padding: 10px;
-    }
-    .row {
+
+    .wrapper {
+      min-height: 100%;
       display: flex;
-      flex-wrap: wrap;
-      width: 100%;
-      margin-bottom: 10px;
+      flex-direction: column;
     }
-    .col-33 {
-      width: 33%;
-      padding-right: 5px;
+
+    .content {
+      flex: 1 0 auto;
     }
-    .col-67 {
-      width: 67%;
-      padding-left: 5px;
+
+    .rodape {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
     }
-    .col-50 {
-      width: 50%;
-      padding-right: 5px;
-    }
-    .col-50:last-child {
-      padding-right: 0;
-      padding-left: 5px;
-    }
-    .block {
+
+    .body-2 {
       padding: 10px;
+    }
+
+    .logo img {
+      height: 80px;
+    }
+
+    .header-2 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #ededed;
+      padding: 10px;
+      border-radius: 12px 12px 0px 0px;
+      max-width: 1200px;
+      height: 10%;
+      margin-bottom: 6px;
+    }
+
+    .header-3 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 8pt;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px; 
+    }
+
+    .info-box {
+      display: flex;
+      align-items: center;
+      background-color: #ededed;
+      border-radius: 0px 0px 12px 12px;
+      padding: 10px 18px;
+      margin: 0;
+      font-family: 'Montserrat', sans-serif;
+      color: #333;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 7.5pt;
+    }
+
+    .highlight-bar {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: linear-gradient(to right, #ffee58, #fbbc04, #f4511e);
+      padding: 10px 20px;
+      border-radius: 20px 20px 0 0;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 500;
+      color: #333;
+      gap: 20px;
+    }
+
+    .demonstrativo-geracao {
+      background: linear-gradient(to right, #ffee58, #fbbc04, #f4511e);
+      text-align: center;
+      padding: 12px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 14pt;
+      font-weight: 700;
+      color: #333;
+      border-radius: 0 0 20px 20px;
+      margin-top: 5px;
+    }
+
+    .highlight-bar p {
+      margin: 0;
+    }
+
+    .highlight-bar strong {
+      font-weight: 700;
+    }
+
+    .geracao-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 20px;
+      max-width: 1200px;
+    }
+
+    .grafico {
+      flex: 1 1 70%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dados-geracao {
+      flex: 1 1 30%;
+      background-color: #ededed;
+      border-radius: 12px;
+      padding: 10px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 10pt;
+      color: #333;
+      text-align: center;
+    }
+
+    .dados-geracao h3 {
+      font-size: 14pt;
       margin-bottom: 10px;
-      border-radius: 4px;
+      font-weight: 700;
+      color: #333;
     }
-    .yellow-block    { background-color: #ffeb3b; }
-    .turquoise-block { background-color: #00bcd4; }
-    .green-block     { background-color: #4caf50; color: #fff; }
-    .pink-block      { background-color: #e91e63; color: #fff; }
-    .brown-block     { background-color: #795548; color: #fff; }
-    .indigo-block    { background-color: #3f51b5; color: #fff; }
-    .block-title {
-      font-weight: bold;
-      margin-bottom: 5px;
-      font-size: 14px;
-    }
-    table.data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    .data-table th,
-    .data-table td {
-      border: 1px solid #000;
-      padding: 5px;
+
+    .item-geracao {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
       text-align: left;
     }
-    .data-table th {
-      background-color: #f0f0f0;
+
+    .icon-geracao {
+      width: 48px;
+      height: 48px;
     }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7pt;
+      text-align: center;
+    }
+
+    .data-table th, .data-table td {
+      padding: 2px 4px;
+      line-height: 1.1;
+      text-align: center;
+      font-size: 7pt;
+    }
+
+    /* Borda só no cabeçalho */
+    .data-table thead th {
+      border: 1px solid #470b07;
+    }
+
+    /* Borda só no corpo */
+    .data-table tbody td {
+      border: 1px solid #d32f2f;
+    }
+
+    /* Estilo de fundo do cabeçalho */
+    .data-table thead {
+      background: #470b07;
+      color: white;
+    }
+
+    .data-table th {
+      font-weight: 700;
+    }
+
+    .titulo-tabela {
+      background: linear-gradient(to right, #f44336, #fbc02d);
+      color: white;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 10pt;
+      font-weight: 600;
+      text-align: center;
+      padding: 6px;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .company-info {
+      flex: 1.5;
+      padding: 0 20px;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    .company-info h2 {
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .company-info p {
+      margin: 2px 0;
+      font-weight: 200;
+    }
+
+    .divider {
+      height: 70px;
+      width: 2px;
+      background-color: #333;
+      margin: 0 15px;
+    }
+
+    .details-2 {
+      display: flex;
+      flex: 1;
+    }
+
+    .details-2 img {
+      margin-top: 6px;
+    }
+
+    .details {
+      flex: 1;
+    }
+
+    .details p {
+      margin: 5px 0;
+    }
+
+    .details strong {
+      display: block;
+      margin-top: 2px;
+    }
+
+    .details .icon {
+      margin-right: 5px;
+    }
+
+    .linha-3-colunas {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 8pt;
+    }
+
+    .bloco {
+      padding: 10px;
+      flex: 1;   
+    }
+
+    .bloco-creditos {
+      background: #fff;
+      flex: 1.2;
+    }
+
+    .bloco-creditos .bloco-titulo {
+      text-align: center;
+      background: linear-gradient(to right, #f44336, #fbc02d);
+      color: #fff;
+      font-weight: bold;
+      border-radius: 8px 8px 0 0;
+      padding: 4px;
+      margin-bottom: 0px;
+      font-size: 9pt;
+    }
+
+    .bloco-titulo {
+      text-align: center;
+      background: linear-gradient(to right, #f44336, #fbc02d);
+      color: #fff;
+      font-weight: bold;
+      border-radius: 8px 8px 0 0;
+      padding: 4px;
+      margin-bottom: 0px;
+      font-size: 9pt;
+    }
+
+    .bloco-creditos table {
+      width: 100%;
+      font-size: 7pt;
+      text-align: center;
+      border-collapse: collapse;
+    }
+
+    .bloco-creditos th {
+      background-color: #e74c3c;
+      border: 1px solid #e74c3c;
+      color: #fff;
+      padding: 2px;
+    }
+
+    .bloco-creditos td {
+      padding: 2px;
+      border: 1px solid #ddd;
+    }
+
+    .bloco-observacoes {
+      background: #eaeaea;
+      flex: 1.3;
+      margin-bottom: 5px;
+      border-radius: 8px;   
+    }
+
+    .bloco-observacoes strong {
+      color: #470b07;
+      display: block;
+      margin-bottom: 5%;
+    }
+
+    .bloco-tabela { 
+      flex: 1.3;
+      margin-bottom: 2px;  
+    }
+
+    .bloco-historico {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bloco-historico .bloco-titulo {
+      text-align: center;
+      font-weight: bold;
+      margin-top: 16px;
+    }
+
+    .historico-valores table {
+      width: 100%;
+      font-size: 7pt;
+      border-collapse: collapse;
+    }
+
+    .historico-valores td {
+      padding: 2px 4px;
+      text-align: right;
+    }
+
+    .historico-valores td:first-child {
+      text-align: left;
+    }
+
+    .historico-valores .saldo {
+      background: #d32f2f;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .rodape {
+      width: 100%;
+      box-sizing: border-box;
+      background: linear-gradient(to right, #fdd835, #f57c00, #e53935);
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9pt;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      gap: 8px;
+      flex-wrap: wrap;
+      border-top: 2px solid transparent; /* evita linha branca */
+    }
+
+    .rodape-esquerda,
+    .rodape-direita {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .rodape .icon {
+      width: 20px;
+      height: 20px;
+      vertical-align: middle;
+    }
+
+    .rodape .icon-social {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      padding: 2px;
+    }
+
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Dados da Usina - {{ $usina->cliente->nome }}</h1>
+  <div class="wrapper">
+    <div class="content">
+      <div class="body-2">
+        <div class="header">
+          <div class="header-2">
+            <div class="logo">
+              <img src="{{ $logo }}" alt="Logo" style="width: 250px;">
+            </div>
 
-    <div class="row">
-      <div class="col-33">
-        <div class="block yellow-block">
-          <div class="block-title">Dados da Usina</div>
-          <p><strong>Nome:</strong> {{ $usina->nome }}</p>
-          <p><strong>Cliente:</strong> {{ $usina->cliente->nome }}</p>
-          <p><strong>Potência:</strong> {{ $usina->potencia }} kWp</p>
-          <p><strong>Valor kWh:</strong> R$ {{ number_format($usina->comercializacao->valor_kwh, 2, ',', '.') }}</p>
+            <div class="company-info">
+              <h2><strong>CONSÓRCIO LÍDER ENERGY</strong></h2>
+              <p><strong>CNPJ:</strong> 58.750.788/0001-33</p>
+              <p>R. BRUNISLAU BLONKOVSKI, 131</p>
+              <p>SANTA TEREZINHA/SC</p>
+              <p>89199-000</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="details">
+              <div class="details-2">
+                <img src="{{ $iconeSol }}" alt="Ícone de sol" class="icon">
+                <p><strong>Produção:</strong> {{ $mesAnoSelecionado }}</p>
+              </div>
+              <div class="details-2">
+                <img src="{{ $iconeDinheiro }}" alt="Ícone de dinheiro" class="icon">
+                <p><strong>Valor a receber:</strong> {{ number_format($valorReceber, 2, ',', '.') }}</p>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="details">
+              <p><strong>Usina:</strong></p>
+              <p>{{ $usina->cliente->nome }}</p>
+            </div>
+          </div>
+
+          <div class="header-3">
+            <div class="info-box">
+              <img src="{{ $iconeRelogio }}" alt="Ícone de Relógio" class="icon">
+              <span>Data de emissão: <strong>{{ \Carbon\Carbon::now()->locale('pt_BR')->translatedFormat('d F Y') }}</strong></span>
+            </div>
+            <div class="info-box">
+              <div class="contact-item">
+                <img src="{{ $iconeWeb }}" alt="Ícone Web" class="icon">
+                <span><strong>www.consorcioliderenergy</strong>.com.br</span>
+              </div>
+              <div class="contact-item">
+                <img src="{{ $iconeWpp }}" alt="Ícone WhatsApp" class="icon">
+                <span>47 99661-4967</span>
+              </div>
+              <div class="contact-item">
+                <img src="{{ $iconeEmail }}" alt="Ícone Email" class="icon">
+                <span>contato@<strong>liderenergy</strong>.com.br</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="highlight-bar">
+          <p><strong>UC:</strong> 544564</p>
+          <p><strong>Nº fatura:</strong> 1822222</p>
+          <p><strong>Fonte de Geração:</strong> UFV822</p>
+          <p><strong>Valor Kwh:</strong> R$ {{$usina->comercializacao->valor_kwh}}</p>
+          <p><strong>Valor a receber:</strong> R$ {{ number_format($valorReceber, 2, ',', '.') }}</p>
+        </div>
+      
+        <div class="demonstrativo-geracao">
+          DEMONSTRATIVO DE GERAÇÃO
+        </div>
+
+        @php
+          // Fatores de conversão atualizados
+          $fatorEmissao = 0.4;    // kg CO2 evitado por kWh gerado (média no Brasil)
+          $kgPorArvore = 20;      // kg CO2 capturado por árvore por ano
+
+          // Cálculos
+          $co2Evitado = $valorReceber * $fatorEmissao; // em kg
+          $arvores = $co2Evitado / $kgPorArvore;
+        @endphp
+
+        <div class="geracao-container">
+          <div class="grafico">
+            <div class="block-title" style="margin-bottom: 10px; font-weight: bold;">Gráfico de Geração da Usina</div>
+            <canvas id="graficoGeracao"  style="width: 100%; max-width: 480px; height: auto;"></canvas>
+          </div>
+
+          <div class="dados-geracao">
+            <h3>Dados de Geração<br>de Energia</h3>
+            <p>Sua geração de energia foi de <span style="color: orangered;"><strong>{{ number_format($geracaoMes, 2, ',', '.') }} Kwh</span><br>isso é igual a:</p>
+
+            <div class="item-geracao">
+              <img src="{{ $iconeCo2 }}" alt="Ícone CO2" class="icon-geracao">
+              <span><strong>{{ number_format($co2Evitado, 0, ',', '.') }}Kg</strong> de <strong>emissão de CO₂ evitada</strong></span>
+            </div>
+
+            <div class="item-geracao">
+              <img src="{{ $iconeArvore }}" alt="Ícone Árvore" class="icon-geracao">
+              <span><strong>{{ number_format($arvores, 0, ',', '.') }}</strong> árvores <strong>plantadas</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="titulo-tabela">
+            DADOS DE GERAÇÃO E FATURAMENTO
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Mês</th>
+                <th>Geração (kWh)</th>
+                <th>Valor Fixo (R$)</th>
+                <th>Injetado (R$)</th>
+                <th>Creditado (R$)</th>
+                <th>CUO (R$)</th>
+                <th>Valor Final (R$)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($dadosMensais as $mes => $dados)
+                <tr>
+                  <td>{{ $mes }}</td>
+                  <td>{{ number_format($usina->dadoGeracao->{strtolower($mes)}, 2, ',', '.') }}</td>
+                  <td>{{ number_format($dados['fixo'], 2, ',', '.') }}</td>
+                  <td>{{ number_format($dados['injetado'], 2, ',', '.') }}</td>
+                  <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
+                  <td>{{ number_format($dados['cuo'], 2, ',', '.') }}</td>
+                  <td>{{ number_format($dados['valor_final'], 2, ',', '.') }}</td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+
+      <div class="linha-3-colunas">
+        <!-- Demonstrativo de Créditos -->
+        <div class="bloco bloco-creditos">
+          <div class="bloco-titulo">DEMONSTRATIVO DE CRÉDITOS</div>
+          @php
+              $ultimos6Meses = collect($dadosFaturamento)->reverse()->take(6)->reverse();
+          @endphp
+
+          <table class="data-table">
+              <thead>
+                  <tr>
+                      <th>Mês</th>
+                      <th>Geração</th>
+                      <th>Valor Guardado</th>
+                      <th>Creditado</th>
+                      <th>Valor Pago</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  @foreach($ultimos6Meses as $mes => $dados)
+                      <tr>
+                          <td>{{ $mes }}</td>
+                          <td>{{ number_format($dados['geracao'], 2, ',', '.') }} Kwh</td>
+                          <td>{{ number_format($dados['guardado'], 2, ',', '.') }}</td>
+                          <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
+                          <td>{{ number_format($dados['pago'], 2, ',', '.') }}</td>
+                      </tr>
+                  @endforeach
+              </tbody>
+          </table>
+        </div>
+
+        <div class="bloco bloco-historico">
+          <div class="historico-valores">
+            <!-- Observações -->
+            <div class="bloco bloco-observacoes">
+              <strong>Observações:</strong>
+              <p>{{ $observacoes }}</p>
+            </div>
+            <div class="bloco-titulo">HISTÓRICO DE VALORES</div>
+            <table class="bloco bloco-tabela">
+              <tr><td>Total acum de energia a receber</td><td>R$ 39.850,84</td></tr>
+              <tr><td>Total acum de fatura concessionária</td><td>R$ 1.181,43</td></tr>
+              <tr><td>Total acum de faturas emitidas</td><td>R$ 34.535,94</td></tr>
+              <tr class="saldo"><td>SALDO</td><td>R$ 4.133,47</td></tr>
+            </table>
+          </div>
         </div>
       </div>
-
-      <div class="block" style="background-color:#f5f5f5;">
-        <div class="block-title">Gráfico de Geração da Usina</div>
-        <canvas id="graficoGeracao" width="800" height="400"></canvas>
-      </div>
-
-      <div class="col-67">
-        <div class="block turquoise-block">
-          <div class="block-title">Geração Média</div>
-          <p><strong>Média:</strong> {{ number_format($usina->dadoGeracao->media, 2, ',', '.') }} kWh</p>
-          <p><strong>Menor Geração:</strong> {{ number_format($usina->dadoGeracao->menor_geracao, 2, ',', '.') }} kWh</p>
-        </div>
-
-        <div class="block green-block">
-          <div class="block-title">Dados Comerciais</div>
-          <p><strong>Valor Fixo:</strong> R$ {{ number_format($usina->dadoGeracao->menor_geracao * $usina->comercializacao->valor_kwh, 2, ',', '.') }}</p>
-          <p><strong>Modalidade:</strong> {{ $usina->comercializacao->modalidade ?? 'N/A' }}</p>
-          <p><strong>Início Contrato:</strong> {{ $usina->comercializacao->inicio_contrato ?? 'N/A' }}</p>
-        </div>
-      </div>
-    </div> 
-
-    <div class="block">
-      <div class="block-title">Geração Mensal</div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Mês</th>
-            <th>Geração (kWh)</th>
-            <th>Valor Fixo (R$)</th>
-            <th>Injetado (R$)</th>
-            <th>Creditado (R$)</th>
-            <th>CUO (R$)</th>
-            <th>Valor Final (R$)</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach($dadosMensais as $mes => $dados)
-            <tr>
-              <td>{{ $mes }}</td>
-              <td>{{ number_format($usina->dadoGeracao->{strtolower($mes)}, 2, ',', '.') }}</td>
-              <td>{{ number_format($dados['fixo'], 2, ',', '.') }}</td>
-              <td>{{ number_format($dados['injetado'], 2, ',', '.') }}</td>
-              <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
-              <td>{{ number_format($dados['cuo'], 2, ',', '.') }}</td>
-              <td>{{ number_format($dados['valor_final'], 2, ',', '.') }}</td>
-            </tr>
-          @endforeach
-        </tbody>
-      </table>
     </div>
-
-    <div class="row">
-      <div class="col-50">
-        <div class="block brown-block">
-          <div class="block-title">Fatura</div>
-          <p><strong>Valor Médio:</strong> R$ {{ number_format(array_sum(array_column($dadosMensais, 'valor_final')) / 12, 2, ',', '.') }}</p>
-        </div>
+    <footer class="rodape">
+      <div class="rodape-esquerda">
+        <img src="{{ $iconeLampada }}" alt="Lâmpada" class="icon">
+        <span>Pense bem antes de imprimir!</span>
       </div>
-
-      <div class="col-50">
-        <div class="block indigo-block">
-          <div class="block-title">Contatos</div>
-          <p><strong>Email:</strong> {{ $usina->cliente->email ?? 'N/A' }}</p>
-          <p><strong>Telefone:</strong> {{ $usina->cliente->telefone ?? 'N/A' }}</p>
-        </div>
+      <div class="rodape-direita">
+        <span>Siga a Lider Energy nas redes sociais:</span>
+        <a href="https://www.linkedin.com/company/liderenergy" target="_blank">
+          <img src="{{ $iconeLinkedin }}" alt="LinkedIn" class="icon-social">
+        </a>
+        <a href="https://www.instagram.com/liderenergy" target="_blank">
+          <img src="{{ $iconeInstagram }}" alt="Instagram" class="icon-social">
+        </a>
       </div>
-    </div>
+    </footer>
   </div>
-
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
   <script>
@@ -172,12 +638,14 @@
             label: 'Geração Mensal (kWh)',
             data: valores,
             fill: true,
-            borderColor: 'rgb(75, 192, 192)',
+            borderColor: 'rgb(243, 153, 86)',
             tension: 0.3,
-            pointBackgroundColor: 'rgb(75, 192, 192)',
+            pointBackgroundColor: 'rgb(243, 153, 86)',
           }]
         },
         options: {
+          responsive: true,
+          aspectRatio: 1.8,
           plugins: {
             legend: {
               display: false
@@ -190,6 +658,7 @@
                 return value.toFixed(2);
               },
               font: {
+                size: 8,
                 weight: 'bold'
               }
             }

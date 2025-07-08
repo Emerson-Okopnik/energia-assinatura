@@ -21,6 +21,7 @@
           <th>Saldo Disponível</th>
           <th>Vendedor</th>
           <th>Concessionária Usina</th>
+          <th>Formulário</th>
         </tr>
       </thead>
       <tbody>
@@ -34,9 +35,10 @@
             <td :class="classeSaldo(usinaId)"><b>{{ saldoDisponivelUsina(usinaId).toFixed(2) }} kWh</b></td>
             <td>{{ usina.usina.vendedor.nome }}</td>
             <td>{{ usina.usina.comercializacao.cia_energia }}</td>
+            <td><button class="btn btn-orange" @click.stop="gerarPDFConsumidores(usinaId)">PDF</button></td>
           </tr>
           <tr v-if="usinasExpandida.includes(usinaId)">
-            <td colspan="7" style="padding: 0">
+            <td colspan="8" style="padding: 0">
               <table class="mb-0 table-sm w-100 table">
                 <thead class="tabela-usina">
                   <tr>
@@ -68,6 +70,7 @@
 </template>
 
 <script>
+import Swal from 'sweetalert2';
 import axios from 'axios';
 
 export default {
@@ -112,6 +115,50 @@ export default {
     saldoDisponivelUsina(usi_id) {
       const geracao = this.usinasMapeadas[usi_id]?.usina?.dado_geracao?.media || 0;
       return geracao - this.totalConsumo(usi_id);
+    },
+    async gerarPDFConsumidores(usi_id) {
+      const baseURL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem("token");
+
+      try {
+        Swal.fire({
+          title: 'Gerando PDF...',
+          html: 'Aguarde enquanto preparamos o documento.',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        const response = await axios.get(`${baseURL}/gerar-pdf-consumidores/${usi_id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob"
+        });
+
+        Swal.close(); // Fecha o loading após o recebimento do PDF
+
+        const blob = new Blob([response.data], { type: "application/pdf" });
+        const url = window.URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `consumidores-usina-${usi_id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+
+      } catch (error) {
+        console.error("Erro ao gerar PDF:", error);
+        Swal.close();
+        Swal.fire({
+          icon: "error",
+          title: "Erro ao gerar PDF",
+          text: "Não foi possível gerar o PDF.",
+          confirmButtonColor: "#d33",
+          confirmButtonText: "Fechar"
+        });
+      }
     },
     calcularTotais() {
       const usinasSomadas = new Set();
@@ -179,7 +226,7 @@ export default {
       this.relatorio = relatorioRes.data;
 
       this.organizarRelatorio();
-      this.atribuirCoresPorUsina(this.relatorio);
+      //this.atribuirCoresPorUsina(this.relatorio);
       this.calcularTotais();
 
     } catch (error) {
@@ -286,6 +333,16 @@ table .text-dark {
 
 .create-account a:hover {
   text-decoration: underline;
+}
+
+.btn-orange{
+  color: white;
+  background-color: #f28c1f;
+}
+
+.btn-orange:hover{
+  color: white;
+  background-color: #d97706;
 }
 
 @media (max-width: 768px) {

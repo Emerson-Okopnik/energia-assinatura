@@ -19,62 +19,143 @@
           <div class="row mb-2">
             <div class="col-md-6">
               <label for="name">Nome</label>
-              <input id="name" type="text" class="form-control" v-model="form.nome" />
+              <input
+                id="name"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.nome }"
+                v-model="form.nome"
+                @input="errors.nome = ''"
+              />
+              <div v-if="errors.nome" class="invalid-feedback">{{ errors.nome }}</div>
             </div>
             <div class="col-md-6">
               <label for="cpf/cnpj">CPF/CNPJ</label>
-              <input id="cpf/cnpj" type="text" class="form-control" v-model="form.cpf_cnpj" />
+              <input
+                id="cpf/cnpj"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.cpf_cnpj }"
+                v-model="form.cpf_cnpj"
+                @input="errors.cpf_cnpj = ''"
+              />
+              <div v-if="errors.cpf_cnpj" class="invalid-feedback">{{ errors.cpf_cnpj }}</div>
             </div>
           </div>
           <div class="row mb-2">
             <div class="col-md-6">
               <label for="endereco">Endereço</label>
-              <input id="endereco" type="text" class="form-control" v-model="form.rua" />
+              <input
+                id="endereco"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.rua }"
+                v-model="form.rua"
+                @input="errors.rua = ''"
+              />
+              <div v-if="errors.rua" class="invalid-feedback">{{ errors.rua }}</div>
             </div>
             <div class="col-md-2">
               <label for="numero">Número</label>
-              <input id="numero" type="number" class="form-control" v-model="form.numero" />
+              <input
+                id="numero"
+                type="number"
+                class="form-control"
+                :class="{ 'is-invalid': errors.numero }"
+                v-model="form.numero"
+                @input="errors.numero = ''"
+              />
+              <div v-if="errors.numero" class="invalid-feedback">{{ errors.numero }}</div>
             </div>
             <div class="col-md-4">
               <label for="bairro">Bairro</label>
-              <input id="bairro" type="text" class="form-control" v-model="form.bairro" />
+              <input
+                id="bairro"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.bairro }"
+                v-model="form.bairro"
+                @input="errors.bairro = ''"
+              />
+              <div v-if="errors.bairro" class="invalid-feedback">{{ errors.bairro }}</div>
             </div>
           </div>
 
           <div class="row mb-2">
             <div class="col-md-4">
               <label for="cidade">Cidade</label>
-              <input id="cidade" type="text" class="form-control" v-model="form.cidade" />
+              <input
+                id="cidade"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.cidade }"
+                v-model="form.cidade"
+                @input="errors.cidade = ''"
+              />
+              <div v-if="errors.cidade" class="invalid-feedback">{{ errors.cidade }}</div>
             </div>
             <div class="col-md-4">
               <label for="estado">Estado</label>
-              <input id="estado" type="text" class="form-control" v-model="form.estado" />
+              <input
+                id="estado"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.estado }"
+                v-model="form.estado"
+                @input="errors.estado = ''"
+              />
+              <div v-if="errors.estado" class="invalid-feedback">{{ errors.estado }}</div>
             </div>
             <div class="col-md-4">
               <label for="cep">CEP</label>
-              <input id="cep" type="text" class="form-control" v-model="form.cep" />
+              <input
+                id="cep"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.cep }"
+                v-model="form.cep"
+                @input="errors.cep = ''"
+              />
+              <div v-if="errors.cep" class="invalid-feedback">{{ errors.cep }}</div>
             </div>
           </div>
 
           <div class="row mb-2">
             <div class="col-md-6">
               <label for="telefone">Telefone</label>
-              <input id="telefone" type="text" class="form-control" v-model="form.telefone" />
+              <input
+                id="telefone"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.telefone }"
+                v-model="form.telefone"
+                @input="errors.telefone = ''"
+              />
+              <div v-if="errors.telefone" class="invalid-feedback">{{ errors.telefone }}</div>
             </div>
             <div class="col-md-6">
               <label for="email">E-mail</label>
-              <input id="email" type="email" class="form-control" v-model="form.email" />
+              <input
+                id="email"
+                type="email"
+                class="form-control"
+                :class="{ 'is-invalid': errors.email }"
+                v-model="form.email"
+                @input="errors.email = ''"
+              />
+              <div v-if="errors.email" class="invalid-feedback">{{ errors.email }}</div>
             </div>
           </div>
           <div class="row mb-2 mt-2">
             <div class="col-md-3">
               <label for="vendedor">Vendedor</label>
-              <select id="vendedor" class="form-control" v-model="form.vendedor">
+              <select id="vendedor" class="form-control" :class="{ 'is-invalid': errors.vendedor }" v-model="form.vendedor" @change="errors.vendedor = ''">
                 <option disabled value="">Selecione o Vendedor</option>
                 <option v-for="v in vendedor" :key="v.ven_id" :value="v.ven_id">
                   {{ v.nome }}
                 </option>
               </select>
+              <div v-if="errors.vendedor" class="invalid-feedback">{{ errors.vendedor }}</div>
             </div>
             <div class="col-md-3">
               <label for="data_entrega">Data de Entrega</label>
@@ -101,12 +182,13 @@
           </div>
           <div class="col-md-4">
             <label for="ciaenergia">CIA Energia</label>
-            <select id="ciaenergia" class="form-control" v-model="form.cia_energia">
+            <select id="ciaenergia" class="form-control" :class="{ 'is-invalid': errors.cia_energia }" v-model="form.cia_energia" @change="errors.cia_energia = ''">
               <option disabled value="">Selecione a CIA de Energia</option>
               <option v-for="cia in ciasEnergia" :key="cia" :value="cia">
                 {{ cia }}
               </option>
             </select>
+            <div v-if="errors.cia_energia" class="invalid-feedback">{{ errors.cia_energia }}</div>
           </div>
           <h5 class="mt-4">Dados de Consumo</h5>
           <div class="row">
@@ -177,7 +259,8 @@ export default {
         dezembro: 'Dez'
       },
       successMessage: '',
-      errorMessage: ''
+      errorMessage: '',
+      errors: {}
     };
   },
   computed: {
@@ -191,7 +274,47 @@ export default {
   mounted() {
     this.fetchVendedores();
   },
+  watch: {
+    'form.cpf_cnpj'(val) {
+      const formatted = this.formatCpfCnpj(val);
+      if (formatted !== val) {
+        this.form.cpf_cnpj = formatted;
+      }
+    },
+    'form.telefone'(val) {
+      const formatted = this.formatTelefone(val);
+      if (formatted !== val) {
+        this.form.telefone = formatted;
+      }
+    }
+  },
   methods: {
+    formatCpfCnpj(value) {
+      let v = (value || '').replace(/\D/g, '');
+      if (v.length <= 11) {
+        v = v.slice(0, 11)
+          .replace(/(\d{3})(\d)/, '$1.$2')
+          .replace(/(\d{3})(\d)/, '$1.$2')
+          .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+      } else {
+        v = v.slice(0, 14)
+          .replace(/(\d{2})(\d)/, '$1.$2')
+          .replace(/(\d{3})(\d)/, '$1.$2')
+          .replace(/(\d{3})(\d)/, '$1/$2')
+          .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+      }
+      return v;
+    },
+
+    formatTelefone(value) {
+      let v = (value || '').replace(/\D/g, '').slice(0, 11);
+      if (v.length <= 10) {
+        v = v.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+      } else {
+        v = v.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+      }
+      return v.trim();
+    },
     async fetchVendedores() {
       try {
         const baseURL = import.meta.env.VITE_API_URL;
@@ -204,7 +327,49 @@ export default {
         console.error("Erro ao carregar vendedores:", error);
       }
     },
+    validateForm() {
+      this.errors = {};
+      const required = [
+        'nome',
+        'cpf_cnpj',
+        'rua',
+        'numero',
+        'bairro',
+        'cidade',
+        'estado',
+        'cep',
+        'telefone',
+        'email',
+        'vendedor',
+        'cia_energia'
+      ];
+      required.forEach((field) => {
+        if (!this.form[field]) {
+          this.errors[field] = 'Campo obrigatório';
+        }
+      });
+      return Object.keys(this.errors).length === 0;
+    },
+    resetForm() {
+      this.form = {
+        nome: '',
+        cpf_cnpj: '',
+        rua: '',
+        numero: null,
+        cidade: '',
+        estado: '',
+        bairro: '',
+        cep: '',
+        telefone: '',
+        email: '',
+        cia_energia: '',
+        vendedor: '',
+      };
+    },
     async submitForm() {
+      if (!this.validateForm()) {
+        return;
+      }
       try {
         const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
@@ -280,6 +445,7 @@ export default {
 
         this.successMessage = "Consumidor cadastrado com sucesso!";
         this.errorMessage = "";
+        this.resetForm();
 
       } catch (error) {
         this.successMessage = "";

@@ -74,13 +74,11 @@
       </div>
       <div class="col-md-3">
         <label for="mesGeracao">Geração de {{ meses[mesSelecionado] }}:</label>
-        <input id="mesGeracao" type="number" step="0.01" class="form-control" v-model.number="mesGeracao"
-          @input="atualizarValores" />
+        <input id="mesGeracao" type="number" step="0.01" class="form-control" v-model.number="mesGeracao" @input="atualizarValores" />
       </div>
       <div class="col-md-4">
         <label for="valorGeracaoMes">Valor Gerado (R$):</label>
-        <input id="valorGeracaoMes" type="number" step="0.01" class="form-control" v-model.number="valorGeracaoMes"
-          readonly />
+        <input id="valorGeracaoMes" type="number" step="0.01" class="form-control" v-model.number="valorGeracaoMes" readonly />
       </div>
     </div>
 
@@ -142,6 +140,11 @@
       <p :class="['fs-5 fw-bold p-2 rounded', reservaClasse]">
         {{ reservaTotal }} kWh
       </p>
+    </div>
+
+    <div class="mb-4">
+      <label for="observacoes" class="form-label">Observações:</label>
+      <textarea id="observacoes" v-model="observacoes" rows="3" class="form-control"></textarea>
     </div>
 
     <button @click="gerarPDF" class="btn btn-orange">
@@ -208,6 +211,7 @@ export default {
       anoFaturamento: new Date().getFullYear(),
       dadosFaturamentoAnual: null,
       dadosGeracaoRealMensal: {},
+      observacoes: '',
     };
   },
   computed: {
@@ -584,6 +588,15 @@ export default {
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
 
+      // Pega mês e ano atuais
+      const hoje = new Date();
+      const mesAtual = hoje.getMonth() + 1; // getMonth() vai de 0 a 11
+      const anoAtual = hoje.getFullYear();
+
+      // Usa os valores passados no componente se existirem, senão usa os atuais
+      const mesGeracao = this.mesGeracao || mesAtual;
+      const anoGeracao = this.anoGeracao || anoAtual;
+
       try {
         Swal.fire({
           title: 'Gerando PDF...',
@@ -597,6 +610,11 @@ export default {
         const response = await axios.get(`${baseURL}/gerar-pdf-usina/${this.selectedUsinaId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
+          },
+          params: {
+            observacoes: this.observacoes,
+            mes: mesGeracao,
+            ano: anoGeracao,
           },
           responseType: 'blob'
         });

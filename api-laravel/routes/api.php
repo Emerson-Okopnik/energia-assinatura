@@ -126,4 +126,5 @@ Route::middleware('auth:api')->group(function () {
   Route::get('/dados-geracao-real-usina/usina/{usi_id}', [DadosGeracaoRealUsinaController::class, 'byUsinaId']);
 
   Route::get('/gerar-pdf-usina/{id}', [PDFController::class, 'gerarUsinaPDF']);
+  Route::get('/gerar-pdf-consumidores/{id}', [PDFController::class, 'gerarConsumidoresPDF']);
 });
