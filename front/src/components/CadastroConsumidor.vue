@@ -364,6 +364,7 @@ export default {
         email: '',
         cia_energia: '',
         vendedor: '',
+        uc: '',
       };
     },
     async submitForm() {

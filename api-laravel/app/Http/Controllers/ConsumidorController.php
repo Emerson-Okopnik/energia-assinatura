@@ -24,6 +24,7 @@ class ConsumidorController extends Controller {
             'dcon_id' => 'required|integer|exists:dados_consumo,dcon_id',
             'ven_id' => 'required|integer|exists:vendedor,ven_id',
             'cia_energia' => 'required|string',
+            'uc' => 'nullable|string',
             'data_entrega' => 'nullable|date',
             'status' => 'nullable|string|max:255',
             'alocacao' => 'nullable|string|max:255',

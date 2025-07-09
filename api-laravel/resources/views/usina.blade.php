@@ -476,7 +476,7 @@
           </div>
         </div>
         <div class="highlight-bar">
-          <p><strong>UC:</strong> 544564</p>
+          <p><strong>UC:</strong> {{ $usina->cliente->consumidores->uc ?? 'N/A' }}</p>
           <p><strong>Nº fatura:</strong> 1822222</p>
           <p><strong>Fonte de Geração:</strong> UFV822</p>
           <p><strong>Valor Kwh:</strong> R$ {{$usina->comercializacao->valor_kwh}}</p>
