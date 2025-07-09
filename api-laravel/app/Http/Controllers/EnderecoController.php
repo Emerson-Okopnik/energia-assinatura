@@ -22,6 +22,7 @@ class EnderecoController extends Controller
         $data = $request->validate([
             'rua' => 'string',
             'cidade' => 'string',
+            'bairro' => 'string',
             'estado' => 'string|max:2',
             'complemento' => 'string',
             'cep' => 'string|max:10',
@@ -46,6 +47,7 @@ class EnderecoController extends Controller
         $data = $request->validate([
             'rua' => 'string',
             'cidade' => 'string',
+            'bairro' => 'string',
             'estado' => 'string|max:2',
             'complemento' => 'string',
             'cep' => 'string|max:10',

@@ -8,11 +8,11 @@
             <th>Nome</th>
             <th>CPF / CNPJ</th>
             <th>Telefone</th>
-            <th>E-mail</th>
             <th>Status</th>
             <th>Cidade</th>
             <th>Consumo Médio</th>
             <th>CIA Energia</th>
+            <th>UC</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -25,7 +25,6 @@
             </td>
             <td class="nowrap">{{ consumidor.cliente.cpf_cnpj }}</td>
             <td class="nowrap">{{ consumidor.cliente.telefone }}</td>
-            <td>{{ consumidor.cliente.email }}</td>
             <td>
               <span v-if="consumidor.status === 'Aderido'" class="badge bg-success">Conectado</span>
               <span v-else-if="consumidor.status === 'Aguardando troca de titularidade'" class="badge bg-danger">Não Conectado</span>
@@ -41,6 +40,7 @@
             </td>
             <td>{{ consumidor.dado_consumo.media }} Kwh</td>
             <td>{{ consumidor.cia_energia }}</td>
+            <td>{{ consumidor.uc }}</td>
             <td class="text-center">
               <button class="btn btn-sm btn-danger" @click="deletarConsumidor(consumidor.con_id)">
               <i class="fas fa-trash-alt"></i>

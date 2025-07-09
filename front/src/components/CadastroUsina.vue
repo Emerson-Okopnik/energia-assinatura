@@ -46,7 +46,7 @@
 
           <!-- Endereço -->
           <div class="row mb-2">
-            <div class="col-md-6">
+            <div class="col-md-5">
               <label for="endereco">Endereço</label>
               <input
                 id="endereco"
@@ -58,7 +58,7 @@
               />
               <div v-if="errors.rua" class="invalid-feedback">{{ errors.rua }}</div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-1">
               <label for="numero">Número</label>
               <input
                 id="numero"
@@ -70,7 +70,7 @@
               />
               <div v-if="errors.numero" class="invalid-feedback">{{ errors.numero }}</div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="bairro">Bairro</label>
               <input
                 id="bairro"
@@ -81,6 +81,18 @@
                 @input="errors.bairro = ''"
               />
               <div v-if="errors.bairro" class="invalid-feedback">{{ errors.bairro }}</div>
+            </div>
+            <div class="col-md-3">
+              <label for="complemento">Complemento</label>
+              <input
+                id="complemento"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.complemento }"
+                v-model="form.complemento"
+                @input="errors.complemento = ''"
+              />
+              <div v-if="errors.complemento" class="invalid-feedback">{{ errors.complemento }}</div>
             </div>
           </div>
           <div class="row mb-2">
@@ -193,6 +205,10 @@
               </select>
               <div v-if="errors.status" class="invalid-feedback">{{ errors.status }}</div>
             </div>
+            <div class="col-md-4">
+              <label for="uc">Unidade Consumidora</label>
+              <input id="uc" type="text" class="form-control" v-model="form.uc" />
+            </div>
           </div>
 
           <!-- Dados de Geração -->
@@ -299,6 +315,7 @@ export default {
         cpf_cnpj: '',
         rua: '',
         bairro: '',
+        complemento: '',
         numero: 0,
         cidade: '',
         estado: '',
@@ -307,6 +324,7 @@ export default {
         email: '',
         cia_energia: '',
         vendedor: '', 
+        uc: '',
         valor_kwh: 0,
         valor_fixo: 0,
         valor_final_medio: 0,
@@ -414,6 +432,7 @@ export default {
         'rua',
         'numero',
         'bairro',
+        'complemento',
         'cidade',
         'estado',
         'cep',
@@ -438,6 +457,7 @@ export default {
         cpf_cnpj: '',
         rua: '',
         bairro: '',
+        complemento: '',
         numero: 0,
         cidade: '',
         estado: '',
@@ -446,6 +466,7 @@ export default {
         email: '',
         cia_energia: '',
         vendedor: '',
+        uc: '',
         valor_kwh: 0,
         valor_fixo: 0,
         valor_final_medio: 0,
@@ -484,7 +505,8 @@ export default {
           rua: this.form.rua,
           cidade: this.form.cidade,
           estado: this.form.estado,
-          complemento: this.form.bairro,
+          bairro: this.form.bairro,
+          complemento: this.form.complemento,
           cep: this.form.cep,
           numero: this.form.numero ?? 0
         };
@@ -577,6 +599,7 @@ export default {
           dger_id: dger_id,
           com_id: com_id,
           ven_id: this.form.vendedor,
+          uc: this.form.uc,
           andamento_processo: this.form.andamento_processo,
           data_ass_contrato: this.form.data_ass_contrato,
           data_limite_troca_titularidade: this.form.data_limite_troca_titularidade,
@@ -627,7 +650,7 @@ export default {
       } catch (error) {
         this.successMessage = "";
         this.errorMessage = error.response?.data?.message || "Erro ao cadastrar consumidor.";
-        console.error("❌ Erro:", error);
+        console.error("Erro:", error);
 
         setTimeout(() => {
           this.errorMessage = '';

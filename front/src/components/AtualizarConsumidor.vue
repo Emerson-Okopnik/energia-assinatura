@@ -36,13 +36,17 @@
               <label for="endereco">Endereço</label>
               <input id="endereco" type="text" class="form-control" v-model="form.rua" />
             </div>
-            <div class="col-md-2">
+            <div class="col-md-1">
               <label for="numero">Número</label>
               <input id="numero" type="number" class="form-control" v-model="form.numero" />
             </div>
-            <div class="col-md-5">
+            <div class="col-md-3">
               <label for="bairro">Bairro</label>
               <input id="bairro" type="text" class="form-control" v-model="form.bairro" />
+            </div>
+            <div class="col-md-3">
+              <label for="complemento">Complemento</label>
+              <input id="complemento" type="text" class="form-control" v-model="form.complemento"/>
             </div>
           </div>
 
@@ -112,8 +116,11 @@
                 <option v-for="cia in ciasEnergia" :key="cia" :value="cia">{{ cia }}</option>
               </select>
             </div>
+            <div class="col-md-4">
+              <label for="uc">Unidade Consumidora</label>
+              <input id="uc" type="text" class="form-control" v-model="form.uc" />
+            </div>
           </div>
-
           <h5 class="mt-4">Dados de Consumo</h5>
           <div class="row">
             <div v-for="(mesLabel, mesKey) in meses" :key="mesKey" class="col-2 mb-2">
@@ -153,10 +160,12 @@ export default {
         cidade: '',
         estado: '',
         bairro: '',
+        complemento: '',
         cep: '',
         telefone: '',
         email: '',
         cia_energia: '',
+        uc: '',
         vendedor: '',
         data_entrega: '',
         status: '',
@@ -219,11 +228,13 @@ export default {
           numero: data.cliente.endereco.numero,
           cidade: data.cliente.endereco.cidade,
           estado: data.cliente.endereco.estado,
-          bairro: data.cliente.endereco.complemento,
+          bairro: data.cliente.endereco.bairro,
+          complemento: data.cliente.endereco.complemento,
           cep: data.cliente.endereco.cep,
           telefone: data.cliente.telefone,
           email: data.cliente.email,
           cia_energia: data.cia_energia,
+          uc: data.uc,
           vendedor: data.vendedor.ven_id,
           data_entrega: this.formatarDataISOParaDate(data?.data_entrega),
           status: data.status,
@@ -263,7 +274,8 @@ export default {
           rua: this.form.rua,
           cidade: this.form.cidade,
           estado: this.form.estado,
-          complemento: this.form.bairro,
+          bairro: this.form.bairro,
+          complemento: this.form.complemento,
           cep: this.form.cep,
           numero: this.form.numero ?? 0
         };
@@ -311,6 +323,7 @@ export default {
           cli_id: this.form.cli_id,
           dcon_id: this.form.dcon_id,
           cia_energia: this.form.cia_energia,
+          uc: this.form.uc,
           ven_id: this.form.vendedor,
           data_entrega: this.form.data_entrega,
           status: this.form.status,

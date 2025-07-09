@@ -43,7 +43,7 @@
             </div>
           </div>
           <div class="row mb-2">
-            <div class="col-md-6">
+            <div class="col-md-5">
               <label for="endereco">Endereço</label>
               <input
                 id="endereco"
@@ -55,7 +55,7 @@
               />
               <div v-if="errors.rua" class="invalid-feedback">{{ errors.rua }}</div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-1">
               <label for="numero">Número</label>
               <input
                 id="numero"
@@ -67,7 +67,7 @@
               />
               <div v-if="errors.numero" class="invalid-feedback">{{ errors.numero }}</div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="bairro">Bairro</label>
               <input
                 id="bairro"
@@ -78,6 +78,18 @@
                 @input="errors.bairro = ''"
               />
               <div v-if="errors.bairro" class="invalid-feedback">{{ errors.bairro }}</div>
+            </div>
+            <div class="col-md-3">
+              <label for="complemento">Complemento</label>
+              <input
+                id="complemento"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.complemento }"
+                v-model="form.complemento"
+                @input="errors.complemento = ''"
+              />
+              <div v-if="errors.complemento" class="invalid-feedback">{{ errors.complemento }}</div>
             </div>
           </div>
 
@@ -180,15 +192,21 @@
               </select>
             </div>
           </div>
-          <div class="col-md-4">
-            <label for="ciaenergia">CIA Energia</label>
-            <select id="ciaenergia" class="form-control" :class="{ 'is-invalid': errors.cia_energia }" v-model="form.cia_energia" @change="errors.cia_energia = ''">
-              <option disabled value="">Selecione a CIA de Energia</option>
-              <option v-for="cia in ciasEnergia" :key="cia" :value="cia">
-                {{ cia }}
-              </option>
-            </select>
-            <div v-if="errors.cia_energia" class="invalid-feedback">{{ errors.cia_energia }}</div>
+          <div class="row mb-2">
+            <div class="col-md-4">
+              <label for="ciaenergia">CIA Energia</label>
+              <select id="ciaenergia" class="form-control" :class="{ 'is-invalid': errors.cia_energia }" v-model="form.cia_energia" @change="errors.cia_energia = ''">
+                <option disabled value="">Selecione a CIA de Energia</option>
+                <option v-for="cia in ciasEnergia" :key="cia" :value="cia">
+                  {{ cia }}
+                </option>
+              </select>
+              <div v-if="errors.cia_energia" class="invalid-feedback">{{ errors.cia_energia }}</div>
+            </div>
+            <div class="col-md-4">
+              <label for="uc">Unidade Consumidora</label>
+              <input id="uc" type="text" class="form-control" v-model="form.uc" />
+            </div>
           </div>
           <h5 class="mt-4">Dados de Consumo</h5>
           <div class="row">
@@ -227,11 +245,13 @@ export default {
         cidade: '',
         estado: '',
         bairro: '',
+        complemento: '',
         cep: '',
         telefone: '',
         email: '',
         cia_energia: '',
         vendedor: '', 
+        uc: '',
         data_entrega: '',
         status: '',
         alocacao: '',
@@ -335,6 +355,7 @@ export default {
         'rua',
         'numero',
         'bairro',
+        'complemento',
         'cidade',
         'estado',
         'cep',
@@ -359,6 +380,7 @@ export default {
         cidade: '',
         estado: '',
         bairro: '',
+        complemento: '',
         cep: '',
         telefone: '',
         email: '',
@@ -380,7 +402,8 @@ export default {
           rua: this.form.rua,
           cidade: this.form.cidade,
           estado: this.form.estado,
-          complemento: this.form.bairro,
+          bairro: this.form.bairro,
+          complemento: this.form.complemento,
           cep: this.form.cep,
           numero: this.form.numero ?? 0
         };
@@ -434,6 +457,7 @@ export default {
           cli_id: cli_id,
           dcon_id: dcon_id,
           cia_energia: this.form.cia_energia,
+          uc: this.form.uc,
           ven_id: this.form.vendedor,
           data_entrega: this.form.data_entrega,
           status: this.form.status,
@@ -451,7 +475,7 @@ export default {
       } catch (error) {
         this.successMessage = "";
         this.errorMessage = error.response?.data?.message || "Erro ao cadastrar consumidor.";
-        console.error("❌ Erro:", error);
+        console.error("Erro:", error);
 
         setTimeout(() => {
           this.errorMessage = '';

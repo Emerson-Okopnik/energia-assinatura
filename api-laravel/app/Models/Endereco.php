@@ -13,6 +13,7 @@ class Endereco extends Model
     protected $fillable = [
         'rua',
         'cidade',
+        'bairro',
         'estado',
         'complemento',
         'cep',
@@ -22,6 +23,7 @@ class Endereco extends Model
     protected $casts = [
         'rua' => 'string',
         'cidade' => 'string',
+        'bairro' => 'string',
         'estado' => 'string',
         'complemento' => 'string',
         'cep' => 'string',
