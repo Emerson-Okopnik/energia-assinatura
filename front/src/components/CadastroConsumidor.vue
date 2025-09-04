@@ -1,190 +1,214 @@
 <template>
-  <div>
-    <div v-if="errorMessage" class="alert-float alert alert-danger">
-      {{ errorMessage }}
+  <div class="min-h-screen bg-gray-50 pt-20">
+    <!-- Converted Bootstrap alerts to Tailwind toast notifications -->
+    <div v-if="errorMessage" class="fixed top-20 right-4 z-50 max-w-sm">
+      <div class="bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg animate-fade-in">
+        {{ errorMessage }}
+      </div>
     </div>
-    <div v-if="successMessage" class="alert-float alert alert-success">
-      {{ successMessage }}
+    <div v-if="successMessage" class="fixed top-20 right-4 z-50 max-w-sm">
+      <div class="bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg animate-fade-in">
+        {{ successMessage }}
+      </div>
     </div>
-    <div class="container mt-5 pt-5">
-      <div class="row">
-        <div class="col-md-12">
-          <div class="d-flex align-items-center mb-3">
-            <h4 class="mb-0">Cadastro de Consumidores</h4>
-            <div class="mx-3">
-              <button class="btn btn-success btn-sm me-2">Conectado</button>
-              <button class="btn btn-danger btn-sm">Não Conectado</button>
-            </div>
+
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+      <!-- Updated header section with Tailwind layout -->
+      <div class="card mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+          <h1 class="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">Cadastro de Consumidores</h1>
+          <div class="flex space-x-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              Conectado
+            </span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+              Não Conectado
+            </span>
           </div>
-          <div class="row mb-2">
-            <div class="col-md-6">
-              <label for="name">Nome</label>
+        </div>
+
+        <form @submit.prevent="submitForm" class="space-y-6">
+          <!-- Personal Information -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Nome</label>
               <input
                 id="name"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.nome }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.nome }"
                 v-model="form.nome"
                 @input="errors.nome = ''"
               />
-              <div v-if="errors.nome" class="invalid-feedback">{{ errors.nome }}</div>
+              <div v-if="errors.nome" class="mt-1 text-sm text-red-600">{{ errors.nome }}</div>
             </div>
-            <div class="col-md-6">
-              <label for="cpf/cnpj">CPF/CNPJ</label>
+            <div>
+              <label for="cpf/cnpj" class="block text-sm font-medium text-gray-700 mb-2">CPF/CNPJ</label>
               <input
                 id="cpf/cnpj"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.cpf_cnpj }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.cpf_cnpj }"
                 v-model="form.cpf_cnpj"
                 @input="errors.cpf_cnpj = ''"
               />
-              <div v-if="errors.cpf_cnpj" class="invalid-feedback">{{ errors.cpf_cnpj }}</div>
+              <div v-if="errors.cpf_cnpj" class="mt-1 text-sm text-red-600">{{ errors.cpf_cnpj }}</div>
             </div>
           </div>
-          <div class="row mb-2">
-            <div class="col-md-5">
-              <label for="endereco">Endereço</label>
+
+          <!-- Address Information -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div class="md:col-span-5">
+              <label for="endereco" class="block text-sm font-medium text-gray-700 mb-2">Endereço</label>
               <input
                 id="endereco"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.rua }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.rua }"
                 v-model="form.rua"
                 @input="errors.rua = ''"
               />
-              <div v-if="errors.rua" class="invalid-feedback">{{ errors.rua }}</div>
+              <div v-if="errors.rua" class="mt-1 text-sm text-red-600">{{ errors.rua }}</div>
             </div>
-            <div class="col-md-1">
-              <label for="numero">Número</label>
+            <div class="md:col-span-1">
+              <label for="numero" class="block text-sm font-medium text-gray-700 mb-2">Número</label>
               <input
                 id="numero"
                 type="number"
-                class="form-control"
-                :class="{ 'is-invalid': errors.numero }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.numero }"
                 v-model="form.numero"
                 @input="errors.numero = ''"
               />
-              <div v-if="errors.numero" class="invalid-feedback">{{ errors.numero }}</div>
+              <div v-if="errors.numero" class="mt-1 text-sm text-red-600">{{ errors.numero }}</div>
             </div>
-            <div class="col-md-3">
-              <label for="bairro">Bairro</label>
+            <div class="md:col-span-3">
+              <label for="bairro" class="block text-sm font-medium text-gray-700 mb-2">Bairro</label>
               <input
                 id="bairro"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.bairro }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.bairro }"
                 v-model="form.bairro"
                 @input="errors.bairro = ''"
               />
-              <div v-if="errors.bairro" class="invalid-feedback">{{ errors.bairro }}</div>
+              <div v-if="errors.bairro" class="mt-1 text-sm text-red-600">{{ errors.bairro }}</div>
             </div>
-            <div class="col-md-3">
-              <label for="complemento">Complemento</label>
+            <div class="md:col-span-3">
+              <label for="complemento" class="block text-sm font-medium text-gray-700 mb-2">Complemento</label>
               <input
                 id="complemento"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.complemento }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.complemento }"
                 v-model="form.complemento"
                 @input="errors.complemento = ''"
               />
-              <div v-if="errors.complemento" class="invalid-feedback">{{ errors.complemento }}</div>
+              <div v-if="errors.complemento" class="mt-1 text-sm text-red-600">{{ errors.complemento }}</div>
             </div>
           </div>
 
-          <div class="row mb-2">
-            <div class="col-md-4">
-              <label for="cidade">Cidade</label>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label for="cidade" class="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
               <input
                 id="cidade"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.cidade }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.cidade }"
                 v-model="form.cidade"
                 @input="errors.cidade = ''"
               />
-              <div v-if="errors.cidade" class="invalid-feedback">{{ errors.cidade }}</div>
+              <div v-if="errors.cidade" class="mt-1 text-sm text-red-600">{{ errors.cidade }}</div>
             </div>
-            <div class="col-md-4">
-              <label for="estado">Estado</label>
+            <div>
+              <label for="estado" class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
               <input
                 id="estado"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.estado }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.estado }"
                 v-model="form.estado"
                 @input="errors.estado = ''"
               />
-              <div v-if="errors.estado" class="invalid-feedback">{{ errors.estado }}</div>
+              <div v-if="errors.estado" class="mt-1 text-sm text-red-600">{{ errors.estado }}</div>
             </div>
-            <div class="col-md-4">
-              <label for="cep">CEP</label>
+            <div>
+              <label for="cep" class="block text-sm font-medium text-gray-700 mb-2">CEP</label>
               <input
                 id="cep"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.cep }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.cep }"
                 v-model="form.cep"
                 @input="errors.cep = ''"
               />
-              <div v-if="errors.cep" class="invalid-feedback">{{ errors.cep }}</div>
+              <div v-if="errors.cep" class="mt-1 text-sm text-red-600">{{ errors.cep }}</div>
             </div>
           </div>
 
-          <div class="row mb-2">
-            <div class="col-md-6">
-              <label for="telefone">Telefone</label>
+          <!-- Contact Information -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="telefone" class="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
               <input
                 id="telefone"
                 type="text"
-                class="form-control"
-                :class="{ 'is-invalid': errors.telefone }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.telefone }"
                 v-model="form.telefone"
                 @input="errors.telefone = ''"
               />
-              <div v-if="errors.telefone" class="invalid-feedback">{{ errors.telefone }}</div>
+              <div v-if="errors.telefone" class="mt-1 text-sm text-red-600">{{ errors.telefone }}</div>
             </div>
-            <div class="col-md-6">
-              <label for="email">E-mail</label>
+            <div>
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-2">E-mail</label>
               <input
                 id="email"
                 type="email"
-                class="form-control"
-                :class="{ 'is-invalid': errors.email }"
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.email }"
                 v-model="form.email"
                 @input="errors.email = ''"
               />
-              <div v-if="errors.email" class="invalid-feedback">{{ errors.email }}</div>
+              <div v-if="errors.email" class="mt-1 text-sm text-red-600">{{ errors.email }}</div>
             </div>
           </div>
-          <div class="row mb-2 mt-2">
-            <div class="col-md-3">
-              <label for="vendedor">Vendedor</label>
-              <select id="vendedor" class="form-control" :class="{ 'is-invalid': errors.vendedor }" v-model="form.vendedor" @change="errors.vendedor = ''">
+
+          <!-- Business Information -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label for="vendedor" class="block text-sm font-medium text-gray-700 mb-2">Vendedor</label>
+              <select 
+                id="vendedor" 
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.vendedor }" 
+                v-model="form.vendedor" 
+                @change="errors.vendedor = ''"
+              >
                 <option disabled value="">Selecione o Vendedor</option>
                 <option v-for="v in vendedor" :key="v.ven_id" :value="v.ven_id">
                   {{ v.nome }}
                 </option>
               </select>
-              <div v-if="errors.vendedor" class="invalid-feedback">{{ errors.vendedor }}</div>
+              <div v-if="errors.vendedor" class="mt-1 text-sm text-red-600">{{ errors.vendedor }}</div>
             </div>
-            <div class="col-md-3">
-              <label for="data_entrega">Data de Entrega</label>
-              <input id="data_entrega" type="date" class="form-control" v-model="form.data_entrega" />
+            <div>
+              <label for="data_entrega" class="block text-sm font-medium text-gray-700 mb-2">Data de Entrega</label>
+              <input id="data_entrega" type="date" class="input-field" v-model="form.data_entrega" />
             </div>
-            <div class="col-md-3">
-              <label for="status">Status</label>
-              <select id="status" class="form-control" v-model="form.status">
+            <div>
+              <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select id="status" class="input-field" v-model="form.status">
                 <option disabled value="">Selecione o status</option>
                 <option v-for="valorStatus in status" :key="valorStatus" :value="valorStatus">
                   {{ valorStatus }}
                 </option>
               </select>
             </div>
-            <div class="col-md-3">
-              <label for="alocacao">Alocação</label>
-              <select id="alocacao" class="form-control" v-model="form.alocacao">
+            <div>
+              <label for="alocacao" class="block text-sm font-medium text-gray-700 mb-2">Alocação</label>
+              <select id="alocacao" class="input-field" v-model="form.alocacao">
                 <option disabled value="">Selecione o status da Alocação</option>
                 <option v-for="valorAlocacao in opcoesAlocacao" :key="valorAlocacao" :value="valorAlocacao">
                   {{ valorAlocacao }}
@@ -192,40 +216,67 @@
               </select>
             </div>
           </div>
-          <div class="row mb-2">
-            <div class="col-md-4">
-              <label for="ciaenergia">CIA Energia</label>
-              <select id="ciaenergia" class="form-control" :class="{ 'is-invalid': errors.cia_energia }" v-model="form.cia_energia" @change="errors.cia_energia = ''">
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="ciaenergia" class="block text-sm font-medium text-gray-700 mb-2">CIA Energia</label>
+              <select 
+                id="ciaenergia" 
+                class="input-field"
+                :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': errors.cia_energia }" 
+                v-model="form.cia_energia" 
+                @change="errors.cia_energia = ''"
+              >
                 <option disabled value="">Selecione a CIA de Energia</option>
                 <option v-for="cia in ciasEnergia" :key="cia" :value="cia">
                   {{ cia }}
                 </option>
               </select>
-              <div v-if="errors.cia_energia" class="invalid-feedback">{{ errors.cia_energia }}</div>
+              <div v-if="errors.cia_energia" class="mt-1 text-sm text-red-600">{{ errors.cia_energia }}</div>
             </div>
-            <div class="col-md-4">
-              <label for="uc">Unidade Consumidora</label>
-              <input id="uc" type="text" class="form-control" v-model="form.uc" />
-            </div>
-          </div>
-          <h5 class="mt-4">Dados de Consumo</h5>
-          <div class="row">
-            <div v-for="(mesLabel, mesKey) in meses" :key="mesKey" class="col-2 mb-2">
-              <label :for="'consumo-' + mesKey">{{ mesKey }}</label>
-              <input :id="'consumo-' + mesKey" type="number" class="form-control" v-model.number="form[mesKey]" />
+            <div>
+              <label for="uc" class="block text-sm font-medium text-gray-700 mb-2">Unidade Consumidora</label>
+              <input id="uc" type="text" class="input-field" v-model="form.uc" />
             </div>
           </div>
 
-          <div class="col-md-3 mt-3">
-            <label for="media">Média</label>
-            <input id="media" type="number" class="form-control" :value="mediaConsumo" readonly />
+          <!-- Consumption Data -->
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Dados de Consumo</h3>
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+              <div v-for="(mesLabel, mesKey) in meses" :key="mesKey">
+                <label :for="'consumo-' + mesKey" class="block text-sm font-medium text-gray-700 mb-2">{{ mesKey }}</label>
+                <input 
+                  :id="'consumo-' + mesKey" 
+                  type="number" 
+                  class="input-field" 
+                  v-model.number="form[mesKey]" 
+                />
+              </div>
+            </div>
+
+            <div class="mt-4 max-w-xs">
+              <label for="media" class="block text-sm font-medium text-gray-700 mb-2">Média</label>
+              <input 
+                id="media" 
+                type="number" 
+                class="input-field bg-gray-50" 
+                :value="mediaConsumo" 
+                readonly 
+              />
+            </div>
           </div>
 
-          <div class="mt-4">
-            <button type="button" class="btn btn-submit" @click="submitForm">Salvar</button>
-            <button type="button" class="btn btn-secondary ms-2" @click="goBack">Cancelar</button>
+          <!-- Action Buttons -->
+          <div class="flex flex-col sm:flex-row gap-4 pt-6">
+            <button type="submit" class="btn-primary">
+              Salvar
+            </button>
+            <button type="button" class="btn-secondary" @click="goBack">
+              Cancelar
+            </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   </div>
@@ -397,7 +448,7 @@ export default {
         const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
 
-        // 1. Cadastrar Endereço
+        // Cadastrar Endereço
         const enderecoPayload = {
           rua: this.form.rua,
           cidade: this.form.cidade,
@@ -414,7 +465,7 @@ export default {
 
         const end_id = enderecoResponse.data.id;
 
-        // 2. Cadastrar Cliente
+        // Cadastrar Cliente
         const clientePayload = {
           nome: this.form.nome,
           cpf_cnpj: this.form.cpf_cnpj,
@@ -429,7 +480,7 @@ export default {
 
         const cli_id = clienteResponse.data.id;
 
-        // 3. Cadastrar Dados de Consumo
+        // Cadastrar Dados de Consumo
         const consumoPayload = {
           janeiro: this.form.janeiro,
           fevereiro: this.form.fevereiro,
@@ -452,7 +503,7 @@ export default {
 
         const dcon_id = consumoResponse.data.id;
 
-        // 4. Cadastrar Consumidor
+        // Cadastrar Consumidor
         const consumidorPayload = {
           cli_id: cli_id,
           dcon_id: dcon_id,
@@ -472,6 +523,10 @@ export default {
         this.errorMessage = "";
         this.resetForm();
 
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 3000);
+
       } catch (error) {
         this.successMessage = "";
         this.errorMessage = error.response?.data?.message || "Erro ao cadastrar consumidor.";
@@ -490,42 +545,30 @@ export default {
 </script>
 
 <style scoped>
-label {
-  font-weight: 500;
-}
-
-.alert-float {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
-  min-width: 250px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  animation: fadeOut 3s forwards;
-}
-
-.btn-submit{
-  color: white;
-  background-color: #f28c1f;
-}
-
-.btn-submit:hover{
-  color: white;
-  background-color: #d97706;
-}
-
-@keyframes fadeOut {
-  0% {
-    opacity: 1;
-  }
-
-  80% {
-    opacity: 1;
-  }
-
-  100% {
+@keyframes fade-in {
+  from {
     opacity: 0;
-    display: none;
+    transform: translateY(-10px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.input-field {
+  @apply border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-md shadow-sm;
+}
+
+.btn-primary {
+  @apply bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500;
 }
 </style>

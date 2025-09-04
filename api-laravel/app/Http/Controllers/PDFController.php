@@ -10,6 +10,7 @@ use Spatie\Browsershot\Browsershot;
 use Illuminate\Support\Facades\Response;
 use App\Models\CreditosDistribuidosUsina;
 use App\Models\DadosGeracaoRealUsina;
+use Carbon\Carbon;
 
 class PDFController extends Controller {
 
@@ -53,6 +54,16 @@ class PDFController extends Controller {
     $faturaEnergia = 100;
     $percentualLei = 45;
     $valorFinalFioB = 0.13 * ($percentualLei / 100);
+
+    $fixoSelecionado = $valor_fixo;
+    $injetadoSelecionado = ($geracaoMes > $media)
+        ? ($media - $menor) * $valor_kwh
+        : ($geracaoMes - $menor) * $valor_kwh;
+    $creditadoSelecionado = ($geracaoMes < $media)
+        ? ($media - $geracaoMes) * $valor_kwh
+        : 0;
+    $cuoSelecionado = -1 * ($faturaEnergia + ($geracaoMes * $valorFinalFioB));
+    $valorReceber = $fixoSelecionado + $injetadoSelecionado + $creditadoSelecionado + $cuoSelecionado;
 
     $meses = [
             'Janeiro' => $geracao->janeiro,
@@ -122,6 +133,17 @@ class PDFController extends Controller {
             }
         }
     }
+
+    $totalGuardado = array_sum(array_column($dadosFaturamento, 'guardado'));
+    $totalCreditado = array_sum(array_column($dadosFaturamento, 'creditado'));
+    $totalPago      = array_sum(array_column($dadosFaturamento, 'pago'));
+
+    $totalEnergiaReceber = $totalGuardado * $valor_kwh;
+    $totalFaturaConcessionaria = $totalCreditado;
+    $totalFaturasEmitidas = $totalPago;
+    $saldo = $totalEnergiaReceber - $totalFaturaConcessionaria - $totalFaturasEmitidas;
+
+    $uc = optional($usina->cliente->consumidores)->uc ?? 'N/A';
 
     $logoPath = public_path('img/logo-consorcio-lider-energy.png');
     $logoBase64 = base64_encode(file_get_contents($logoPath));
@@ -212,6 +234,11 @@ class PDFController extends Controller {
         'geracaoMes' => $geracaoMes,
         'dadosFaturamento' => $dadosFaturamento,
         'observacoes' => $observacoes,
+        'totalEnergiaReceber' => $totalEnergiaReceber,
+        'totalFaturaConcessionaria' => $totalFaturaConcessionaria,
+        'totalFaturasEmitidas' => $totalFaturasEmitidas,
+        'saldo' => $saldo,
+        'uc' => $uc,
     ])->render();
 
     $pdf = Browsershot::html($html)

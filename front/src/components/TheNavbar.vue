@@ -1,77 +1,113 @@
 <template>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-    <div class="container-fluid px-4">
-      <a class="navbar-brand" href="/Home"><img src="/src/assets/logo-branco.png" alt="logo-branco" width="180px"></a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
+  <!-- Converted Bootstrap navbar to Tailwind with responsive design -->
+  <nav class="navbar bg-gray-900 shadow-lg fixed top-0 left-0 right-0 z-50">
+    <div class="container mx-auto px-4 flex items-center justify-between h-16">
+      <!-- Logo -->
+      <router-link to="/Home" class="flex items-center">
+        <img src="/src/assets/logo-branco.png" alt="logo-branco" class="h-10 w-auto" />
+      </router-link>
+
+      <!-- Mobile menu button -->
+      <button 
+        @click="mobileMenuOpen = !mobileMenuOpen"
+        class="lg:hidden text-white hover:text-primary-400 focus:outline-none focus:text-primary-400"
+      >
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
       </button>
 
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav me-auto">
-          <!-- Itens visíveis apenas se autenticado -->
-          <li class="nav-item" v-if="isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/calculo-geracao">Faturar Usina</router-link>
-          </li>
+      <!-- Desktop Navigation -->
+      <div class="hidden lg:flex lg:items-center lg:space-x-6">
+        <!-- Main Navigation Items -->
+        <div v-if="isAuthenticated" class="flex items-center space-x-6">
+          <router-link 
+            to="/calculo-geracao" 
+            class="nav-link-primary"
+          >
+            Faturar Usina
+          </router-link>
 
-          <li class="nav-item dropdown position-relative" v-if="isAuthenticated">
-            <div class="nav-link dropdown-toggle text-white" @mouseover="dropdowns.usina = true"
-              @mouseleave="checkMouseLeave('usina', $event)">
-              <router-link class="text-white route-principal" to="/cadastro-usina">Cadastrar Usina</router-link>
-              <ul class="dropdown-menu" :class="{ show: dropdowns.usina }" @mouseenter="dropdowns.usina = true"
-                @mouseleave="dropdowns.usina = false">
-                <li><router-link class="dropdown-item route-secundaria" to="/cadastro-usina">Cadastrar
-                    Usina</router-link></li>
-                <li><router-link class="dropdown-item route-secundaria" to="/usinas">Usinas</router-link></li>
-              </ul>
+          <!-- Usina Dropdown -->
+          <div class="relative group">
+            <router-link 
+              to="/cadastro-usina" 
+              class="nav-link-primary flex items-center"
+            >
+              Cadastrar Usina
+              <svg class="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </router-link>
+            <div class="dropdown-menu">
+              <router-link to="/cadastro-usina" class="dropdown-item">Cadastrar Usina</router-link>
+              <router-link to="/usinas" class="dropdown-item">Usinas</router-link>
             </div>
-          </li>
+          </div>
 
-          <li class="nav-item dropdown position-relative" v-if="isAuthenticated">
-            <div class="nav-link dropdown-toggle text-white" @mouseover="dropdowns.consumidor = true"
-              @mouseleave="checkMouseLeave('consumidor', $event)">
-              <router-link class="text-white route-principal" to="/cadastro-consumidor">Cadastrar
-                Consumidor</router-link>
-              <ul class="dropdown-menu" :class="{ show: dropdowns.consumidor }"
-                @mouseenter="dropdowns.consumidor = true" @mouseleave="dropdowns.consumidor = false">
-                <li><router-link class="dropdown-item route-secundaria" to="/cadastro-consumidor">Cadastrar
-                    Consumidor</router-link></li>
-                <li><router-link class="dropdown-item route-secundaria" to="/consumidores">Consumidores</router-link>
-                </li>
-              </ul>
+          <!-- Consumidor Dropdown -->
+          <div class="relative group">
+            <router-link 
+              to="/cadastro-consumidor" 
+              class="nav-link-primary flex items-center"
+            >
+              Cadastrar Consumidor
+              <svg class="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </router-link>
+            <div class="dropdown-menu">
+              <router-link to="/cadastro-consumidor" class="dropdown-item">Cadastrar Consumidor</router-link>
+              <router-link to="/consumidores" class="dropdown-item">Consumidores</router-link>
             </div>
-          </li>
+          </div>
 
-          <li class="nav-item" v-if="isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/distribuicao">Distribuir
-              Créditos</router-link>
-          </li>
-          <li class="nav-item" v-if="isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/relatorio">Relatórios</router-link>
-          </li>
-        </ul>
+          <router-link to="/distribuicao" class="nav-link-primary">Distribuir Créditos</router-link>
+          <router-link to="/relatorio" class="nav-link-primary">Relatórios</router-link>
+        </div>
 
-        <ul class="navbar-nav align-items-center">
-          <!-- Se autenticado, mostra nome e botão de sair -->
-          <li class="nav-item dropdown" v-if="isAuthenticated">
-            <a class="nav-link dropdown-toggle text-white route-principal" href="#" id="userDropdown" role="button"
-              data-bs-toggle="dropdown" aria-expanded="false">
-             <span class="navbar-text text-white">{{ user.name }}</span>
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-              <li><button class="dropdown-item route-secundaria" @click="logout">Sair</button></li>
-            </ul>
-          </li>
+        <!-- User Menu / Auth Links -->
+        <div class="flex items-center space-x-4">
+          <div v-if="isAuthenticated" class="relative group">
+            <button class="nav-link-primary flex items-center">
+              {{ user.name }}
+              <svg class="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div class="dropdown-menu right-0">
+              <button @click="logout" class="dropdown-item w-full text-left">Sair</button>
+            </div>
+          </div>
 
-          <!-- Se NÃO autenticado, mostra Login e Register -->
-          <li class="nav-item" v-if="!isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/Login">Login</router-link>
-          </li>
-          <li class="nav-item" v-if="!isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/Register">Register</router-link>
-          </li>
-        </ul>
+          <div v-if="!isAuthenticated" class="flex items-center space-x-4">
+            <router-link to="/Login" class="nav-link-primary">Login</router-link>
+            <router-link to="/Register" class="nav-link-primary">Register</router-link>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <!-- Mobile Navigation Menu -->
+    <div v-if="mobileMenuOpen" class="lg:hidden bg-gray-800 border-t border-gray-700">
+      <div class="px-4 py-2 space-y-2">
+        <div v-if="isAuthenticated">
+          <router-link to="/calculo-geracao" class="mobile-nav-link">Faturar Usina</router-link>
+          <router-link to="/cadastro-usina" class="mobile-nav-link">Cadastrar Usina</router-link>
+          <router-link to="/usinas" class="mobile-nav-link pl-8">Usinas</router-link>
+          <router-link to="/cadastro-consumidor" class="mobile-nav-link">Cadastrar Consumidor</router-link>
+          <router-link to="/consumidores" class="mobile-nav-link pl-8">Consumidores</router-link>
+          <router-link to="/distribuicao" class="mobile-nav-link">Distribuir Créditos</router-link>
+          <router-link to="/relatorio" class="mobile-nav-link">Relatórios</router-link>
+          <div class="border-t border-gray-700 pt-2 mt-2">
+            <div class="text-white text-sm px-3 py-2">{{ user.name }}</div>
+            <button @click="logout" class="mobile-nav-link text-red-400">Sair</button>
+          </div>
+        </div>
+        <div v-if="!isAuthenticated">
+          <router-link to="/Login" class="mobile-nav-link">Login</router-link>
+          <router-link to="/Register" class="mobile-nav-link">Register</router-link>
+        </div>
       </div>
     </div>
   </nav>
@@ -85,161 +121,55 @@ export default {
     return {
       user: {},
       isAuthenticated: false,
-      dropdowns: {
-        usina: false,
-        consumidor: false,
-      }
+      mobileMenuOpen: false
     };
   },
-mounted() {
-  this.isAuthenticated = !!localStorage.getItem('token');
-  const baseURL = import.meta.env.VITE_API_URL;
+  mounted() {
+    this.isAuthenticated = !!localStorage.getItem('token');
+    const baseURL = import.meta.env.VITE_API_URL;
 
-  if (this.isAuthenticated) {
-    axios.get(`${baseURL}/user`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-    .then(response => {
-      this.user = response.data;
-    })
-    .catch(error => {
-      console.error('Erro ao buscar dados do usuário:', error);
-    });
-  }
-},
-  async created() {
     if (this.isAuthenticated) {
-      try {
-        const response = await axios.get(`${baseURL}/user`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
+      axios.get(`${baseURL}/user`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      })
+      .then(response => {
         this.user = response.data;
-      } catch (error) {
+      })
+      .catch(error => {
         console.error('Erro ao buscar dados do usuário:', error);
-      }
+      });
     }
   },
   methods: {
-    openDropdown(menu) {
-      this.dropdowns[menu] = true;
-    },
-    closeDropdown(menu) {
-      this.dropdowns[menu] = false;
-    },
     logout() {
       localStorage.removeItem('token');
       this.isAuthenticated = false;
-      this.user = 'Usuário';
+      this.user = {};
+      this.mobileMenuOpen = false;
       this.$router.push({ name: 'Login' }).then(() => {
         window.location.reload();
       });
-    },
-    checkMouseLeave(menu, event) {
-      const related = event.relatedTarget;
-      if (!event.currentTarget.contains(related)) {
-        this.dropdowns[menu] = false;
-      }
     }
   },
 };
 </script>
 
 <style scoped>
-/* --- NAVBAR CLEAN DARK STYLE COM HOVER LARANJA --- */
-
-.navbar {
-  background-color: #1f1f1f !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+.nav-link-primary {
+  @apply text-white font-medium px-3 py-2 rounded-md transition-colors duration-200 hover:text-primary-400 hover:bg-primary-500/10;
 }
 
-.navbar-brand img {
-  height: 40px;
-  width: auto;
-}
-
-/* Link principal */
-.nav-link.route-principal {
-  color: #ffffff;
-  font-weight: 500;
-  padding: 8px 16px;
-  transition: background-color 0.3s, color 0.3s;
-  border-radius: 6px;
-}
-
-.nav-link.route-principal:hover {
-  color: #f28c1f !important;
-  background-color: rgba(242, 140, 31, 0.1);
-  border-radius: 8px;
-}
-
-/* Dropdown */
 .dropdown-menu {
-  background-color: #2b2b2b;
-  border-radius: 8px;
-  padding: 0.5rem 0;
-  border: none;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
-  min-width: 180px;
+  @apply absolute top-full left-0 mt-1 w-48 bg-gray-800 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50;
 }
 
-.dropdown-item.route-secundaria {
-  color: #f1f1f1;
-  padding: 8px 16px;
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease, color 0.2s;
+.dropdown-item {
+  @apply block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-primary-500 transition-colors duration-200;
 }
 
-.dropdown-item.route-secundaria:hover {
-  background-color: #f28c1f;
-  color: white;
-}
-
-/* Hover dropdown trigger */
-.navbar-nav .dropdown:hover > .dropdown-menu {
-  display: block;
-}
-
-/* Toggler ícone responsivo */
-.navbar-toggler {
-  border: none;
-  color: #fff;
-}
-
-.navbar-toggler:focus {
-  box-shadow: none;
-}
-
-/* Nome do usuário */
-.navbar-text {
-  font-weight: 500;
-  color: #ffffff;
-  margin-right: 8px;
-}
-
-a {
-  text-decoration: none;
-}
-
-/* Estilo responsivo */
-@media (max-width: 992px) {
-  .navbar-nav .nav-item {
-    margin-bottom: 0.5rem;
-  }
-
-  .dropdown-menu {
-    position: static;
-    box-shadow: none;
-    border-radius: 0;
-  }
-
-  .dropdown-menu.show {
-    display: block;
-  }
+.mobile-nav-link {
+  @apply block px-3 py-2 text-white hover:text-primary-400 hover:bg-gray-700 rounded-md transition-colors duration-200;
 }
 </style>

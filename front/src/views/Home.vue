@@ -1,71 +1,117 @@
 <template>
-  <div class="container mt-5">
-    <div class="text-center mb-5">
-      <img src="/src/assets/logo-consorcio-lider-energy.png" alt="Logo Consórcio Líder Energy" style="width: 30%;" />
-    </div>
-    <div class="resumo-geracao mb-4">
-      <h5>Resumo de Distribuição</h5>
-      <p><strong>Geração Média Total:</strong> {{ geracaoTotal }} kWh</p>
-      <p><strong>Consumo Alocado:</strong> {{ consumoTotal }} kWh</p>
-      <p><strong>Saldo Disponível:</strong> <span :class="creditosClasse">{{ saldoDisponivel }} kWh</span></p>
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Updated header with Tailwind classes -->
+    <div class="text-center mb-8">
+      <img 
+        src="/src/assets/logo-consorcio-lider-energy.png" 
+        alt="Logo Consórcio Líder Energy" 
+        class="h-24 w-auto mx-auto"
+      />
     </div>
 
-    <h4 class="mt-5">Relatório de Usinas e Consumidores</h4>
-    <table class="tabela-usinas">
-      <thead class="table-dark">
-        <tr>
-          <th>Cliente Usina</th>
-          <th>Cidade Usina</th>
-          <th>Geração Média</th>
-          <th>Consumo Total</th>
-          <th>Saldo Disponível</th>
-          <th>Vendedor</th>
-          <th>Concessionária Usina</th>
-          <th>Formulário</th>
-        </tr>
-      </thead>
-      <tbody>
-        <template v-for="(usina, usinaId) in usinasMapeadas" :key="usinaId">
-          <tr @click="toggleExpandir(usinaId)" style="cursor: pointer"
-            :style="{ backgroundColor: coresUsina[usinaId] }">
-            <td>{{ usina.usina.cliente.nome }}</td>
-            <td>{{ usina.usina.cliente.endereco.cidade }}</td>
-            <td>{{ usina.usina.dado_geracao.media }} kWh</td>
-            <td>{{ totalConsumo(usinaId).toFixed(2) }} kWh</td>
-            <td :class="classeSaldo(usinaId)"><b>{{ saldoDisponivelUsina(usinaId).toFixed(2) }} kWh</b></td>
-            <td>{{ usina.usina.vendedor.nome }}</td>
-            <td>{{ usina.usina.comercializacao.cia_energia }}</td>
-            <td><button class="btn btn-orange" @click.stop="gerarPDFConsumidores(usinaId)">PDF</button></td>
-          </tr>
-          <tr v-if="usinasExpandida.includes(usinaId)">
-            <td colspan="8" style="padding: 0">
-              <table class="mb-0 table-sm w-100 table">
-                <thead class="tabela-usina">
-                  <tr>
-                    <th>Nome do Consumidor</th>
-                    <th>Cidade</th>
-                    <th>Consumo Médio</th>
-                    <th>Vendedor</th>
-                    <th>Concessionária</th>
-                    <th>Excedente de Geração</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="consumidor in usina.consumidores" :key="consumidor.con_id" :style="{ backgroundColor: coresUsina[usinaId], opacity: 0.70 }">
-                    <td>{{ consumidor.cliente.nome }}</td>
-                    <td>{{ consumidor.cliente.endereco.cidade }}</td>
-                    <td>{{ consumidor.dado_consumo.media }} kWh</td>
-                    <td>{{ consumidor.vendedor.nome || '—' }}</td>
-                    <td>{{ consumidor.cia_energia }}</td>
-                    <td>{{ ((consumidor.dado_consumo.media * 100)/ usina.usina.dado_geracao.media).toFixed(2) + ' %'}}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
+    <!-- Converted summary section to Tailwind card -->
+    <div class="card mb-8 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+      <h5 class="text-xl font-semibold text-gray-900 mb-4">Resumo de Distribuição</h5>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <p class="text-sm text-gray-600">Geração Média Total</p>
+          <p class="text-2xl font-bold text-gray-900">{{ geracaoTotal }} kWh</p>
+        </div>
+        <div>
+          <p class="text-sm text-gray-600">Consumo Alocado</p>
+          <p class="text-2xl font-bold text-gray-900">{{ consumoTotal }} kWh</p>
+        </div>
+        <div>
+          <p class="text-sm text-gray-600">Saldo Disponível</p>
+          <p class="text-2xl font-bold" :class="creditosClasse">{{ saldoDisponivel }} kWh</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Updated table section with Tailwind responsive design -->
+    <div class="card p-0 overflow-hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <h4 class="text-lg font-semibold text-gray-900">Relatório de Usinas e Consumidores</h4>
+      </div>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-800">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Cliente Usina</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Cidade Usina</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Geração Média</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Consumo Total</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Saldo Disponível</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Vendedor</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Concessionária</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Formulário</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <template v-for="(usina, usinaId) in usinasMapeadas" :key="usinaId">
+              <tr 
+                @click="toggleExpandir(usinaId)" 
+                class="cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+                :style="{ backgroundColor: coresUsina[usinaId] }"
+              >
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ usina.usina.cliente.nome }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ usina.usina.cliente.endereco.cidade }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ usina.usina.dado_geracao.media }} kWh</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ totalConsumo(usinaId).toFixed(2) }} kWh</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold" :class="classeSaldo(usinaId)">
+                  {{ saldoDisponivelUsina(usinaId).toFixed(2) }} kWh
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ usina.usina.vendedor.nome }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ usina.usina.comercializacao.cia_energia }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <button 
+                    class="btn-primary text-sm py-1 px-3" 
+                    @click.stop="gerarPDFConsumidores(usinaId)"
+                  >
+                    PDF
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="usinasExpandida.includes(usinaId)" class="bg-gray-50">
+                <td colspan="8" class="p-0">
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                      <thead class="bg-gray-100">
+                        <tr>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Nome do Consumidor</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cidade</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Consumo Médio</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Vendedor</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Concessionária</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Excedente de Geração</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-200">
+                        <tr 
+                          v-for="consumidor in usina.consumidores" 
+                          :key="consumidor.con_id"
+                          class="bg-white"
+                        >
+                          <td class="px-6 py-3 text-sm text-gray-900">{{ consumidor.cliente.nome }}</td>
+                          <td class="px-6 py-3 text-sm text-gray-900">{{ consumidor.cliente.endereco.cidade }}</td>
+                          <td class="px-6 py-3 text-sm text-gray-900">{{ consumidor.dado_consumo.media }} kWh</td>
+                          <td class="px-6 py-3 text-sm text-gray-900">{{ consumidor.vendedor.nome || '—' }}</td>
+                          <td class="px-6 py-3 text-sm text-gray-900">{{ consumidor.cia_energia }}</td>
+                          <td class="px-6 py-3 text-sm text-gray-900">
+                            {{ ((consumidor.dado_consumo.media * 100)/ usina.usina.dado_geracao.media).toFixed(2) + ' %'}}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -90,15 +136,15 @@ export default {
     creditosClasse() {
       const valor = parseFloat(this.saldoDisponivel);
       if (isNaN(valor)) return '';
-      return valor > 0 ? 'text-success' : valor < 0 ? 'text-danger' : 'text-dark';
+      return valor > 0 ? 'text-success-600' : valor < 0 ? 'text-red-600' : 'text-gray-900';
     }
   },
   methods: {
     classeSaldo(usi_id) {
       const saldo = this.saldoDisponivelUsina(usi_id);
-      if (saldo > 0) return 'text-success';
-      if (saldo < 0) return 'text-danger';
-      return 'text-dark';
+      if (saldo > 0) return 'text-success-600';
+      if (saldo < 0) return 'text-red-600';
+      return 'text-gray-900';
     },
     toggleExpandir(usi_id) {
       const index = this.usinasExpandida.indexOf(usi_id);
@@ -135,7 +181,7 @@ export default {
           responseType: "blob"
         });
 
-        Swal.close(); // Fecha o loading após o recebimento do PDF
+        Swal.close();
 
         const blob = new Blob([response.data], { type: "application/pdf" });
         const url = window.URL.createObjectURL(blob);
@@ -179,21 +225,6 @@ export default {
       this.consumoTotal = consumo.toFixed(2);
       this.saldoDisponivel = (geracao - consumo).toFixed(2);
     },
-    /*gerarCorPastel() {
-      const r = Math.floor(Math.random() * 40 + 215);
-      const g = Math.floor(Math.random() * 40 + 215);
-      const b = Math.floor(Math.random() * 40 + 215);
-      return `rgba(${r}, ${g}, ${b}, 0.5)`;
-    },
-    atribuirCoresPorUsina(data) {
-      const cores = {};
-      data.forEach(item => {
-        if (!cores[item.usi_id]) {
-          cores[item.usi_id] = this.gerarCorPastel();
-        }
-      });
-      this.coresUsina = cores;
-    },*/
     organizarRelatorio() {
       const mapa = {};
       this.relatorio.forEach(item => {
@@ -226,7 +257,6 @@ export default {
       this.relatorio = relatorioRes.data;
 
       this.organizarRelatorio();
-      //this.atribuirCoresPorUsina(this.relatorio);
       this.calcularTotais();
 
     } catch (error) {
@@ -242,118 +272,3 @@ export default {
   }
 };
 </script>
-
-<style scoped>
-
-.container {
-  max-width: 1200px;
-}
-
-.resumo-geracao {
-  background-color: #fff8e7;
-  border: 1px solid #fcd34d;
-  border-radius: 12px;
-  padding: 20px 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.resumo-geracao h5 {
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.resumo-geracao p {
-  font-size: 0.95rem;
-  margin-bottom: 6px;
-}
-
-.tabela-usinas {
-  width: 100%;
-  font-size: 0.95rem;
-  border-collapse: collapse;
-  margin-top: 20px;
-  background-color: #fff;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-}
-
-.tabela-usinas th,
-.tabela-usinas td {
-  padding: 12px 16px;
-  text-align: left;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-
-.tabela-usinas th {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.table-sm th,
-.table-sm td {
-  padding: 6px 10px;
-  font-size: 0.85rem;
-}
-
-.tabela-usinas thead,
-.table thead {
-  background-color: #212529;
-  color: #fff;
-}
-
-.table-usinas-light th {
-  background-color: #f8f9fa;
-  color: #212529;
-}
-
-a {
-  text-decoration: none;
-}
-
-table .text-success {
-  color: #16a34a;
-}
-
-table .text-danger {
-  color: #dc2626;
-}
-
-table .text-dark {
-  color: #111827;
-}
-
-
-.create-account a {
-  color: #f28c1f;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.create-account a:hover {
-  text-decoration: underline;
-}
-
-.btn-orange{
-  color: white;
-  background-color: #f28c1f;
-}
-
-.btn-orange:hover{
-  color: white;
-  background-color: #d97706;
-}
-
-@media (max-width: 768px) {
-  .resumo-geracao {
-    font-size: 0.9rem;
-  }
-
-  .tabela-usinas th,
-  .tabela-usinas td {
-    font-size: 0.85rem;
-    padding: 8px;
-  }
-}
-</style>

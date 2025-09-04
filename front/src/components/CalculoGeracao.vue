@@ -407,10 +407,17 @@ export default {
         const geracao = parseFloat(this.mesGeracao);
         const media = parseFloat(this.mediaGeracao);
         const reservaTotal = parseFloat(this.reservaTotal || 0);
-        const valorGuardadoFloat = parseFloat(this.valorGuardado || 0);
-        const creditoFloat = parseFloat(this.credito || 0);
 
         if (geracao < media && reservaTotal <= 0) this.credito = 0;
+
+        const extraCredito = await this.aplicarReservasVencidas(headers);
+        if (extraCredito > 0) {
+          this.credito = parseFloat(this.credito || 0) + extraCredito;
+          this.valorTotal = (parseFloat(this.valorTotal) - extraCredito).toFixed(2);
+        }
+
+        const valorGuardadoFloat = parseFloat(this.valorGuardado || 0);
+        const creditoFloat = parseFloat(this.credito || 0);
 
         const registroAnual = await this.verificaOuCriaAnoRegistro(ano, mesNome, geracao, headers);
 
@@ -438,6 +445,45 @@ export default {
           confirmButtonText: 'Entendi'
         });
       }
+    },
+
+    async aplicarReservasVencidas(headers) {
+      if (!this.dadosFaturamentoAnual?.valor_acumulado_reserva) return 0;
+
+      const baseURL = import.meta.env.VITE_API_URL;
+      const reservas = this.dadosFaturamentoAnual.valor_acumulado_reserva;
+      const hoje = new Date();
+      const mesesKeys = [
+        'janeiro','fevereiro','marco','abril','maio','junho',
+        'julho','agosto','setembro','outubro','novembro','dezembro'
+      ];
+
+      let expirado = 0;
+      const updateData = {};
+
+      mesesKeys.forEach((mes, idx) => {
+        const valor = parseFloat(reservas[mes] || 0);
+        if (valor > 0) {
+          const dataMes = new Date(this.anoFaturamento, idx, 1);
+          const diffDias = (hoje - dataMes) / 86400000;
+          if (diffDias >= 160) {
+            expirado += valor;
+            updateData[mes] = 0;
+          }
+        }
+      });
+
+      if (expirado > 0) {
+        updateData.total = parseFloat(reservas.total || 0) - expirado;
+        await axios.patch(
+          `${baseURL}/valor-acumulado-reserva/${this.dadosFaturamentoAnual.var_id}`,
+          updateData,
+          { headers }
+        );
+        return expirado * this.valor_kwh;
+      }
+
+      return 0;
     },
 
     async verificaOuCriaAnoRegistro(ano, mesNome, geracao, headers) {

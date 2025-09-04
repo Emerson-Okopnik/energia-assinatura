@@ -457,7 +457,7 @@
           <div class="header-3">
             <div class="info-box">
               <img src="{{ $iconeRelogio }}" alt="Ícone de Relógio" class="icon">
-              <span>Data de emissão: <strong>{{ \Carbon\Carbon::now()->locale('pt_BR')->translatedFormat('d F Y') }}</strong></span>
+              <span>Data de emissão: <strong>{{ \Carbon\Carbon::now()->locale('pt_BR')->translatedFormat('d Fcd f ') }}</strong></span>
             </div>
             <div class="info-box">
               <div class="contact-item">
@@ -476,7 +476,7 @@
           </div>
         </div>
         <div class="highlight-bar">
-          <p><strong>UC:</strong> {{ $usina->cliente->consumidores->uc ?? 'N/A' }}</p>
+          <p><strong>UC:</strong> {{ $uc }}</p>
           <p><strong>Fonte de Geração:</strong> UFV</p>
           <p><strong>Valor Kwh:</strong> R$ {{$usina->comercializacao->valor_fixo}}</p>
           <p><strong>Valor a receber:</strong> R$ {{ number_format($valorReceber, 2, ',', '.') }}</p>
@@ -590,12 +590,24 @@
               <p>{{ $observacoes }}</p>
             </div>
             <div class="bloco-titulo">HISTÓRICO DE VALORES</div>
-            <table class="bloco bloco-tabela">
-              <tr><td>Total acum de energia a receber</td><td>R$ </td></tr>
-              <tr><td>Total acum de fatura concessionária</td><td>R$ </td></tr>
-              <tr><td>Total acum de faturas emitidas</td><td>R$ </td></tr>
-              <tr class="saldo"><td>SALDO</td><td>R$ </td></tr>
-            </table>
+              <table class="bloco bloco-tabela">
+                <tr>
+                  <td>Total acum de energia a receber</td>
+                  <td>R$ {{ number_format($totalEnergiaReceber, 2, ',', '.') }}</td>
+                </tr>
+                <tr>
+                  <td>Total acum de fatura concessionária</td>
+                  <td>R$ {{ number_format($totalFaturaConcessionaria, 2, ',', '.') }}</td>
+                </tr>
+                <tr>
+                  <td>Total acum de faturas emitidas</td>
+                  <td>R$ {{ number_format($totalFaturasEmitidas, 2, ',', '.') }}</td>
+                </tr>
+                <tr class="saldo">
+                  <td>SALDO</td>
+                  <td>R$ {{ number_format($saldo, 2, ',', '.') }}</td>
+                </tr>
+              </table>
           </div>
         </div>
       </div>
