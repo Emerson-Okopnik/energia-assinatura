@@ -82,7 +82,7 @@
 </h6>
 
 <p>
-  Solicito que o excedente de energia injetada na rede pela unidade consumidora nº. <u>_______________</u>,
+  Solicito que o excedente de energia injetada na rede pela unidade consumidora nº. {{ $usina->uc ?? '_______' }},
   que esteja disponível para alocação nos termos da ReN Aneel 1.059/2023, seja rateada entre as unidades consumidoras abaixo relacionadas, conforme percentuais discriminados.
 </p>
 
@@ -119,8 +119,8 @@
         <td class="col-numero" style="text-align: center;">{{ $index + 1 }}</td>
         <td class="col-nome">{{ $item->consumidor->cliente->nome }}</td>
         <td class="col-cpf">{{ $item->consumidor->cliente->cpf_cnpj }}</td>
-        <td class="col-id">{{ $item->consumidor->con_id }}</td>
-        <td class="col-endereco">{{ $item->consumidor->cliente->endereco->cidade ?? '-' }}</td>
+        <td class="col-id">{{ $item->consumidor->uc }}</td>
+        <td class="col-endereco">{{ $item->consumidor->cliente->endereco->rua . ', Nº ' .$item->consumidor->cliente->endereco->numero .', '. $item->consumidor->cliente->endereco->bairro .' '. $item->consumidor->cliente->endereco->complemento .' '. $item->consumidor->cliente->endereco->cidade .' - '. $item->consumidor->cliente->endereco->estado ?? '-' }}</td>
         <td class="col-percentual" style="text-align: right;">
           {{ number_format($percentual, 2, ',', '.') }}%
         </td>
@@ -157,41 +157,41 @@
 <p><strong>d)</strong> Em caso de encerramento da relação contratual do atual titular de qualquer dessas unidades consumidoras (nos termos do art. 70 da ReN Aneel 414/2010), incluindo a migração para o mercado livre, o percentual alocado à mesma será transferido para a unidade consumidora geradora, até o envio de novo formulário para redefinição do rateio.</p>
 <p><strong>e)</strong> Este documento cancela e substitui qualquer outra solicitação anterior de cadastro de beneficiários relacionada à unidade consumidora geradora acima identificada, sendo que as informações cadastradas com base no especificado neste documento somente serão alteradas mediante entrega de novo formulário, sendo de responsabilidade exclusiva do representante formalmente designado do Consórcio, a emissão e entrega do mesmo.</p><br>
 
-<table class="table table-bordered bold" style="font-size: 7pt; text-align: left; padding: 0%">
+<table class="table table-bordered bold" style="font-size: 7pt; text-align: left; padding: 0% text-align: left;">
   <tbody>
     <tr>
       <td><strong>Titular da Unidade Consumidora (Razão Social do Consórcio):</strong></td>
-      <td colspan="2"></td>
+      <td colspan="2"> LIBERDADE ENERGIA CONSÓRCIO DE CONSUMIDORES DE ENERGIA ELÉTRICA</td>
     </tr>
     <tr>
       <td><strong>E-mail para contato:</strong></td>
-      <td colspan="2"></td>
+      <td colspan="2">geracaodistribuida@rudniksolucoes.com.br</td>
     </tr>
     <tr>
       <td><strong>CPF/CNPJ:</strong></td>
+      <td colspan="2">58.750.788/0001-33</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="table table-bordered" style="font-size: 7pt; margin-top: 8px; text-align: left;">
+  <tbody>
+    <tr>
+      <td><strong>Nome do Responsável Pessoa Física formalmente designado:</strong></td>
+      <td colspan="2"> Elcio Rudnik</td>
+    </tr>
+    <tr>
+      <td><strong>CPF:</strong></td>
+      <td colspan="2">067.199.569-30</td>
+    </tr>
+    <tr>
+      <td><strong>Assinatura (Pessoa física: titular. Pessoa jurídica: responsável formalmente autorizado):</strong></td>
       <td colspan="2"></td>
     </tr>
   </tbody>
 </table>
 
-    <table class="table table-bordered" style="font-size: 7pt; margin-top: 8px; padding: 0%">
-    <tbody>
-        <tr>
-        <td><strong>Nome do Responsável Pessoa Física formalmente designado:</strong></td>
-        <td colspan="2"></td>
-        </tr>
-        <tr>
-        <td><strong>CPF:</strong></td>
-        <td colspan="2"></td>
-        </tr>
-        <tr>
-        <td><strong>Assinatura (Pessoa física: titular. Pessoa jurídica: responsável formalmente autorizado):</strong></td>
-        <td colspan="2"></td>
-        </tr>
-    </tbody>
-    </table>
-
-<p><strong>Data:</strong> ___/___/20__</p>
+<p><strong>Data:</strong> {{ date('d/m/y') }}</p>
 
 <p class="fw-bold">Instruções para Documentações Complementares</p>
 <p>Juntamente com o formulário, deverá ser apresentado documento pessoal onde conste a assinatura, para validação.</p>

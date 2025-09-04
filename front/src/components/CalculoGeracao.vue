@@ -590,11 +590,15 @@ export default {
 
       // Pega mês e ano atuais
       const hoje = new Date();
-      const mesAtual = hoje.getMonth() + 1; // getMonth() vai de 0 a 11
+      //const mesAtual = hoje.getMonth() + 1; // getMonth() vai de 0 a 11
       const anoAtual = hoje.getFullYear();
 
       // Usa os valores passados no componente se existirem, senão usa os atuais
-      const mesGeracao = this.mesGeracao || mesAtual;
+      const mesGeracao = [
+        'janeiro', 'fevereiro', 'marco', 'abril',
+        'maio', 'junho', 'julho', 'agosto',
+        'setembro', 'outubro', 'novembro', 'dezembro'
+      ].indexOf(this.mesSelecionado) + 1;
       const anoGeracao = this.anoGeracao || anoAtual;
 
       try {

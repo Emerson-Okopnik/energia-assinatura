@@ -53,8 +53,76 @@ class PDFController extends Controller {
     $faturaEnergia = 100;
     $percentualLei = 45;
     $valorFinalFioB = 0.13 * ($percentualLei / 100);
-    $valorReceber = ($geracaoMes * $valor_kwh) - ($faturaEnergia + ($geracaoMes * $valorFinalFioB));
-    
+
+    $meses = [
+            'Janeiro' => $geracao->janeiro,
+            'Fevereiro' => $geracao->fevereiro,
+            'Marco' => $geracao->marco,
+            'Abril' => $geracao->abril,
+            'Maio' => $geracao->maio,
+            'Junho' => $geracao->junho,
+            'Julho' => $geracao->julho,
+            'Agosto' => $geracao->agosto,
+            'Setembro' => $geracao->setembro,
+            'Outubro' => $geracao->outubro,
+            'Novembro' => $geracao->novembro,
+            'Dezembro' => $geracao->dezembro,
+    ];
+
+    $dadosMensais = [];
+    $maxGeracao = max(array_map('floatval', array_values($meses)));
+
+    foreach ($meses as $mesNome => $valor) {
+        $fixo = $valor_fixo;
+        $injetado = ($valor > $media) ? ($media - $menor) * $valor_kwh : ($valor - $menor) * $valor_kwh;
+        $creditado = ($valor < $media) ? ($media - $valor) * $valor_kwh : 0;
+        $cuo = -1 * ($faturaEnergia + ($valor * $valorFinalFioB));
+        $valor_final = $fixo + $injetado + $creditado + $cuo;
+
+        $dadosMensais[$mesNome] = [
+            'fixo' => $fixo,
+            'injetado' => $injetado,
+            'creditado' => $creditado,
+            'cuo' => $cuo,
+            'valor_final' => $valor_final,
+        ];
+    }
+
+    $ano = now()->year;
+    $faturamento = CreditosDistribuidosUsina::where('usi_id', $id)
+        ->where('ano', $ano)
+        ->with(['creditosDistribuidos', 'valorAcumuladoReserva', 'faturamentoUsina'])
+        ->first();
+
+    $geracaoReal = DadosGeracaoRealUsina::where('usi_id', $id)
+        ->where('ano', $ano)
+        ->with('dadosGeracaoReal')
+        ->first();
+
+    $dadosFaturamento = [];
+    if ($faturamento && $geracaoReal) {
+        $creditos = $faturamento->creditosDistribuidos;
+        $reserva = $faturamento->valorAcumuladoReserva;
+        $pago    = $faturamento->faturamentoUsina;
+        $geracao = $geracaoReal->dadosGeracaoReal;
+
+        $mesesKeys = [
+            'janeiro','fevereiro','marco','abril','maio','junho',
+            'julho','agosto','setembro','outubro','novembro','dezembro'
+        ];
+
+        foreach ($mesesKeys as $chave) {
+            if ($pago->$chave > 0) {
+                $dadosFaturamento[Str::ucfirst($chave)] = [
+                    'geracao'  => $geracao->$chave ?? 0,
+                    'guardado' => $reserva->$chave ?? 0,
+                    'creditado'=> $creditos->$chave ?? 0,
+                    'pago'     => $pago->$chave ?? 0,
+                ];
+            }
+        }
+    }
+
     $logoPath = public_path('img/logo-consorcio-lider-energy.png');
     $logoBase64 = base64_encode(file_get_contents($logoPath));
     $logoMime = mime_content_type($logoPath);
@@ -119,75 +187,6 @@ class PDFController extends Controller {
     $iconeLinkedinBase64 = base64_encode(file_get_contents($iconeLinkedinPath));
     $iconeLinkedinMime = mime_content_type($iconeLinkedinPath);
     $iconeLinkedinDataUri = "data:$iconeLinkedinMime;base64,$iconeLinkedinBase64";
-
-  $meses = [
-        'Janeiro' => $geracao->janeiro,
-        'Fevereiro' => $geracao->fevereiro,
-        'Marco' => $geracao->marco,
-        'Abril' => $geracao->abril,
-        'Maio' => $geracao->maio,
-        'Junho' => $geracao->junho,
-        'Julho' => $geracao->julho,
-        'Agosto' => $geracao->agosto,
-        'Setembro' => $geracao->setembro,
-        'Outubro' => $geracao->outubro,
-        'Novembro' => $geracao->novembro,
-        'Dezembro' => $geracao->dezembro,
-    ];
-
-    $dadosMensais = [];
-    $maxGeracao = max(array_map('floatval', array_values($meses)));
-
-    foreach ($meses as $mesNome => $valor) {
-        $fixo = $valor_fixo;
-        $injetado = ($valor > $media) ? ($media - $menor) * $valor_kwh : ($valor - $menor) * $valor_kwh;
-        $creditado = ($valor < $media) ? ($media - $valor) * $valor_kwh : 0;
-        $cuo = -1 * ($faturaEnergia + ($valor * $valorFinalFioB));
-        $valor_final = $fixo + $injetado + $creditado + $cuo;
-
-        $dadosMensais[$mesNome] = [
-            'fixo' => $fixo,
-            'injetado' => $injetado,
-            'creditado' => $creditado,
-            'cuo' => $cuo,
-            'valor_final' => $valor_final,
-        ];
-    }
-
-    $ano = now()->year;
-    $faturamento = CreditosDistribuidosUsina::where('usi_id', $id)
-        ->where('ano', $ano)
-        ->with(['creditosDistribuidos', 'valorAcumuladoReserva', 'faturamentoUsina'])
-        ->first();
-
-    $geracaoReal = DadosGeracaoRealUsina::where('usi_id', $id)
-        ->where('ano', $ano)
-        ->with('dadosGeracaoReal')
-        ->first();
-
-    $dadosFaturamento = [];
-    if ($faturamento && $geracaoReal) {
-        $creditos = $faturamento->creditosDistribuidos;
-        $reserva = $faturamento->valorAcumuladoReserva;
-        $pago    = $faturamento->faturamentoUsina;
-        $geracao = $geracaoReal->dadosGeracaoReal;
-
-        $mesesKeys = [
-            'janeiro','fevereiro','marco','abril','maio','junho',
-            'julho','agosto','setembro','outubro','novembro','dezembro'
-        ];
-
-        foreach ($mesesKeys as $chave) {
-            if ($pago->$chave > 0) {
-                $dadosFaturamento[Str::ucfirst($chave)] = [
-                    'geracao'  => $geracao->$chave ?? 0,
-                    'guardado' => $reserva->$chave ?? 0,
-                    'creditado'=> $creditos->$chave ?? 0,
-                    'pago'     => $pago->$chave ?? 0,
-                ];
-            }
-        }
-    }
 
     $html = view('usina', [
         'usina' => $usina,

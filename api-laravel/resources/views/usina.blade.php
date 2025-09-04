@@ -477,9 +477,8 @@
         </div>
         <div class="highlight-bar">
           <p><strong>UC:</strong> {{ $usina->cliente->consumidores->uc ?? 'N/A' }}</p>
-          <p><strong>Nº fatura:</strong> 1822222</p>
-          <p><strong>Fonte de Geração:</strong> UFV822</p>
-          <p><strong>Valor Kwh:</strong> R$ {{$usina->comercializacao->valor_kwh}}</p>
+          <p><strong>Fonte de Geração:</strong> UFV</p>
+          <p><strong>Valor Kwh:</strong> R$ {{$usina->comercializacao->valor_fixo}}</p>
           <p><strong>Valor a receber:</strong> R$ {{ number_format($valorReceber, 2, ',', '.') }}</p>
         </div>
       
@@ -592,10 +591,10 @@
             </div>
             <div class="bloco-titulo">HISTÓRICO DE VALORES</div>
             <table class="bloco bloco-tabela">
-              <tr><td>Total acum de energia a receber</td><td>R$ 39.850,84</td></tr>
-              <tr><td>Total acum de fatura concessionária</td><td>R$ 1.181,43</td></tr>
-              <tr><td>Total acum de faturas emitidas</td><td>R$ 34.535,94</td></tr>
-              <tr class="saldo"><td>SALDO</td><td>R$ 4.133,47</td></tr>
+              <tr><td>Total acum de energia a receber</td><td>R$ </td></tr>
+              <tr><td>Total acum de fatura concessionária</td><td>R$ </td></tr>
+              <tr><td>Total acum de faturas emitidas</td><td>R$ </td></tr>
+              <tr class="saldo"><td>SALDO</td><td>R$ </td></tr>
             </table>
           </div>
         </div>

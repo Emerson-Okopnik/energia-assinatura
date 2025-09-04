@@ -1,21 +1,20 @@
 <template>
   <div class="container">
-    <h4 class="mb-4 titulo">Lista de Usinas</h4>
-    <div class="tabela-centralizada">
-      <table class="table table-bordered table-hover">
+    <div class="tabela-centralizada titulo">
+      <h4 class="mb-4 titulo">Lista de Usinas</h4>
+    </div>
+    <div class="tabela-centralizada tabela">
+      <table class="tabela-usinas">
         <thead class="table-dark">
           <tr>
             <th>Nome do Cliente</th>
             <th>CPF/CNPJ</th>
-            <th>E-mail</th>
-            <th>Localização</th>
+            <th>Endereço Completo</th>
             <th>Status</th>
             <th>Média Geração (kWh)</th>
-            <th>Menor Geração</th>
-            <th>Valor kWh</th>
-            <th>Valor Final Médio</th>
+            <th>Unidade Consumidor</th>
             <th>CIA Energia</th>
-            <th>Conexão</th>
+            <th>Data Conexão</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -26,9 +25,10 @@
                 {{ usina.cliente.nome }}
               </router-link>
             </td>
-            <td>{{ usina.cliente.cpf_cnpj }}</td>
-            <td>{{ usina.cliente.email }}</td>
-            <td>{{ usina.cliente.endereco.cidade }} - {{ usina.cliente.endereco.estado }}</td>
+            <td class="nowrap">{{ usina.cliente.cpf_cnpj }}</td>
+            <td>
+              {{ usina.cliente.endereco.rua }}, Nº {{ usina.cliente.endereco.numero }}, {{ usina.cliente.endereco.bairro }} {{ usina.cliente.endereco.complemento }} {{ usina.cliente.endereco.cidade }} - {{ usina.cliente.endereco.estado }}
+            </td>
             <td>
               <span v-if="usina.status === 'Concluído'" class="badge bg-success">Conectado</span>
               <span v-else-if="usina.status === 'Aguardando troca de titularidade'" class="badge bg-danger">Não Conectado</span>
@@ -36,9 +36,7 @@
               <span v-else class="badge bg-secondary">Indefinido</span>
             </td>
             <td>{{ usina.dado_geracao.media }} Kwh</td>
-            <td>{{ usina.dado_geracao.menor_geracao }} Kwh</td>
-            <td>{{ usina.comercializacao.valor_kwh }}</td>
-            <td>{{ usina.comercializacao.valor_final_media }}</td>
+            <td>{{ usina.uc }}</td>
             <td>{{ usina.comercializacao.cia_energia }}</td>
             <td>{{ formatDate(usina.comercializacao.data_conexao) }}</td>
             <td class="text-center">
@@ -147,24 +145,62 @@ export default {
 </script>
 
   
-  <style scoped>
-    .tabela-centralizada {
-      display: flex;
-      justify-content: center;
+<style scoped>
+  .nowrap {
+    white-space: nowrap;
+  }
+  
+  .tabela-centralizada {
+    display: flex;
+    justify-content: center;
+  }
 
-    }
-    th, td {
-      vertical-align: middle;
-      white-space: nowrap;
-    }
-    table {
-      min-width: 1100px;
-    }
-    a {
-      text-decoration: none;
-    }
-    .btn-danger i {
-      color: white;
-    }
-  </style>
+  .tabela-usinas {
+    width: 100%;
+    font-size: 0.95rem;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background-color: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  }
+
+  .tabela-usinas th,
+  .tabela-usinas td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+
+  .tabela-usinas th {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .table-sm th,
+  .table-sm td {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+
+  .tabela-usinas thead,
+  .table thead {
+    background-color: #212529;
+    color: #fff;
+  }
+
+  th, td {
+    vertical-align: middle;
+  }
+
+  a {
+    text-decoration: none;
+  }
+
+  .btn-danger i {
+    color: white;
+  }
+</style>
   

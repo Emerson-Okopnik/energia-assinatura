@@ -106,24 +106,6 @@
     white-space: nowrap;
   }
 
-    .resumo-geracao {
-    background-color: #fff8e7;
-    border: 1px solid #fcd34d;
-    border-radius: 12px;
-    padding: 20px 24px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  }
-
-  .resumo-geracao h5 {
-    font-weight: 600;
-    margin-bottom: 12px;
-  }
-
-  .resumo-geracao p {
-    font-size: 0.95rem;
-    margin-bottom: 6px;
-  }
-
   .tabela-usinas {
     width: 100%;
     font-size: 0.95rem;
