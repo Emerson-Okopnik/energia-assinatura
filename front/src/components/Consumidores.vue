@@ -13,6 +13,7 @@
             <th>Consumo Médio</th>
             <th>CIA Energia</th>
             <th>UC</th>
+            <th>Rede</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -41,6 +42,7 @@
             <td>{{ consumidor.dado_consumo.media }} Kwh</td>
             <td>{{ consumidor.cia_energia }}</td>
             <td>{{ consumidor.uc }}</td>
+            <td>{{ formatRede(consumidor.rede) }}</td>
             <td class="text-center">
               <button class="btn btn-sm btn-danger" @click="deletarConsumidor(consumidor.con_id)">
               <i class="fas fa-trash-alt"></i>
@@ -93,6 +95,10 @@
           console.error('Erro ao deletar consumidor:', error);
           alert("Erro ao tentar excluir o consumidor.");
         }
+      },
+      formatRede(rede) {
+        const map = { monofasico: 'Monofásico', bifasico: 'Bifásico', trifasico: 'Trifásico' };
+        return map[rede] || '-';
       }
     },
     created() {

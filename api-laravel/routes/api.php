@@ -19,6 +19,7 @@ use App\Http\Controllers\FaturamentoUsinaController;
 use App\Http\Controllers\VendedorController;
 use App\Http\Controllers\DadosGeracaoRealController;
 use App\Http\Controllers\DadosGeracaoRealUsinaController;
+use App\Http\Controllers\CalculoGeracaoController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -117,6 +118,8 @@ Route::middleware('auth:api')->group(function () {
   Route::get('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'show']);
   Route::patch('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'update']);
   Route::delete('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'destroy']);
+
+    Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'calcular']);
 
   Route::post('/dados-geracao-real-usina', [DadosGeracaoRealUsinaController::class, 'store']);
   Route::get('/dados-geracao-real-usina', [DadosGeracaoRealUsinaController::class, 'index']);

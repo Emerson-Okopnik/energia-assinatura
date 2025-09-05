@@ -337,11 +337,6 @@
       margin-bottom: 5%;
     }
 
-    .bloco-tabela { 
-      flex: 1.3;
-      margin-bottom: 2px;  
-    }
-
     .bloco-historico {
       flex: 1;
       display: flex;
@@ -355,7 +350,7 @@
       margin-top: 16px;
     }
 
-    .historico-valores table {
+    .historico-valores {
       width: 100%;
       font-size: 7pt;
       border-collapse: collapse;
@@ -457,7 +452,7 @@
           <div class="header-3">
             <div class="info-box">
               <img src="{{ $iconeRelogio }}" alt="Ícone de Relógio" class="icon">
-              <span>Data de emissão: <strong>{{ \Carbon\Carbon::now()->locale('pt_BR')->translatedFormat('d Fcd f ') }}</strong></span>
+              <span>Data de emissão: <strong>{{ \Carbon\Carbon::now()->format('d/m/Y') }}</strong></span>
             </div>
             <div class="info-box">
               <div class="contact-item">
@@ -492,7 +487,7 @@
           $kgPorArvore = 20;      // kg CO2 capturado por árvore por ano
 
           // Cálculos
-          $co2Evitado = $valorReceber * $fatorEmissao; // em kg
+          $co2Evitado = $geracaoMes * $fatorEmissao; // em kg
           $arvores = $co2Evitado / $kgPorArvore;
         @endphp
 
@@ -583,31 +578,36 @@
         </div>
 
         <div class="bloco bloco-historico">
-          <div class="historico-valores">
-            <!-- Observações -->
-            <div class="bloco bloco-observacoes">
-              <strong>Observações:</strong>
-              <p>{{ $observacoes }}</p>
-            </div>
-            <div class="bloco-titulo">HISTÓRICO DE VALORES</div>
-              <table class="bloco bloco-tabela">
-                <tr>
-                  <td>Total acum de energia a receber</td>
-                  <td>R$ {{ number_format($totalEnergiaReceber, 2, ',', '.') }}</td>
-                </tr>
-                <tr>
-                  <td>Total acum de fatura concessionária</td>
-                  <td>R$ {{ number_format($totalFaturaConcessionaria, 2, ',', '.') }}</td>
-                </tr>
-                <tr>
-                  <td>Total acum de faturas emitidas</td>
-                  <td>R$ {{ number_format($totalFaturasEmitidas, 2, ',', '.') }}</td>
-                </tr>
-                <tr class="saldo">
-                  <td>SALDO</td>
-                  <td>R$ {{ number_format($saldo, 2, ',', '.') }}</td>
-                </tr>
-              </table>
+          <div class="bloco-titulo">HISTÓRICO DE VALORES</div>
+          <table class="historico-valores">
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th>Valor (R$)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Total acum de energia a receber</td>
+                <td>{{ number_format($totalEnergiaReceber, 2, ',', '.') }}</td>
+              </tr>
+              <tr>
+                <td>Total acum de fatura concessionária</td>
+                <td>{{ number_format($totalFaturaConcessionaria, 2, ',', '.') }}</td>
+              </tr>
+              <tr>
+                <td>Total acum de faturas emitidas</td>
+                <td>{{ number_format($totalFaturasEmitidas, 2, ',', '.') }}</td>
+              </tr>
+              <tr class="saldo">
+                <td>SALDO</td>
+                <td>{{ number_format($saldo, 2, ',', '.') }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="bloco bloco-observacoes">
+            <strong>Observações:</strong>
+            <p>{{ $observacoes }}</p>
           </div>
         </div>
       </div>

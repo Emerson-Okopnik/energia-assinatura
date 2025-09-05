@@ -98,6 +98,17 @@
       </div>
     </div>
 
+    <div class="row mb-5">
+      <div class="col-md-6">
+        <label for="co2Evitado">Emissão de CO₂ evitada (kg):</label>
+        <input id="co2Evitado" type="number" step="0.01" class="form-control" v-model.number="co2Evitado" readonly />
+      </div>
+      <div class="col-md-6">
+        <label for="arvoresPlantadas">Árvores equivalentes:</label>
+        <input id="arvoresPlantadas" type="number" step="0.01" class="form-control" v-model.number="arvoresPlantadas" readonly />
+      </div>
+    </div>
+
     <table class="table table-bordered mt-4">
       <thead class="table-dark">
         <tr>
@@ -204,9 +215,8 @@ export default {
       credito: 0,
       valorGuardado: 0,
       valorTotal: 0,
-      cd_id: null,
-      var_id: null,
-      fa_id: null,
+      co2Evitado: 0,
+      arvoresPlantadas: 0,
       usina: null,
       anoFaturamento: new Date().getFullYear(),
       dadosFaturamentoAnual: null,
@@ -304,6 +314,9 @@ export default {
       }
 
       this.valorTotal = this.valorFinal(geracao).toFixed(2);
+
+      this.co2Evitado = +(geracao * 0.4).toFixed(2);
+      this.arvoresPlantadas = +(this.co2Evitado / 20).toFixed(2);
     },
     injetado(valor) {
       const media = this.mediaGeracao;
@@ -397,34 +410,41 @@ export default {
     },
     async salvarValoresMensais() {
       const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-      const mesNome = this.mesSelecionado;
-      const ano = this.anoFaturamento;
+      const baseURL = import.meta.env.VITE_API_URL;
+      const idempotencyKey = self.crypto?.randomUUID?.() || Date.now().toString();
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        'Idempotency-Key': idempotencyKey
+      };
 
       try {
-        if (!this.usina?.usi_id || !ano) throw new Error("Usina ou ano não definido");
-
-        const geracao = parseFloat(this.mesGeracao);
-        const media = parseFloat(this.mediaGeracao);
-        const reservaTotal = parseFloat(this.reservaTotal || 0);
-
-        if (geracao < media && reservaTotal <= 0) this.credito = 0;
-
-        const extraCredito = await this.aplicarReservasVencidas(headers);
-        if (extraCredito > 0) {
-          this.credito = parseFloat(this.credito || 0) + extraCredito;
-          this.valorTotal = (parseFloat(this.valorTotal) - extraCredito).toFixed(2);
+        if (!this.usina?.usi_id || !this.mesSelecionado || !this.anoFaturamento) {
+          throw new Error('Usina, mês ou ano não definido');
         }
 
-        const valorGuardadoFloat = parseFloat(this.valorGuardado || 0);
-        const creditoFloat = parseFloat(this.credito || 0);
+          const mesIndex = Object.keys(this.meses).indexOf(this.mesSelecionado) + 1;
 
-        const registroAnual = await this.verificaOuCriaAnoRegistro(ano, mesNome, geracao, headers);
+        const payload = {
+          mesGeracao_kwh: parseFloat(this.mesGeracao || 0),
+          mediaGeracao_kwh: parseFloat(this.mediaGeracao || 0),
+          reservaTotalAnterior_kwh: parseFloat(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total || 0),
+          tarifa_kwh: parseFloat(this.valor_kwh || 0),
+          valorPago_mes: parseFloat(this.valorTotal || 0)
+        };
 
-        await this.atualizaValoresMensais(registroAnual, mesNome, geracao, valorGuardadoFloat, creditoFloat, headers);
+        const resp = await axios.post(
+          `${baseURL}/usinas/${this.usina.usi_id}/faturamento/${this.anoFaturamento}/mes/${mesIndex}/calculo`,
+          payload,
+          { headers }
+        );
 
-        await this.atualizaTotalAnoAnterior(ano, valorGuardadoFloat, headers);
-
+        const respData = resp.data?.data || {};
+        this.credito = parseFloat(respData.credito_gerado_reais ?? 0);
+        this.valorGuardado = parseFloat(respData.valor_guardado_kwh ?? 0);
+        this.valorTotal = parseFloat(respData.faturamento_mes_reais ?? this.valorTotal).toFixed(2);
+        this.co2Evitado = +parseFloat(respData.co2_evitado_kg ?? this.co2Evitado).toFixed(2);
+        this.arvoresPlantadas = +parseFloat(respData.arvores_equivalentes ?? this.arvoresPlantadas).toFixed(2);
+        
         Swal.fire({
           icon: 'success',
           title: 'Valores salvos!',
@@ -436,7 +456,7 @@ export default {
         await this.carregarFaturamentoAno();
 
       } catch (error) {
-        console.error("Erro ao salvar valores mensais:", error);
+        console.error('Erro ao salvar valores mensais:', error);
         Swal.fire({
           icon: 'error',
           title: 'Erro ao salvar',
@@ -447,199 +467,13 @@ export default {
       }
     },
 
-    async aplicarReservasVencidas(headers) {
-      if (!this.dadosFaturamentoAnual?.valor_acumulado_reserva) return 0;
-
-      const baseURL = import.meta.env.VITE_API_URL;
-      const reservas = this.dadosFaturamentoAnual.valor_acumulado_reserva;
-      const hoje = new Date();
-      const mesesKeys = [
-        'janeiro','fevereiro','marco','abril','maio','junho',
-        'julho','agosto','setembro','outubro','novembro','dezembro'
-      ];
-
-      let expirado = 0;
-      const updateData = {};
-
-      mesesKeys.forEach((mes, idx) => {
-        const valor = parseFloat(reservas[mes] || 0);
-        if (valor > 0) {
-          const dataMes = new Date(this.anoFaturamento, idx, 1);
-          const diffDias = (hoje - dataMes) / 86400000;
-          if (diffDias >= 160) {
-            expirado += valor;
-            updateData[mes] = 0;
-          }
-        }
-      });
-
-      if (expirado > 0) {
-        updateData.total = parseFloat(reservas.total || 0) - expirado;
-        await axios.patch(
-          `${baseURL}/valor-acumulado-reserva/${this.dadosFaturamentoAnual.var_id}`,
-          updateData,
-          { headers }
-        );
-        return expirado * this.valor_kwh;
-      }
-
-      return 0;
-    },
-
-    async verificaOuCriaAnoRegistro(ano, mesNome, geracao, headers) {
-      const baseURL = import.meta.env.VITE_API_URL;
-      
-      const response = await axios.get(
-        `${baseURL}/usina/${this.selectedUsinaId}/anos`,
-        { headers }
-      );
-
-      const registrosAnos = response.data.anos || [];
-      const anoExiste = registrosAnos.includes(parseInt(ano));
-
-      // Se o ano ainda não existe, cria todos os vínculos necessários
-      if (!anoExiste) {
-        return await this.criarNovoRegistroAnual(ano, mesNome, geracao, headers);
-      }
-
-      // Se o ano existe, tenta buscar os vínculos existentes
-      const [vinculo, geracaoResp] = await Promise.all([
-        axios.get(`${baseURL}/creditos-distribuidos-usina/usina/${this.usina.usi_id}/ano/${ano}`, { headers }),
-        axios.get(`${baseURL}/dados-geracao-real-usina/usina/${this.usina.usi_id}`, { headers })
-      ]);
-
-      // Se os vínculos não existem, cria agora
-      if (!vinculo.data?.length) {
-        return await this.criarNovoRegistroAnual(ano, mesNome, geracao, headers);
-      }
-
-      // Se tudo ok, retorna os IDs normalmente
-      return {
-        cd_id: vinculo.data[0].cd_id,
-        var_id: vinculo.data[0].var_id,
-        fa_id: vinculo.data[0].fa_id,
-        dgr_id: geracaoResp.data[0]?.dados_geracao_real?.dgr_id ?? null
-      };
-    },
-    async criarNovoRegistroAnual(ano, mesNome, geracao, headers) {
-      const baseURL = import.meta.env.VITE_API_URL;
-      
-      const [cd, varr, fa] = await Promise.all([
-        axios.post(`${baseURL}/creditos-distribuidos`, {}, { headers }),
-        axios.post(`${baseURL}/valor-acumulado-reserva`, {}, { headers }),
-        axios.post(`${baseURL}/faturamento-usina`, {}, { headers })
-      ]);
-
-      // Criação do vínculo
-      await axios.post(`${baseURL}/creditos-distribuidos-usina`, {
-        usi_id: this.usina.usi_id,
-        cli_id: this.usina.cli_id,
-        cd_id: cd.data.id,
-        var_id: varr.data.id,
-        fa_id: fa.data.id,
-        ano
-      }, { headers });
-
-      // Criação dos dados de geração real
-      const dgr = await axios.post(`${baseURL}/dados-geracao-real`, {
-        [mesNome]: geracao
-      }, { headers });
-
-      await axios.post(`${baseURL}/dados-geracao-real-usina`, {
-        usi_id: this.usina.usi_id,
-        cli_id: this.usina.cli_id,
-        dgr_id: dgr.data.id,
-        ano
-      }, { headers });
-
-      // Buscar total do ano anterior
-      const anoAnterior = ano - 1;
-      let totalAnterior = 0;
-
-      try {
-        const res = await axios.get(
-          `${baseURL}/creditos-distribuidos-usina/usina/${this.usina.usi_id}/ano/${anoAnterior}`,
-          { headers }
-        );
-
-        const vinculoAnterior = res.data[0];
-        if (vinculoAnterior?.var_id) {
-          const reservaAnterior = await axios.get(
-            `${baseURL}/valor-acumulado-reserva/${vinculoAnterior.var_id}`, { headers }
-          );
-          totalAnterior = parseFloat(reservaAnterior.data.total || 0);
-        }
-      } catch (error) {
-        console.warn('Não foi possível buscar o total do ano anterior:', error);
-      }
-
-      // Atualiza o total do novo ano com o valor acumulado anterior
-      await axios.patch(`${baseURL}/valor-acumulado-reserva/${varr.data.id}`, {
-        total: totalAnterior
-      }, { headers });
-      console.log(totalAnterior);
-      return {
-        cd_id: cd.data.id,
-        var_id: varr.data.id,
-        fa_id: fa.data.id,
-        dgr_id: dgr.data.id
-      };
-    },
-    async atualizaValoresMensais(registro, mes, geracao, guardado, credito, headers) {
-      const baseURL = import.meta.env.VITE_API_URL;
-      const total_mes = parseFloat(this.reservaTotal || 0) + guardado - (credito / this.valor_kwh);
-
-      await Promise.all([
-        axios.patch(`${baseURL}/creditos-distribuidos/${registro.cd_id}`, {
-          [mes]: parseFloat(credito)
-        }, { headers }),
-
-        axios.patch(`${baseURL}/valor-acumulado-reserva/${registro.var_id}`, {
-          [mes]: guardado,
-          total: total_mes
-        }, { headers }),
-
-        axios.patch(`${baseURL}/faturamento-usina/${registro.fa_id}`, {
-          [mes]: parseFloat(this.valorTotal)
-        }, { headers }),
-
-        axios.patch(`${baseURL}/dados-geracao-real/${registro.dgr_id}`, {
-          [mes]: geracao
-        }, { headers })
-      ]);
-    },
-
-    async atualizaTotalAnoAnterior(anoAtual, valorGuardado, headers) {
-      const baseURL = import.meta.env.VITE_API_URL;
-
-      try {
-        const anoAnterior = anoAtual - 1;
-        const response = await axios.get(`${baseURL}/creditos-distribuidos-usina/usina/${this.usina.usi_id}/ano/${anoAnterior}`, { headers });
-
-        if (!response.data[0]?.var_id) return;
-
-        const ResponseAnoAtual = await axios.get(`${baseURL}/creditos-distribuidos-usina/usina/${this.usina.usi_id}/ano/${anoAtual}`, { headers });
-        const totalAnterior = parseFloat(response.data[0].valor_acumulado_reserva.total || 0);
-        const novoTotal = totalAnterior + valorGuardado;
-
-        await axios.patch(`${baseURL}/valor-acumulado-reserva/${ResponseAnoAtual.data[0].var_id}`, {
-          total: novoTotal
-        }, { headers });
-
-      } catch (error) {
-        console.warn('Não foi possível atualizar o total do ano anterior:', error);
-      }
-    },
     async gerarPDF() {
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
 
-      // Pega mês e ano atuais
       const hoje = new Date();
-      //const mesAtual = hoje.getMonth() + 1; // getMonth() vai de 0 a 11
       const anoAtual = hoje.getFullYear();
 
-      // Usa os valores passados no componente se existirem, senão usa os atuais
       const mesGeracao = [
         'janeiro', 'fevereiro', 'marco', 'abril',
         'maio', 'junho', 'julho', 'agosto',
@@ -669,7 +503,7 @@ export default {
           responseType: 'blob'
         });
 
-        Swal.close(); // Fecha o loading após o recebimento do PDF
+        Swal.close();
 
         const blob = new Blob([response.data], { type: 'application/pdf' });
         const url = window.URL.createObjectURL(blob);
@@ -697,6 +531,7 @@ export default {
     goBack() {
       this.$router.push('/Home');
     },
+
   },
   mounted() {
     this.fetchUsinas();

@@ -208,6 +208,23 @@
               <input id="uc" type="text" class="form-control" v-model="form.uc" />
             </div>
           </div>
+          <div class="row mb-2">
+            <div class="col-md-6">
+              <label>Rede</label>
+              <div>
+                <label class="me-2">
+                  <input type="radio" value="monofasico" v-model="form.rede" /> Monofásico
+                </label>
+                <label class="me-2">
+                  <input type="radio" value="bifasico" v-model="form.rede" /> Bifásico
+                </label>
+                <label>
+                  <input type="radio" value="trifasico" v-model="form.rede" /> Trifásico
+                </label>
+              </div>
+              <div v-if="errors.rede" class="invalid-feedback d-block">{{ errors.rede }}</div>
+            </div>
+          </div>
           <h5 class="mt-4">Dados de Consumo</h5>
           <div class="row">
             <div v-for="(mesLabel, mesKey) in meses" :key="mesKey" class="col-2 mb-2">
@@ -250,8 +267,9 @@ export default {
         telefone: '',
         email: '',
         cia_energia: '',
-        vendedor: '', 
+        vendedor: '',
         uc: '',
+        rede: '',
         data_entrega: '',
         status: '',
         alocacao: '',
@@ -285,9 +303,21 @@ export default {
   },
   computed: {
     mediaConsumo() {
-      const meses = Object.values(this.meses).map((_, i) => this.form[Object.keys(this.meses)[i]]);
+      const meses = Object.keys(this.meses).map((mes) => this.form[mes]);
       const soma = meses.reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
-      this.form.media = parseFloat((soma / 12).toFixed(2));
+      let media = soma / 12;
+      switch (this.form.rede) {
+        case 'trifasico':
+          media += 100;
+          break;
+        case 'bifasico':
+          media += 50;
+          break;
+        case 'monofasico':
+          media += 30;
+          break;
+      }
+      this.form.media = parseFloat(media.toFixed(2));
       return this.form.media;
     }
   },
@@ -362,7 +392,8 @@ export default {
         'telefone',
         'email',
         'vendedor',
-        'cia_energia'
+        'cia_energia',
+        'rede'
       ];
       required.forEach((field) => {
         if (!this.form[field]) {
@@ -387,6 +418,7 @@ export default {
         cia_energia: '',
         vendedor: '',
         uc: '',
+        rede: '',
       };
     },
     async submitForm() {
@@ -458,6 +490,7 @@ export default {
           dcon_id: dcon_id,
           cia_energia: this.form.cia_energia,
           uc: this.form.uc,
+          rede: this.form.rede,
           ven_id: this.form.vendedor,
           data_entrega: this.form.data_entrega,
           status: this.form.status,
