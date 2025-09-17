@@ -224,6 +224,17 @@ export default {
       observacoes: '',
     };
   },
+  watch: {
+    mesSelecionado() {
+      this.mesGeracao = 0;
+      this.valorGeracaoMes = 0;
+      this.credito = 0;
+      this.valorGuardado = 0;
+      this.valorTotal = 0;
+      this.co2Evitado = 0;
+      this.arvoresPlantadas = 0;
+    }
+  },
   computed: {
     valorFinalFioB() {
       return this.fioB * (this.percentualLei / 100);
@@ -441,10 +452,16 @@ export default {
         const respData = resp.data?.data || {};
         this.credito = parseFloat(respData.credito_gerado_reais ?? 0);
         this.valorGuardado = parseFloat(respData.valor_guardado_kwh ?? 0);
-        this.valorTotal = parseFloat(respData.faturamento_mes_reais ?? this.valorTotal).toFixed(2);
+        
+        const pagamentoAtualizado = parseFloat(respData.faturamento_mes_reais ?? this.valorTotal);
+        this.valorTotal = pagamentoAtualizado.toFixed(2);
+        if (this.dadosFaturamentoAnual?.faturamento_usina) {
+          this.dadosFaturamentoAnual.faturamento_usina[this.mesSelecionado] = pagamentoAtualizado;
+        }
+        
         this.co2Evitado = +parseFloat(respData.co2_evitado_kg ?? this.co2Evitado).toFixed(2);
         this.arvoresPlantadas = +parseFloat(respData.arvores_equivalentes ?? this.arvoresPlantadas).toFixed(2);
-        
+
         Swal.fire({
           icon: 'success',
           title: 'Valores salvos!',

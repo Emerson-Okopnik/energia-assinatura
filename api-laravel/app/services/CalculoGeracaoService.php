@@ -59,11 +59,10 @@ class CalculoGeracaoService
             $tarifa = (float) $payload['tarifa_kwh'];
             $geracaoMes = (float) $payload['mesGeracao_kwh'];
             $media = (float) $payload['mediaGeracao_kwh'];
-            $reservaAnterior = (float) $payload['reservaTotalAnterior_kwh'];
             $valorPago = (float) $payload['valorPago_mes'];
 
             $reservasExpiradas = [];
-            $extraCredito = 0.0;
+            $custoExpirado = 0.0;
             $referencia = Carbon::create($ano, $mes, 1)->endOfMonth();
             foreach ($this->meses as $num => $nome) {
                 $valor = (float) ($reserva->$nome ?? 0);
@@ -71,34 +70,55 @@ class CalculoGeracaoService
                     continue;
                 }
                 $dataMes = Carbon::create($ano, $num, 1)->endOfMonth();
-                if ($referencia->diffInDays($dataMes, false) > 160) {
+               if ($dataMes->lessThan($referencia) && $dataMes->diffInDays($referencia) > 180) {
                     $reserva->$nome = 0;
                     $reserva->total = max(0, ($reserva->total ?? 0) - $valor);
-                    $extraCredito += $valor * $tarifa;
+                    $custoExpirado += $valor * $tarifa;
                     $reservasExpiradas[] = [
                         'ano' => $ano,
                         'mes' => $num,
                         'expirado_kwh' => $valor,
-                        'convertido_em_credito_reais' => $valor * $tarifa,
+                        'adicionado_ao_pagamento_reais' => $valor * $tarifa,
                     ];
                 }
             }
 
-            $valorPago -= $extraCredito;
-
+            $valorPago += $custoExpirado;
+            $reservaAnterior = max(0.0, (float) ($reserva->total ?? 0));
             $valorGuardado = 0.0;
             $energiaCompensada = 0.0;
+            $deficit = 0.0;
             if ($geracaoMes >= $media) {
                 $valorGuardado = $geracaoMes - $media;
             } elseif ($reservaAnterior > 0) {
                 $faltante = $media - $geracaoMes;
                 $energiaCompensada = min($faltante, $reservaAnterior);
+                $deficit = $faltante - $energiaCompensada;
+                if ($deficit > 0) {
+                    $valorPago += $deficit * $tarifa;
+                }
             }
 
-            $creditoGerado = ($energiaCompensada * $tarifa) + $extraCredito;
+            $energiaParaDescontar = $energiaCompensada;
+            if ($energiaParaDescontar > 0) {
+                foreach ($this->meses as $num => $nome) {
+                    $valor = (float) ($reserva->$nome ?? 0);
+                    if ($valor <= 0) {
+                        continue;
+                    }
+                    $retirar = min($valor, $energiaParaDescontar);
+                    $reserva->$nome = max(0.0, $valor - $retirar);
+                    $energiaParaDescontar -= $retirar;
+                    if ($energiaParaDescontar <= 0) {
+                        break;
+                    }
+                }
+            }
+
+            $creditoGerado = $energiaCompensada * $tarifa;
 
             $reserva->$mesNome = $valorGuardado;
-            $reserva->total = ($reserva->total ?? 0) + $valorGuardado - $energiaCompensada;
+            $reserva->total = max(0.0, ($reserva->total ?? 0) + $valorGuardado - $energiaCompensada);
             $reserva->save();
 
             $credito->$mesNome = $creditoGerado;
