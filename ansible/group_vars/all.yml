@@ -1,0 +1,26 @@
+project_name: energia-assinatura
+app_domain: energia.example.com
+api_domain: api.energia.example.com
+app_user: www-data
+app_root: /var/www/energia-assinatura
+repository_url: https://github.com/SEU-USUARIO/energia-assinatura.git
+deploy_branch: main
+
+php_version: "8.2"
+
+db_host: "{{ lookup('env', 'RDS_ENDPOINT') | default('rds-endpoint.rds.amazonaws.com', true) }}"
+db_port: 5432
+db_name: energia
+db_username: energia_app
+db_password: "{{ vault_db_password }}"          # ansible-vault
+app_key: "{{ vault_app_key }}"                  # Base64::32 chars
+jwt_secret: "{{ vault_jwt_secret }}"            # 32+ chars
+queue_connection: database
+
+vite_api_url: "https://{{ api_domain }}"
+browsershot_chrome_path: /usr/bin/chromium-browser
+browsershot_node_path: /usr/bin/node
+
+letsencrypt_email: devops@example.com          # opcional
+
+# Secrets armazenados em group_vars/all/vault.yml criptografado

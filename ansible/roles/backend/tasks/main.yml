@@ -1,0 +1,117 @@
+# roles/backend/tasks/main.yml
+- name: Clonar repositório (shallow)
+  ansible.builtin.git:
+    repo: "{{ repository_url }}"
+    dest: "{{ repo_path }}"
+    version: "{{ deploy_branch }}"
+    force: yes
+
+- name: Sincronizar release atual
+  ansible.builtin.copy:
+    src: "{{ repo_path }}/api-laravel/"
+    dest: "{{ release_path }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+  notify: Reiniciar php-fpm
+
+- name: Criar symlink storage compartilhado
+  ansible.builtin.file:
+    src: "{{ app_root }}/shared/storage"
+    dest: "{{ release_path }}/storage"
+    state: link
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+
+- name: Ajustar permissões de storage/cache
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0775"
+  loop:
+    - "{{ app_root }}/shared/storage"
+    - "{{ app_root }}/shared/bootstrap/cache"
+
+- name: Renderizar .env
+  ansible.builtin.template:
+    src: env.laravel.j2
+    dest: "{{ release_path }}/.env"
+    mode: "0640"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+  notify: Reiniciar php-fpm
+
+- name: Instalar dependências Composer
+  community.general.composer:
+    command: install
+    working_dir: "{{ release_path }}"
+    prefer_dist: true
+    no_dev: true
+    optimize_autoloader: true
+    ansi: false
+
+- name: Instalar dependências npm (Browsershot/Puppeteer)
+  community.general.npm:
+    path: "{{ release_path }}"
+    production: false
+
+- name: Construir assets Laravel (se houver)
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ release_path }}"
+  when: lookup('ansible.builtin.fileglob', release_path + '/vite.config.js', errors='ignore') != []
+
+- name: Gerar APP_KEY se não existir
+  ansible.builtin.command:
+    cmd: php artisan key:generate --force --ansi
+    chdir: "{{ release_path }}"
+  when: app_key is undefined or app_key|length == 0
+
+- name: Definir JWT_SECRET
+  ansible.builtin.command:
+    cmd: php artisan jwt:secret --force
+    chdir: "{{ release_path }}"
+  when: jwt_secret is undefined or jwt_secret|length == 0
+
+- name: Rodar migrações
+  ansible.builtin.command:
+    cmd: php artisan migrate --force
+    chdir: "{{ release_path }}"
+
+- name: Limpar e otimizar caches
+  ansible.builtin.command:
+    cmd: php artisan optimize
+    chdir: "{{ release_path }}"
+
+- name: Publicar storage link
+  ansible.builtin.command:
+    cmd: php artisan storage:link
+    chdir: "{{ release_path }}"
+  args:
+    creates: "{{ release_path }}/public/storage"
+
+- name: Criar serviço de fila
+  ansible.builtin.template:
+    src: queue-worker.service.j2
+    dest: /etc/systemd/system/laravel-queue.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Reiniciar queue
+
+- name: Ativar serviço de fila
+  ansible.builtin.systemd:
+    name: laravel-queue.service
+    enabled: true
+    state: started
+
+# handlers/main.yml (adicional aos de php)
+- name: Reload systemd
+  ansible.builtin.command: systemctl daemon-reload
+
+- name: Reiniciar queue
+  ansible.builtin.systemd:
+    name: laravel-queue.service
+    state: restarted

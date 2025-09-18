@@ -1,0 +1,25 @@
+- hosts: app
+  become: true
+  vars:
+    release_path: "{{ app_root }}/current"
+    repo_path: "{{ app_root }}/repo"
+  pre_tasks:
+    - name: Garantir diretórios base
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0755"
+      loop:
+        - "{{ app_root }}"
+        - "{{ app_root }}/shared"
+        - "{{ app_root }}/shared/storage"
+        - "{{ app_root }}/shared/bootstrap/cache"
+  roles:
+    - role: common
+    - role: php
+    - role: backend
+    - role: frontend
+    - role: nginx
+    - role: scheduler

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Laravel schedule every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=60s
+Unit=laravel-scheduler.service
+
+[Install]
+WantedBy=timers.target

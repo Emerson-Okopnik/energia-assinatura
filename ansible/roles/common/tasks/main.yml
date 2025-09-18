@@ -1,0 +1,49 @@
+# roles/common/tasks/main.yml
+- name: Atualizar cache APT
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Instalar pacotes base
+  ansible.builtin.apt:
+    name:
+      - git
+      - unzip
+      - curl
+      - htop
+      - gnupg
+      - software-properties-common
+      - nginx
+      - python3-venv
+      - build-essential
+      - libpq-dev
+      - ufw
+      - chromium-browser
+      - libasound2
+      - libatk1.0-0
+      - libatk-bridge2.0-0
+      - libnss3
+      - libx11-xcb1
+      - libxcomposite1
+      - libxdamage1
+      - libxrandr2
+      - libgbm1
+      - fonts-liberation
+    state: present
+
+- name: Instalar Node.js 20 LTS (Nodesource)
+  ansible.builtin.shell: |
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  args:
+    creates: /etc/apt/sources.list.d/nodesource.list
+
+- name: Instalar Node.js e npm
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+    update_cache: yes
+
+- name: Instalar Composer globalmente
+  ansible.builtin.apt:
+    name: composer
+    state: present

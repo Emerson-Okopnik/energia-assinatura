@@ -1,0 +1,33 @@
+- name: Template API vhost
+  ansible.builtin.template:
+    src: api.conf.j2
+    dest: /etc/nginx/sites-available/api.conf
+    mode: "0644"
+
+- name: Template Frontend vhost
+  ansible.builtin.template:
+    src: frontend.conf.j2
+    dest: /etc/nginx/sites-available/frontend.conf
+    mode: "0644"
+
+- name: Habilitar sites
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ item }}"
+    dest: "/etc/nginx/sites-enabled/{{ item }}"
+    state: link
+  loop:
+    - api.conf
+    - frontend.conf
+  notify: Reiniciar nginx
+
+- name: Remover default site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reiniciar nginx
+
+# handlers/main.yml
+- name: Reiniciar nginx
+  ansible.builtin.service:
+    name: nginx
+    state: restarted

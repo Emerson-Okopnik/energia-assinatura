@@ -1,0 +1,33 @@
+- name: Copiar frontend para release
+  ansible.builtin.copy:
+    src: "{{ repo_path }}/front/"
+    dest: "{{ app_root }}/frontend"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Renderizar arquivo de ambiente Vite
+  ansible.builtin.template:
+    src: env.frontend.j2
+    dest: "{{ app_root }}/frontend/.env.production"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+
+- name: Instalar dependências frontend
+  community.general.npm:
+    path: "{{ app_root }}/frontend"
+    production: false
+
+- name: Build Vite
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ app_root }}/frontend"
+
+- name: Publicar artefatos no Nginx
+  ansible.builtin.copy:
+    src: "{{ app_root }}/frontend/dist/"
+    dest: /var/www/energia-frontend
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"

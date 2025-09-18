@@ -1,0 +1,17 @@
+[Unit]
+Description=Laravel Queue Worker
+After=network.target
+
+[Service]
+User={{ app_user }}
+Group={{ app_user }}
+Restart=always
+RestartSec=5
+WorkingDirectory={{ release_path }}
+ExecStart=/usr/bin/php {{ release_path }}/artisan queue:work --sleep=3 --tries=3 --timeout=90
+ExecStop=/usr/bin/php {{ release_path }}/artisan queue:restart
+Environment=APP_ENV=production
+Environment=APP_DEBUG=false
+
+[Install]
+WantedBy=multi-user.target

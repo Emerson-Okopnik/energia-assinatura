@@ -1,0 +1,12 @@
+[Unit]
+Description=Laravel Schedule Runner
+After=network.target
+
+[Service]
+Type=oneshot
+User={{ app_user }}
+WorkingDirectory={{ release_path }}
+ExecStart=/usr/bin/php {{ release_path }}/artisan schedule:run
+
+[Install]
+WantedBy=multi-user.target

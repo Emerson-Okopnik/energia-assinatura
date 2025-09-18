@@ -1,0 +1,48 @@
+# roles/php/tasks/main.yml
+- name: Adicionar PPA do PHP 8.2
+  ansible.builtin.apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+
+- name: Instalar PHP 8.2 + extensões
+  ansible.builtin.apt:
+    name:
+      - php8.2
+      - php8.2-cli
+      - php8.2-fpm
+      - php8.2-common
+      - php8.2-pgsql
+      - php8.2-mbstring
+      - php8.2-bcmath
+      - php8.2-intl
+      - php8.2-xml
+      - php8.2-zip
+      - php8.2-curl
+      - php8.2-gd
+      - php8.2-sqlite3
+      - php8.2-readline
+    state: present
+
+- name: Ajustar php.ini (produção)
+  ansible.builtin.lineinfile:
+    path: /etc/php/8.2/fpm/php.ini
+    regexp: '^{{ item.key }} ='
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - { key: "memory_limit", value: "512M" }
+    - { key: "upload_max_filesize", value: "32M" }
+    - { key: "post_max_size", value: "32M" }
+    - { key: "date.timezone", value: "America/Sao_Paulo" }
+  notify: Reiniciar php-fpm
+
+- name: Ativar php-fpm no boot
+  ansible.builtin.service:
+    name: php8.2-fpm
+    state: started
+    enabled: true
+
+# handlers/main.yml
+- name: Reiniciar php-fpm
+  ansible.builtin.service:
+    name: php8.2-fpm
+    state: restarted

@@ -1,0 +1,29 @@
+server {
+    listen 80;
+    server_name {{ api_domain }};
+    root {{ release_path }}/public;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_param APP_ENV production;
+        fastcgi_param APP_DEBUG false;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    client_max_body_size 20m;
+    access_log /var/log/nginx/api_access.log;
+    error_log  /var/log/nginx/api_error.log;
+}
