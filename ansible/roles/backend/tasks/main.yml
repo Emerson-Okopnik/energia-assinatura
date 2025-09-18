@@ -13,6 +13,7 @@
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0755"
+    remote_src: true
   notify: Reiniciar php-fpm
 
 - name: Criar symlink storage compartilhado
@@ -107,11 +108,3 @@
     enabled: true
     state: started
 
-# handlers/main.yml (adicional aos de php)
-- name: Reload systemd
-  ansible.builtin.command: systemctl daemon-reload
-
-- name: Reiniciar queue
-  ansible.builtin.systemd:
-    name: laravel-queue.service
-    state: restarted

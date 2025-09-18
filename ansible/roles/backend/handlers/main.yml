@@ -1,0 +1,8 @@
+# roles/backend/handlers/main.yml
+- name: Reload systemd
+  ansible.builtin.command: systemctl daemon-reload
+
+- name: Reiniciar queue
+  ansible.builtin.systemd:
+    name: laravel-queue.service
+    state: restarted

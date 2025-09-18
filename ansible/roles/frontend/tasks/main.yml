@@ -5,6 +5,7 @@
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0755"
+    remote_src: true
 
 - name: Renderizar arquivo de ambiente Vite
   ansible.builtin.template:
@@ -31,3 +32,4 @@
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0755"
+    remote_src: true

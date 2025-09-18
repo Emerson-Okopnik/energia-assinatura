@@ -40,9 +40,3 @@
     name: php8.2-fpm
     state: started
     enabled: true
-
-# handlers/main.yml
-- name: Reiniciar php-fpm
-  ansible.builtin.service:
-    name: php8.2-fpm
-    state: restarted

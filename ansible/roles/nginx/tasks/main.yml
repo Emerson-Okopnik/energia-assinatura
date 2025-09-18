@@ -25,9 +25,3 @@
     path: /etc/nginx/sites-enabled/default
     state: absent
   notify: Reiniciar nginx
-
-# handlers/main.yml
-- name: Reiniciar nginx
-  ansible.builtin.service:
-    name: nginx
-    state: restarted
