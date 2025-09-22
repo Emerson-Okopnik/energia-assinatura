@@ -55,7 +55,9 @@
 
 - name: Instalar Node.js e npm
   ansible.builtin.apt:
-    name: nodejs
+    name:
+      - nodejs
+      - npm
     state: present
     update_cache: yes
 
