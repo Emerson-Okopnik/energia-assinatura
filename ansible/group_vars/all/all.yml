@@ -12,13 +12,15 @@ db_host: "{{ lookup('env', 'RDS_ENDPOINT') | default('aws-1-sa-east-1.pooler.sup
 db_port: 6543
 db_name: postgres
 db_username: postgres.vpsqucrjcijeqcquvnkp
-db_password: "{{ vault_db_password }}"          # ansible-vault
-app_key: "{{ vault_app_key }}"                  # Base64::32 chars
-jwt_secret: "{{ vault_jwt_secret }}"            # 32+ chars
+db_password: "{{ vault_db_password | default(lookup('env', 'DB_PASSWORD'), true) }}"          # ansible-vault
+app_key: "{{ vault_app_key | default(lookup('env', 'APP_KEY'), true) }}"                  # Base64::32 chars
+jwt_secret: "{{ vault_jwt_secret | default(lookup('env', 'JWT_SECRET'), true) }}"            # 32+ chars
 queue_connection: database
 
 vite_api_url: "https://{{ api_domain }}"
-browsershot_chrome_path: /usr/bin/chromium-browser
+browsershot_chrome_path: >-
+  {{ '/snap/bin/chromium' if (ansible_distribution == 'Ubuntu' and
+  ansible_distribution_version is version('22.04', '>=')) else '/usr/bin/chromium' }}
 browsershot_node_path: /usr/bin/node
 
 letsencrypt_email: ti2@rudniksolucoes.com.br         # opcional

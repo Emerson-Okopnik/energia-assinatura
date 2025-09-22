@@ -19,7 +19,6 @@
       - libpq-dev
       - ufw
       - chromium-browser
-      - libasound2
       - libatk1.0-0
       - libatk-bridge2.0-0
       - libnss3
@@ -31,11 +30,28 @@
       - fonts-liberation
     state: present
 
-- name: Instalar Node.js 20 LTS (Nodesource)
-  ansible.builtin.shell: |
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-  args:
-    creates: /etc/apt/sources.list.d/nodesource.list
+- name: Instalar Chromium via APT em distribuições Debian
+  ansible.builtin.apt:
+    name: chromium
+    state: present
+  when:
+    - ansible_distribution == "Debian"
+
+- name: Garantir que o Snapd esteja instalado em distribuições Ubuntu 22.04+
+  ansible.builtin.apt:
+    name: snapd
+    state: present
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version('22.04', '>=')
+
+- name: Instalar Chromium via Snap em distribuições Ubuntu 22.04+
+  ansible.builtin.command:
+    cmd: snap install chromium
+    creates: /snap/bin/chromium
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version('22.04', '>=')
 
 - name: Instalar Node.js e npm
   ansible.builtin.apt:

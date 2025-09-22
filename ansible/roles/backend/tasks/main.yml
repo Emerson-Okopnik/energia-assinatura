@@ -16,6 +16,11 @@
     remote_src: true
   notify: Reiniciar php-fpm
 
+- name: Remover storage do release
+  ansible.builtin.file:
+    path: "{{ release_path }}/storage"
+    state: absent
+    
 - name: Criar symlink storage compartilhado
   ansible.builtin.file:
     src: "{{ app_root }}/shared/storage"
@@ -45,13 +50,14 @@
   notify: Reiniciar php-fpm
 
 - name: Instalar dependências Composer
+  become: true
+  become_user: "{{ app_user }}"
   community.general.composer:
     command: install
     working_dir: "{{ release_path }}"
     prefer_dist: true
     no_dev: true
     optimize_autoloader: true
-    ansi: false
 
 - name: Instalar dependências npm (Browsershot/Puppeteer)
   community.general.npm:
