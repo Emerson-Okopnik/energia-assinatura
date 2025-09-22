@@ -1,3 +1,26 @@
+- name: Clonar repositório do projeto
+  ansible.builtin.git:
+    repo: "{{ repository_url }}"
+    dest: "{{ repo_path }}"
+    version: "{{ deploy_branch }}"
+    force: yes
+
+- name: Garantir diretório de trabalho do frontend
+  ansible.builtin.file:
+    path: "{{ app_root }}/frontend"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Garantir diretório público do frontend
+  ansible.builtin.file:
+    path: "{{ frontend_root }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
 - name: Copiar frontend para release
   ansible.builtin.copy:
     src: "{{ repo_path }}/front/"
@@ -28,7 +51,7 @@
 - name: Publicar artefatos no Nginx
   ansible.builtin.copy:
     src: "{{ app_root }}/frontend/dist/"
-    dest: /var/www/energia-frontend
+    dest: "{{ frontend_root }}
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0755"

@@ -1,0 +1,4 @@
+---
+# Configurações específicas para o grupo de hosts "frontend"
+nginx_configure_api: false
+nginx_configure_frontend: true

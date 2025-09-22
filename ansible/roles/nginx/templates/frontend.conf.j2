@@ -1,7 +1,7 @@
 server {
     listen 80;
     server_name {{ app_domain }};
-    root /var/www/energia-frontend;
+    root {{ frontend_root }};
     index index.html;
 
     location / {

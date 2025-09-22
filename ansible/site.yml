@@ -23,3 +23,26 @@
     - role: frontend
     - role: nginx
     - role: schedule
+
+- hosts: frontend
+  become: true
+  vars:
+    release_path: "{{ app_root }}/current"
+    repo_path: "{{ app_root }}/repo"
+  pre_tasks:
+    - name: Garantir diretórios base do frontend
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0755"
+      loop:
+        - "{{ app_root }}"
+        - "{{ repo_path }}"
+        - "{{ app_root }}/frontend"
+        - "{{ frontend_root }}"
+  roles:
+    - role: common
+    - role: frontend
+    - role: nginx

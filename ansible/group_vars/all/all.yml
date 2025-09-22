@@ -1,7 +1,9 @@
 project_name: energia-assinatura
 app_domain: app.consorcioliderenergy.com.br
-api_domain: app.consorcioliderenergy.com.br/api
+api_domain: 178.156.188.174
+api_base_path: /api
 app_user: www-data
+frontend_root: /var/www/energia-frontend
 app_root: /var/www/energia-assinatura
 repository_url: https://github.com/Emerson-Okopnik/energia-assinatura.git
 deploy_branch: main
