@@ -22,4 +22,4 @@
     - role: backend
     - role: frontend
     - role: nginx
-    - role: scheduler
+    - role: schedule
