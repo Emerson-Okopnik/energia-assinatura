@@ -1,11 +1,44 @@
+# roles/frontend/tasks/main.yml
+
+- name: Garantir base do app e parent do repo
+  become: yes
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+  loop:
+    - "{{ app_root }}"
+    - "{{ repo_path | dirname }}"
+    - "{{ frontend_root }}"
+
+# (Opcional) Se já existe repo com owner errado, remove para evitar 'dubious ownership'
+- name: Verificar owner do repo
+  ansible.builtin.stat:
+    path: "{{ repo_path }}"
+  register: repo_stat
+
+- name: Remover repo com owner incorreto
+  become: yes
+  ansible.builtin.file:
+    path: "{{ repo_path }}"
+    state: absent
+  when: repo_stat.stat.exists and repo_stat.stat.pw_name is defined and repo_stat.stat.pw_name != app_user
+
+# >>> ALTERAÇÃO PRINCIPAL: rodar git como {{ app_user }}
 - name: Clonar repositório do projeto
+  become: yes
+  become_user: "{{ app_user }}"
   ansible.builtin.git:
     repo: "{{ repository_url }}"
     dest: "{{ repo_path }}"
     version: "{{ deploy_branch }}"
     force: yes
+    update: yes
 
 - name: Garantir diretório de trabalho do frontend
+  become: yes
   ansible.builtin.file:
     path: "{{ app_root }}/frontend"
     state: directory
@@ -13,15 +46,8 @@
     group: "{{ app_user }}"
     mode: "0755"
 
-- name: Garantir diretório público do frontend
-  ansible.builtin.file:
-    path: "{{ frontend_root }}"
-    state: directory
-    owner: "{{ app_user }}"
-    group: "{{ app_user }}"
-    mode: "0755"
-
 - name: Copiar frontend para release
+  become: yes
   ansible.builtin.copy:
     src: "{{ repo_path }}/front/"
     dest: "{{ app_root }}/frontend"
@@ -31,6 +57,7 @@
     remote_src: true
 
 - name: Renderizar arquivo de ambiente Vite
+  become: yes
   ansible.builtin.template:
     src: env.frontend.j2
     dest: "{{ app_root }}/frontend/.env.production"
@@ -38,17 +65,23 @@
     group: "{{ app_user }}"
     mode: "0644"
 
+# >>> Rodar npm como {{ app_user }} para evitar permissões em node_modules
 - name: Instalar dependências frontend
+  become: yes
+  become_user: "{{ app_user }}"
   community.general.npm:
     path: "{{ app_root }}/frontend"
     production: false
 
 - name: Build Vite
+  become: yes
+  become_user: "{{ app_user }}"
   ansible.builtin.command:
     cmd: npm run build
     chdir: "{{ app_root }}/frontend"
 
 - name: Publicar artefatos no Nginx
+  become: yes
   ansible.builtin.copy:
     src: "{{ app_root }}/frontend/dist/"
     dest: "{{ frontend_root }}"

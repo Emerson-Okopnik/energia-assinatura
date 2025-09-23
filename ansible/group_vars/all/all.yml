@@ -1,12 +1,13 @@
 project_name: energia-assinatura
 app_domain: app.consorcioliderenergy.com.br
-api_domain: 178.156.188.174
+api_domain: api.consorcioliderenergy.com.br
 api_base_path: /api
 app_user: www-data
 frontend_root: /var/www/energia-frontend
 app_root: /var/www/energia-assinatura
 repository_url: https://github.com/Emerson-Okopnik/energia-assinatura.git
 deploy_branch: main
+deploy_user: ubuntu
 
 php_version: "8.2"
 
@@ -25,6 +26,6 @@ browsershot_chrome_path: >-
   ansible_distribution_version is version('22.04', '>=')) else '/usr/bin/chromium' }}
 browsershot_node_path: /usr/bin/node
 
-letsencrypt_email: ti2@rudniksolucoes.com.br         # opcional
+letsencrypt_email: emer00k@gmail.com       # opcional
 
 # Secrets armazenados em group_vars/all/vault.yml criptografado
