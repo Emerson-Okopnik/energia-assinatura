@@ -26,10 +26,10 @@ Route::get('/hello', function () {
     return response('Hello World', 200);
 });
 Route::post('/register', [AuthController::class, 'register']);
-Route::middleware('auth:api')->get('/user', [AuthController::class, 'user']);
 
 Route::middleware('auth:api')->group(function () {
   Route::get('/home', [AuthController::class, 'user']);
+  Route::get('/user', [AuthController::class, 'user']);
   Route::get('/users',[AuthController::class,'index']);
   Route::get('/users/{id}',[AuthController::class,'show']);
 
@@ -122,7 +122,7 @@ Route::middleware('auth:api')->group(function () {
   Route::patch('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'update']);
   Route::delete('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'destroy']);
 
-    Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'calcular']);
+  Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'calcular']);
 
   Route::post('/dados-geracao-real-usina', [DadosGeracaoRealUsinaController::class, 'store']);
   Route::get('/dados-geracao-real-usina', [DadosGeracaoRealUsinaController::class, 'index']);

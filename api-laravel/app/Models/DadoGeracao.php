@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Dadogeracao extends Model {
+class DadoGeracao extends Model {
 
     protected $table = 'dados_geracao';
 
