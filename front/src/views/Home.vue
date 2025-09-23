@@ -72,6 +72,7 @@
 <script>
 import Swal from 'sweetalert2';
 import axios from 'axios';
+import { clearAuthSession, isAuthorizationError } from '@/utils/auth.js';
 
 export default {
   data() {
@@ -231,13 +232,23 @@ export default {
 
     } catch (error) {
       console.error('Erro ao buscar dados:', error);
+      if (isAuthorizationError(error)) {
+        clearAuthSession();
+        Swal.fire({
+          icon: 'warning',
+          title: 'Sessão expirada',
+          text: 'Sua sessão expirou. Faça login novamente.',
+          confirmButtonColor: '#d33'
+        });
+        return;
+      }
+
       Swal.fire({
         icon: 'error',
         title: 'Erro ao carregar dados',
-        text: 'Sessão expirada ou erro na API.',
+        text: 'Não foi possível carregar os dados. Tente novamente.',
         confirmButtonColor: '#d33'
       });
-      this.$router.push({ name: 'Login' });
     }
   }
 };

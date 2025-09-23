@@ -79,6 +79,9 @@
 
 <script>
 import axios from 'axios';
+import { clearAuthSession, getAuthToken, isAuthenticated as hasActiveSession } from '@/utils/auth.js';
+
+const baseURL = import.meta.env.VITE_API_URL;
 
 export default {
   data() {
@@ -91,39 +94,26 @@ export default {
       }
     };
   },
-mounted() {
-  this.isAuthenticated = !!localStorage.getItem('token');
-  const baseURL = import.meta.env.VITE_API_URL;
+  async created() {    
+    this.isAuthenticated = hasActiveSession();
 
-  if (this.isAuthenticated) {
-    axios.get(`${baseURL}/user`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-    .then(response => {
-      this.user = response.data;
-    })
-    .catch(error => {
-      console.error('Erro ao buscar dados do usuário:', error);
-    });
-  }
-},
-  async created() {
     if (this.isAuthenticated) {
+      await this.fetchAuthenticatedUser();
+    }
+  },
+  methods: {
+    async fetchAuthenticatedUser() {
       try {
         const response = await axios.get(`${baseURL}/user`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${getAuthToken()}`,
           },
         });
         this.user = response.data;
       } catch (error) {
         console.error('Erro ao buscar dados do usuário:', error);
       }
-    }
-  },
-  methods: {
+    },
     openDropdown(menu) {
       this.dropdowns[menu] = true;
     },
@@ -131,7 +121,7 @@ mounted() {
       this.dropdowns[menu] = false;
     },
     logout() {
-      localStorage.removeItem('token');
+      clearAuthSession();
       this.isAuthenticated = false;
       this.user = 'Usuário';
       this.$router.push({ name: 'Login' }).then(() => {

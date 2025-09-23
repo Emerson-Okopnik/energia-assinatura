@@ -27,6 +27,7 @@
   import axios from 'axios';
   import Swal from 'sweetalert2';
   import '@/assets/css/form-auth.css';
+  import { setAuthSession } from '@/utils/auth.js';
 
   export default {
     data() {
@@ -47,8 +48,7 @@
           });
 
           const token = response.data.token;
-          localStorage.setItem('token', token);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setAuthSession(token);
           this.$router.push({ name: 'Home' }).then(() => window.location.reload());
         } catch (error) {
           console.error('Erro no cadastro:', error);

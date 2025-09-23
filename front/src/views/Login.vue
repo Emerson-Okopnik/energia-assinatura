@@ -43,6 +43,7 @@
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import '@/assets/css/form-login.css';
+import { setAuthSession } from '@/utils/auth.js';
 
 export default {
   data() {
@@ -65,8 +66,7 @@ export default {
         });
 
         const token = response.data.token;
-        localStorage.setItem('token', token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setAuthSession(token);
         this.$router.push({ name: 'Home' }).then(() => window.location.reload());
 
       } catch (error) {
