@@ -95,6 +95,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            'prepare' => env('DB_PREPARED_STATEMENTS', true),
         ],
 
         'sqlsrv' => [

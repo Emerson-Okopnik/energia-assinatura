@@ -22,6 +22,9 @@ use App\Http\Controllers\DadosGeracaoRealUsinaController;
 use App\Http\Controllers\CalculoGeracaoController;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/hello', function () {
+    return response('Hello World', 200);
+});
 Route::post('/register', [AuthController::class, 'register']);
 Route::middleware('auth:api')->get('/user', [AuthController::class, 'user']);
 
