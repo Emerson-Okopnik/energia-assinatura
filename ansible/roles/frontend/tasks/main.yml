@@ -51,7 +51,7 @@
 - name: Publicar artefatos no Nginx
   ansible.builtin.copy:
     src: "{{ app_root }}/frontend/dist/"
-    dest: "{{ frontend_root }}
+    dest: "{{ frontend_root }}"
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0755"

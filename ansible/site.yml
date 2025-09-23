@@ -3,6 +3,7 @@
   vars:
     release_path: "{{ app_root }}/current"
     repo_path: "{{ app_root }}/repo"
+    nginx_configure_frontend: false
   pre_tasks:
     - name: Garantir diretórios base
       ansible.builtin.file:
@@ -20,7 +21,6 @@
     - role: common
     - role: php
     - role: backend
-    - role: frontend
     - role: nginx
     - role: schedule
 
@@ -39,7 +39,6 @@
         mode: "0755"
       loop:
         - "{{ app_root }}"
-        - "{{ repo_path }}"
         - "{{ app_root }}/frontend"
         - "{{ frontend_root }}"
   roles:
