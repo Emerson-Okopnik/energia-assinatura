@@ -11,6 +11,10 @@ deploy_user: ubuntu
 
 php_version: "8.2"
 
+frontend_ssl_certificate: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+frontend_ssl_certificate_key: "/etc/letsencrypt/live/{{ app_domain }}/privkey.pem"
+frontend_ssl_trusted_certificate: "/etc/letsencrypt/live/{{ app_domain }}/chain.pem"
+
 db_host: "{{ vault_db_host | default(lookup('env', 'RDS_ENDPOINT'), true) }}"
 db_port: 6543
 db_name: postgres
@@ -20,7 +24,6 @@ app_key: "{{ vault_app_key | default(lookup('env', 'APP_KEY'), true) }}"        
 jwt_secret: "{{ vault_jwt_secret | default(lookup('env', 'JWT_SECRET'), true) }}"            # 32+ chars
 queue_connection: database
 
-vite_api_url: "https://{{ api_domain }}"
 browsershot_chrome_path: >-
   {{ '/snap/bin/chromium' if (ansible_distribution == 'Ubuntu' and
   ansible_distribution_version is version('22.04', '>=')) else '/usr/bin/chromium' }}
