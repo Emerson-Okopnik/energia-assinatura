@@ -32,9 +32,20 @@
     - { key: "memory_limit", value: "512M" }
     - { key: "upload_max_filesize", value: "32M" }
     - { key: "post_max_size", value: "32M" }
+    - { key: "max_execution_time", value: "{{ php_max_execution_time }}" }
+    - { key: "max_input_time", value: "{{ php_max_input_time }}" }
     - { key: "date.timezone", value: "America/Sao_Paulo" }
   notify: Reiniciar php-fpm
 
+- name: Configurar pool principal do PHP-FPM
+  ansible.builtin.template:
+    src: www.conf.j2
+    dest: "/etc/php/{{ php_version }}/fpm/pool.d/www.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reiniciar php-fpm
+  
 - name: Ativar php-fpm no boot
   ansible.builtin.service:
     name: php8.2-fpm

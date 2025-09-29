@@ -10,6 +10,23 @@ deploy_branch: main
 deploy_user: ubuntu
 
 php_version: "8.2"
+php_max_execution_time: 600
+php_max_input_time: 600
+
+php_fpm_pool_name: www
+php_fpm_pool_user: www-data
+php_fpm_pool_group: www-data
+php_fpm_listen_socket: "/run/php/php{{ php_version }}-fpm.sock"
+php_fpm_pm: dynamic
+php_fpm_pm_max_children: 20
+php_fpm_pm_start_servers: 5
+php_fpm_pm_min_spare_servers: 5
+php_fpm_pm_max_spare_servers: 10
+php_fpm_pm_max_requests: 500
+php_fpm_request_terminate_timeout: 60s
+php_fpm_access_log: "/var/log/php{{ php_version }}-fpm.access.log"
+php_fpm_slow_log: "/var/log/php{{ php_version }}-fpm.slow.log"
+php_fpm_request_slowlog_timeout: 10s
 
 db_host: "{{ vault_db_host | default(lookup('env', 'RDS_ENDPOINT'), true) }}"
 db_port: 6543
