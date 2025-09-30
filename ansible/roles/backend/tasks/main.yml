@@ -47,12 +47,18 @@
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
 
+- name: Verificar autoloader do Composer
+  ansible.builtin.stat:
+    path: "{{ release_path }}/vendor/autoload.php"
+  register: autoload_stat
+
 - name: Limpar cache de configuração
   ansible.builtin.command:
     cmd: php artisan config:clear
     chdir: "{{ release_path }}"
+  when: autoload_stat.stat.exists | default(false)
   changed_when: false
-  
+
 - name: Instalar dependências Composer
   become: true
   become_user: "{{ app_user }}"

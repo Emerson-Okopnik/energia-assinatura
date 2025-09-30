@@ -38,7 +38,7 @@
     - { key: "max_execution_time", value: "{{ php_max_execution_time }}" }
     - { key: "max_input_time", value: "{{ php_max_input_time }}" }
     - { key: "date.timezone", value: "America/Sao_Paulo" }
-  notify: Reiniciar php-fpm
+  notify: Reload php-fpm
 
 - name: Configurar pool principal do PHP-FPM
   ansible.builtin.template:
@@ -47,7 +47,7 @@
     owner: root
     group: root
     mode: "0644"
-  notify: Reiniciar php-fpm
+  notify: Reload php-fpm
 
 - name: Validar sintaxe do PHP-FPM
   ansible.builtin.command: "php-fpm{{ php_version }} -t"

@@ -4,14 +4,14 @@
     dest: /etc/nginx/sites-available/api.conf
     mode: "0644"
   when: nginx_configure_api
-  notify: Reiniciar nginx
+  notify: Reload nginx
 
 - name: Remover vhost API quando desabilitado
   ansible.builtin.file:
     path: /etc/nginx/sites-available/api.conf
     state: absent
   when: not nginx_configure_api
-  notify: Reiniciar nginx
+  notify: Reload nginx
 
 - name: Template Frontend vhost
   ansible.builtin.template:
@@ -19,14 +19,14 @@
     dest: /etc/nginx/sites-available/frontend.conf
     mode: "0644"
   when: nginx_configure_frontend
-  notify: Reiniciar nginx
+  notify: Reload nginx
 
 - name: Remover vhost do frontend quando desabilitado
   ansible.builtin.file:
     path: /etc/nginx/sites-available/frontend.conf
     state: absent
   when: not nginx_configure_frontend
-  notify: Reiniciar nginx
+  notify: Reload nginx
 
 - name: Habilitar sites necessários
   ansible.builtin.file:
@@ -34,7 +34,7 @@
     dest: "/etc/nginx/sites-enabled/{{ item }}"
     state: link
   loop: "{{ ([ 'api.conf' ] if nginx_configure_api else []) + ([ 'frontend.conf' ] if nginx_configure_frontend else []) }}"
-  notify: Reiniciar nginx
+  notify: Reload nginx
 
 - name: Remover sites desabilitados
   ansible.builtin.file:
@@ -42,13 +42,13 @@
     state: absent
   loop: "{{ ([] if nginx_configure_api else ['api.conf']) + ([] if nginx_configure_frontend else ['frontend.conf']) }}"
   when: (not nginx_configure_api) or (not nginx_configure_frontend)
-  notify: Reiniciar nginx
+  notify: Reload nginx
 
 - name: Remover default site
   ansible.builtin.file:
     path: /etc/nginx/sites-enabled/default
     state: absent
-  notify: Reiniciar nginx
+  notify: Reload nginx
 
 - name: Testar configuração do Nginx
   ansible.builtin.command: nginx -t
