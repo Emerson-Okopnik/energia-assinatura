@@ -1,3 +1,5 @@
 ---
 nginx_configure_api: true
 nginx_configure_frontend: false
+
+frontend_origin: "https://{{ app_domain }}"
