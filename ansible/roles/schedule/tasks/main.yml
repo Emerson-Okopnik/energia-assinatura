@@ -3,16 +3,17 @@
     src: laravel-scheduler.service.j2
     dest: /etc/systemd/system/laravel-scheduler.service
     mode: "0644"
+  notify: Reload systemd units
 
 - name: Instalar timer do agendador
   ansible.builtin.template:
     src: laravel-scheduler.timer.j2
     dest: /etc/systemd/system/laravel-scheduler.timer
     mode: "0644"
+  notify: Reload systemd units
 
 - name: Habilitar timer
   ansible.builtin.systemd:
     name: laravel-scheduler.timer
     state: started
     enabled: true
-  notify: Reload systemd

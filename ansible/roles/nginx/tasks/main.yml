@@ -4,6 +4,7 @@
     dest: /etc/nginx/sites-available/api.conf
     mode: "0644"
   when: nginx_configure_api
+  notify: Reiniciar nginx
 
 - name: Remover vhost API quando desabilitado
   ansible.builtin.file:
@@ -18,6 +19,7 @@
     dest: /etc/nginx/sites-available/frontend.conf
     mode: "0644"
   when: nginx_configure_frontend
+  notify: Reiniciar nginx
 
 - name: Remover vhost do frontend quando desabilitado
   ansible.builtin.file:
@@ -47,3 +49,17 @@
     path: /etc/nginx/sites-enabled/default
     state: absent
   notify: Reiniciar nginx
+
+- name: Testar configuração do Nginx
+  ansible.builtin.command: nginx -t
+  register: nginx_test
+  changed_when: false
+  failed_when: false
+
+- name: Falhar quando a configuração do Nginx estiver inválida
+  ansible.builtin.fail:
+    msg: "nginx -t falhou: {{ nginx_test.stderr | default(nginx_test.stdout) }}"
+  when: nginx_test.rc != 0
+
+- name: Aplicar reloads pendentes do Nginx
+  ansible.builtin.meta: flush_handlers

@@ -22,6 +22,9 @@
       - php8.2-sqlite3
       - php8.2-readline
     state: present
+    update_cache: true
+  register: php_packages
+  notify: Restart php-fpm (upgrade)
 
 - name: Ajustar php.ini (produção)
   ansible.builtin.lineinfile:
@@ -45,9 +48,20 @@
     group: root
     mode: "0644"
   notify: Reiniciar php-fpm
-  
+
+- name: Validar sintaxe do PHP-FPM
+  ansible.builtin.command: "php-fpm{{ php_version }} -t"
+  register: php_fpm_test
+  changed_when: false
+  failed_when: false
+
+- name: Falhar quando a validação do PHP-FPM não passar
+  ansible.builtin.fail:
+    msg: "php-fpm{{ php_version }} -t falhou: {{ php_fpm_test.stderr | default(php_fpm_test.stdout) }}"
+  when: php_fpm_test.rc != 0
+
 - name: Ativar php-fpm no boot
-  ansible.builtin.service:
-    name: php8.2-fpm
+  ansible.builtin.systemd:
+    name: "php{{ php_version }}-fpm"
     state: started
     enabled: true

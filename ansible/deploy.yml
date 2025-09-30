@@ -1,0 +1,62 @@
+---
+- hosts: app
+  serial: 1
+  become: true
+  vars:
+    app_path: /var/www/energia-assinatura/current
+    api_domain: api.consorcioliderenergy.com.br
+    frontend_origin: https://app.consorcioliderenergy.com.br
+    php_fpm_service: php8.2-fpm
+    release_path: "{{ app_path }}"
+    repo_path: "{{ app_root }}/repo"
+    nginx_configure_frontend: false
+  pre_tasks:
+    - name: Garantir diretórios base
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0755"
+      loop:
+        - "{{ app_root }}"
+        - "{{ app_root }}/shared"
+        - "{{ app_root }}/shared/storage"
+        - "{{ app_root }}/shared/bootstrap/cache"
+  roles:
+    - role: common
+    - role: php
+    - role: backend
+    - role: nginx
+    - role: schedule
+  post_tasks:
+    - name: Garantir aplicação de handlers pendentes
+      ansible.builtin.meta: flush_handlers
+
+    - name: Health check da API
+      block:
+        - name: Validar rota /health
+          ansible.builtin.uri:
+            url: https://api.consorcioliderenergy.com.br/health
+            method: GET
+            status_code: 200
+            validate_certs: true
+          register: health
+          retries: 20
+          delay: 2
+          until: health.status == 200
+      rescue:
+        - name: Aviso sobre fallback de health check
+          ansible.builtin.debug:
+            msg: "> Rota /health indisponível, validando resposta de /"
+
+        - name: Validar rota raíz como fallback
+          ansible.builtin.uri:
+            url: https://api.consorcioliderenergy.com.br/
+            method: GET
+            status_code: 200
+            validate_certs: true
+          register: health_root
+          retries: 20
+          delay: 2
+          until: health_root.status == 200

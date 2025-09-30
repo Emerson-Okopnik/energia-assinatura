@@ -1,5 +1,7 @@
 # roles/nginx/handlers/main.yml
-- name: Reiniciar nginx
-  ansible.builtin.service:
+- name: Reload nginx
+  # Executado quando templates ou links de sites mudam para aplicar CORS/logs sem interrupção
+  ansible.builtin.systemd:
     name: nginx
-    state: restarted
+    state: reloaded
+    daemon_reload: true

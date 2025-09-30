@@ -1,5 +1,24 @@
 # roles/php/handlers/main.yml
-- name: Reiniciar php-fpm
-  ansible.builtin.service:
-    name: php8.2-fpm
+- name: Reload php-fpm
+  # Disparado por ajustes no php.ini ou pools para aplicar alterações sem derrubar requisições
+  ansible.builtin.systemd:
+    name: "{{ php_fpm_service | default('php' ~ php_version ~ '-fpm') }}"
+    state: reloaded
+    daemon_reload: true
+
+- name: Restart php-fpm (upgrade)
+  # Usado apenas quando um pacote php-fpm é atualizado via apt
+  ansible.builtin.systemd:
+    name: "{{ php_fpm_service | default('php' ~ php_version ~ '-fpm') }}"
     state: restarted
+    daemon_reload: true
+  when:
+    - php_packages is defined
+    - >-
+      (
+        php_packages.results | default([])
+        | selectattr('name', 'equalto', 'php8.2-fpm')
+        | selectattr('state', 'equalto', 'upgraded')
+        | list
+        | length
+      ) > 0

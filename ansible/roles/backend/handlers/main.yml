@@ -1,8 +1,11 @@
 # roles/backend/handlers/main.yml
-- name: Reload systemd
-  ansible.builtin.command: systemctl daemon-reload
+- name: Reload systemd units
+  # Recarrega unidades quando arquivos de serviço/timer são atualizados
+  ansible.builtin.systemd:
+    daemon_reload: true
 
-- name: Reiniciar queue
+- name: Restart queue worker
+  # Reinicia apenas o worker de filas após mudanças no unit file
   ansible.builtin.systemd:
     name: laravel-queue.service
     state: restarted
