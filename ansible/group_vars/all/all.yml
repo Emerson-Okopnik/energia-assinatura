@@ -39,8 +39,13 @@ queue_connection: database
 
 vite_api_url: "https://{{ api_domain }}"
 browsershot_chrome_path: >-
-  {{ '/snap/bin/chromium' if (ansible_distribution == 'Ubuntu' and
-  ansible_distribution_version is version('22.04', '>=')) else '/usr/bin/chromium' }}
+  {%- if ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('22.04', '>=') -%}
+  /snap/bin/chromium
+  {%- elif ansible_distribution == 'Ubuntu' -%}
+  /usr/bin/chromium-browser
+  {%- else -%}
+  /usr/bin/chromium
+  {%- endif -%}
 browsershot_node_path: /usr/bin/node
 
 letsencrypt_email: emer00k@gmail.com       # opcional

@@ -60,3 +60,41 @@
           retries: 20
           delay: 2
           until: health_root.status == 200
+
+- hosts: frontend
+  serial: 1
+  become: true
+  vars:
+    release_path: "{{ app_root }}/frontend"
+    repo_path: "{{ app_root }}/repo"
+  pre_tasks:
+    - name: Garantir diretórios base do frontend
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0755"
+      loop:
+        - "{{ app_root }}"
+        - "{{ repo_path | dirname }}"
+        - "{{ release_path }}"
+        - "{{ frontend_root }}"
+  roles:
+    - role: common
+    - role: frontend
+    - role: nginx
+  post_tasks:
+    - name: Garantir aplicação de handlers pendentes
+      ansible.builtin.meta: flush_handlers
+
+    - name: Health check do frontend
+      ansible.builtin.uri:
+        url: "{{ frontend_origin }}"
+        method: GET
+        status_code: 200
+        validate_certs: true
+      register: frontend_health
+      retries: 20
+      delay: 2
+      until: frontend_health.status == 200
