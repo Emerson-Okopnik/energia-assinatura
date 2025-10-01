@@ -1,65 +1,89 @@
-- name: Template API vhost
-  ansible.builtin.template:
-    src: api.conf.j2
-    dest: /etc/nginx/sites-available/api.conf
-    mode: "0644"
+---
+- name: Instalar dependências para HTTPS
+  ansible.builtin.apt:
+    name:
+      - certbot
+    state: present
+
+- name:  Garantir diretório para desafios ACME
+  ansible.builtin.file:
+    path: "{{ letsencrypt_webroot }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Verificar existência do certificado da API
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ api_domain }}/fullchain.pem"
+  register: nginx_api_cert
   when: nginx_configure_api
-  notify: Reload nginx
 
-- name: Remover vhost API quando desabilitado
-  ansible.builtin.file:
-    path: /etc/nginx/sites-available/api.conf
-    state: absent
-  when: not nginx_configure_api
-  notify: Reload nginx
+- name: Registrar disponibilidade de SSL para a API
+  ansible.builtin.set_fact:
+    nginx_api_ssl_enabled: {{ nginx_api_cert.stat.exists | default(false) }}
+  when: nginx_configure_api
 
-- name: Template Frontend vhost
-  ansible.builtin.template:
-    src: frontend.conf.j2
-    dest: /etc/nginx/sites-available/frontend.conf
-    mode: "0644"
+- name: Verificar existência do certificado do frontend
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+  register: nginx_frontend_cert
   when: nginx_configure_frontend
-  notify: Reload nginx
 
-- name: Remover vhost do frontend quando desabilitado
-  ansible.builtin.file:
-    path: /etc/nginx/sites-available/frontend.conf
-    state: absent
-  when: not nginx_configure_frontend
-  notify: Reload nginx
+- name: Registrar disponibilidade de SSL para o frontend
+  ansible.builtin.set_fact:
+    nginx_frontend_ssl_enabled: {{ nginx_frontend_cert.stat.exists | default(false) }}
+  when: nginx_configure_frontend
 
-- name: Habilitar sites necessários
-  ansible.builtin.file:
-    src: "/etc/nginx/sites-available/{{ item }}"
-    dest: "/etc/nginx/sites-enabled/{{ item }}"
-    state: link
-  loop: "{{ ([ 'api.conf' ] if nginx_configure_api else []) + ([ 'frontend.conf' ] if nginx_configure_frontend else []) }}"
-  notify: Reload nginx
+- name: Configurar vhosts do Nginx
+  ansible.builtin.include_tasks: configure_vhosts.yml
 
-- name: Remover sites desabilitados
-  ansible.builtin.file:
-    path: "/etc/nginx/sites-enabled/{{ item }}"
-    state: absent
-  loop: "{{ ([] if nginx_configure_api else ['api.conf']) + ([] if nginx_configure_frontend else ['frontend.conf']) }}"
-  when: (not nginx_configure_api) or (not nginx_configure_frontend)
-  notify: Reload nginx
+- name: Solicitar certificado HTTPS da API
+  when:
+    - nginx_configure_api
+    - not (nginx_api_ssl_enabled | default(false) | bool)
+  block:
+    - name: Emitir certificado Let's Encrypt da API
+      ansible.builtin.command: >-
+        certbot certonly --webroot -w {{ letsencrypt_webroot }}
+        --non-interactive --agree-tos --keep-until-expiring --no-eff-email
+        {{ (letsencrypt_email | default('')) | length > 0
+            | ternary('--email ' ~ letsencrypt_email, '--register-unsafely-without-email') }}
+        -d {{ api_domain }}
+      args:
+        creates: "/etc/letsencrypt/live/{{ api_domain }}/fullchain.pem"
+      register: certbot_api
 
-- name: Remover default site
-  ansible.builtin.file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-  notify: Reload nginx
+    - name: Atualizar flag de SSL da API após emissão
+      ansible.builtin.set_fact:
+        nginx_api_ssl_enabled: true
+      when: certbot_api is defined and certbot_api.rc == 0
 
-- name: Testar configuração do Nginx
-  ansible.builtin.command: nginx -t
-  register: nginx_test
-  changed_when: false
-  failed_when: false
+    - name: Reaplicar configuração da API com HTTPS
+      ansible.builtin.include_tasks: configure_vhosts.yml
+      when: certbot_api is defined and certbot_api.rc == 0
 
-- name: Falhar quando a configuração do Nginx estiver inválida
-  ansible.builtin.fail:
-    msg: "nginx -t falhou: {{ nginx_test.stderr | default(nginx_test.stdout) }}"
-  when: nginx_test.rc != 0
+- name: Solicitar certificado HTTPS do frontend
+  when:
+    - nginx_configure_frontend
+    - not (nginx_frontend_ssl_enabled | default(false) | bool)
+  block:
+    - name: Emitir certificado Let's Encrypt do frontend
+      ansible.builtin.command: >-
+        certbot certonly --webroot -w {{ letsencrypt_webroot }}
+        --non-interactive --agree-tos --keep-until-expiring --no-eff-email
+        {{ (letsencrypt_email | default('')) | length > 0
+            | ternary('--email ' ~ letsencrypt_email, '--register-unsafely-without-email') }}
+        -d {{ app_domain }}
+      args:
+        creates: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+      register: certbot_frontend
 
-- name: Aplicar reloads pendentes do Nginx
-  ansible.builtin.meta: flush_handlers
+    - name: Atualizar flag de SSL do frontend após emissão
+      ansible.builtin.set_fact:
+        nginx_frontend_ssl_enabled: true
+      when: certbot_frontend is defined and certbot_frontend.rc == 0
+
+    - name: Reaplicar configuração do frontend com HTTPS
+      ansible.builtin.include_tasks: configure_vhosts.yml
+      when: certbot_frontend is defined and certbot_frontend.rc == 0

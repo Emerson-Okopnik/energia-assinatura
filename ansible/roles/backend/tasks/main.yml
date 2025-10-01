@@ -92,6 +92,12 @@
     chdir: "{{ release_path }}"
   when: jwt_secret is undefined or jwt_secret|length == 0
 
+- name: Limpar caches Laravel antes das migrações
+  ansible.builtin.command:
+    cmd: php artisan optimize:clear
+    chdir: "{{ release_path }}"
+  changed_when: false
+  
 - name: Rodar migrações
   ansible.builtin.command:
     cmd: php artisan migrate --force

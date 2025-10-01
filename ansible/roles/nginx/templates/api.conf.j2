@@ -5,9 +5,9 @@ map $http_origin $cors_origin {
 
 log_format api_ext '$remote_addr $host "$request" $status rt=$request_time ust=$upstream_status urt=$upstream_response_time';
 
-server {
-    listen 80;
-    server_name {{ api_domain }};
+{% set enable_ssl = nginx_api_ssl_enabled | default(false) | bool %}
+{% set php_socket = php_fpm_listen_socket | default('/run/php/php' ~ php_version ~ '-fpm.sock') %}
+{% set common_block %}
     root {{ release_path }}/public;
 
     add_header X-Frame-Options "SAMEORIGIN";
@@ -16,8 +16,17 @@ server {
     add_header Access-Control-Allow-Origin $cors_origin always;
     add_header Access-Control-Allow-Credentials "true" always;
     add_header Vary "Origin" always;
+    {% if enable_ssl %}
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    {% endif %}
 
     index index.php;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root {{ letsencrypt_webroot }};
+        try_files $uri =404;
+        default_type "text/plain";
+    }
 
     location / {
         if ($request_method = OPTIONS) {
@@ -34,7 +43,7 @@ server {
 
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:{{ php_socket }};
         fastcgi_param APP_ENV production;
         fastcgi_param APP_DEBUG false;
     }
@@ -46,4 +55,41 @@ server {
     client_max_body_size 20m;
     access_log /var/log/nginx/api_access.log api_ext;
     error_log  /var/log/nginx/api_error.log;
+{% endset %}
+
+{% if enable_ssl %}
+server {
+    listen 80;
+    server_name {{ api_domain }};
+
+    location ^~ /.well-known/acme-challenge/ {
+        root {{ letsencrypt_webroot }};
+        try_files $uri =404;
+        default_type "text/plain";
+    }
+
+    return 301 https://$host$request_uri;
 }
+
+server {
+    listen 443 ssl http2;
+    server_name {{ api_domain }};
+
+    ssl_certificate     /etc/letsencrypt/live/{{ api_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ api_domain }}/privkey.pem;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+{{ common_block | indent(4) }}
+}
+{% else %}
+server {
+    listen 80;
+    server_name {{ api_domain }};
+
+{{ common_block | indent(4) }}
+}
+{% endif %}
