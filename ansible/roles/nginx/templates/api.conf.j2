@@ -16,6 +16,9 @@ log_format api_ext '$remote_addr $host "$request" $status rt=$request_time ust=$
     add_header Access-Control-Allow-Origin $cors_origin always;
     add_header Access-Control-Allow-Credentials "true" always;
     add_header Vary "Origin" always;
+    add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
+    add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With, Accept, Origin" always;
+    add_header Access-Control-Max-Age 86400 always;
     {% if enable_ssl %}
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     {% endif %}
@@ -30,11 +33,6 @@ log_format api_ext '$remote_addr $host "$request" $status rt=$request_time ust=$
 
     location / {
         if ($request_method = OPTIONS) {
-            add_header Access-Control-Allow-Origin $cors_origin always;
-            add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
-            add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With, Accept, Origin" always;
-            add_header Access-Control-Max-Age 86400 always;
-            add_header Access-Control-Allow-Credentials "true" always;
             return 204;
         }
 

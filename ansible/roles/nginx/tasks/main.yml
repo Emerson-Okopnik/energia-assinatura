@@ -21,7 +21,7 @@
 
 - name: Registrar disponibilidade de SSL para a API
   ansible.builtin.set_fact:
-    nginx_api_ssl_enabled: {{ nginx_api_cert.stat.exists | default(false) }}
+    nginx_api_ssl_enabled: "{{ nginx_api_cert.stat.exists | default(false) }}"
   when: nginx_configure_api
 
 - name: Verificar existência do certificado do frontend
@@ -32,7 +32,7 @@
 
 - name: Registrar disponibilidade de SSL para o frontend
   ansible.builtin.set_fact:
-    nginx_frontend_ssl_enabled: {{ nginx_frontend_cert.stat.exists | default(false) }}
+    nginx_frontend_ssl_enabled: "{{ nginx_frontend_cert.stat.exists | default(false) }}"
   when: nginx_configure_frontend
 
 - name: Configurar vhosts do Nginx
