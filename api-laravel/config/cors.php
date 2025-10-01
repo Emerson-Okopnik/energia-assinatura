@@ -20,12 +20,12 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'https://app.consorcioliderenergy.com.br',
         'https://consorcioliderenergy.com.br',
-        'https://www.consorcioliderenergy.com.br',
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '#^https://([a-z0-9-]+\.)?consorcioliderenergy\.com\.br$#i',
+    ],
 
     'allowed_headers' => ['*'],
 
@@ -33,6 +33,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    'supports_credentials' => true,
 
 ];
