@@ -144,71 +144,32 @@ class PDFController extends Controller {
     $saldo = $totalEnergiaReceber - $totalFaturaConcessionaria - $totalFaturasEmitidas;
 
     $uc = optional($usina->cliente->consumidores)->uc ?? 'N/A';
+    $loadAsset = function (string $relativePath) {
+        $fullPath = public_path($relativePath);
 
-    $logoPath = public_path('img/logo-consorcio-lider-energy.png');
-    $logoBase64 = base64_encode(file_get_contents($logoPath));
-    $logoMime = mime_content_type($logoPath);
-    $logoDataUri = "data:$logoMime;base64,$logoBase64";
+        if (!file_exists($fullPath)) {
+            abort(404, "Arquivo público {$relativePath} não encontrado.");
+        }
 
-    $iconeSolPath = public_path('img/sol.png');
-    $iconeSolBase64 = base64_encode(file_get_contents($iconeSolPath));
-    $iconeSolMime = mime_content_type($iconeSolPath);
-    $iconeSolDataUri = "data:$iconeSolMime;base64,$iconeSolBase64";
+        $base64 = base64_encode(file_get_contents($fullPath));
+        $mime = mime_content_type($fullPath);
 
-    $iconeRelogioPath = public_path('img/relogio.png');
-    $iconeRelogioBase64 = base64_encode(file_get_contents($iconeRelogioPath));
-    $iconeRelogioMime = mime_content_type($iconeRelogioPath);
-    $iconeRelogioDataUri = "data:$iconeRelogioMime;base64,$iconeRelogioBase64";
+        return "data:$mime;base64,$base64";
+    };
 
-    $iconeWebPath = public_path('img/web.png');
-    $iconeWebBase64 = base64_encode(file_get_contents($iconeWebPath));
-    $iconeWebMime = mime_content_type($iconeWebPath);
-    $iconeWebDataUri = "data:$iconeWebMime;base64,$iconeWebBase64";
-
-    $iconeWppPath = public_path('img/whatsapp.png');
-    $iconeWppBase64 = base64_encode(file_get_contents($iconeWppPath));
-    $iconeWppMime = mime_content_type($iconeWppPath);
-    $iconeWppDataUri = "data:$iconeWppMime;base64,$iconeWppBase64";
-
-    $iconeEmailPath = public_path('img/email.png');
-    $iconeEmailBase64 = base64_encode(file_get_contents($iconeEmailPath));
-    $iconeEmailMime = mime_content_type($iconeEmailPath);
-    $iconeEmailDataUri = "data:$iconeEmailMime;base64,$iconeEmailBase64";
-
-    $iconeCo2Path = public_path('img/icone-co2.png');
-    $iconeCo2Base64 = base64_encode(file_get_contents($iconeCo2Path));
-    $iconeCo2Mime = mime_content_type($iconeCo2Path);
-    $iconeCo2DataUri = "data:$iconeCo2Mime;base64,$iconeCo2Base64";
-
-    $iconeArvorePath = public_path('img/icone-Arvore.png');
-    $iconeArvoreBase64 = base64_encode(file_get_contents($iconeArvorePath));
-    $iconeArvoreMime = mime_content_type($iconeArvorePath);
-    $iconeArvoreDataUri = "data:$iconeArvoreMime;base64,$iconeArvoreBase64";
-
-    $iconeInfoPath = public_path('img/icone-info.png');
-    $iconeInfoBase64 = base64_encode(file_get_contents($iconeInfoPath));
-    $iconeInfoMime = mime_content_type($iconeInfoPath);
-    $iconeInfoDataUri = "data:$iconeInfoMime;base64,$iconeInfoBase64";
-
-    $iconeDinheiroPath = public_path('img/dinheiro.png');
-    $iconeDinheiroBase64 = base64_encode(file_get_contents($iconeDinheiroPath));
-    $iconeDinheiroMime = mime_content_type($iconeDinheiroPath);
-    $iconeDinheiroDataUri = "data:$iconeDinheiroMime;base64,$iconeDinheiroBase64";
-
-    $iconeLampadaPath = public_path('img/lampada.png');
-    $iconeLampadaBase64 = base64_encode(file_get_contents($iconeLampadaPath));
-    $iconeLampadaMime = mime_content_type($iconeLampadaPath);
-    $iconeLampadaDataUri = "data:$iconeLampadaMime;base64,$iconeLampadaBase64";
-
-    $iconeInstagramPath = public_path('img/instagram.png');
-    $iconeInstagramBase64 = base64_encode(file_get_contents($iconeInstagramPath));
-    $iconeInstagramMime = mime_content_type($iconeInstagramPath);
-    $iconeInstagramDataUri = "data:$iconeInstagramMime;base64,$iconeInstagramBase64";
-
-    $iconeLinkedinPath = public_path('img/linkedin.png');
-    $iconeLinkedinBase64 = base64_encode(file_get_contents($iconeLinkedinPath));
-    $iconeLinkedinMime = mime_content_type($iconeLinkedinPath);
-    $iconeLinkedinDataUri = "data:$iconeLinkedinMime;base64,$iconeLinkedinBase64";
+    $logoDataUri = $loadAsset('img/logo-consorcio-lider-energy.png');
+    $iconeSolDataUri = $loadAsset('img/sol.png');
+    $iconeRelogioDataUri = $loadAsset('img/relogio.png');
+    $iconeWebDataUri = $loadAsset('img/web.png');
+    $iconeWppDataUri = $loadAsset('img/whatsapp.png');
+    $iconeEmailDataUri = $loadAsset('img/email.png');
+    $iconeCo2DataUri = $loadAsset('img/icone-co2.png');
+    $iconeArvoreDataUri = $loadAsset('img/icone-arvore.png');
+    $iconeInfoDataUri = $loadAsset('img/icone-info.png');
+    $iconeDinheiroDataUri = $loadAsset('img/dinheiro.png');
+    $iconeLampadaDataUri = $loadAsset('img/lampada.png');
+    $iconeInstagramDataUri = $loadAsset('img/instagram.png');
+    $iconeLinkedinDataUri = $loadAsset('img/linkedin.png');
 
     $html = view('usina', [
         'usina' => $usina,
