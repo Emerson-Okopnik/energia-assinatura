@@ -39,6 +39,7 @@
             <td>{{ usina.dado_geracao.media }} Kwh</td>
             <td>{{ usina.uc }}</td>
             <td>{{ formatRede(usina.consumidores?.[0]?.rede) }}</td>
+            <td>{{ usina.comercializacao.rede }}</td>
             <td>{{ usina.comercializacao.cia_energia }}</td>
             <td>{{ formatDate(usina.comercializacao.data_conexao) }}</td>
             <td class="text-center">
