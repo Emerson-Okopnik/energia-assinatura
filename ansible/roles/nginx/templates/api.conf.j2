@@ -1,6 +1,8 @@
 map $http_origin $cors_origin {
     default "";
-    ~^{{ frontend_origin | regex_escape }}$ $http_origin;
+    ~^https://app\.consorcioliderenergy\.com\.br$ $http_origin;
+    ~^https://consorcioliderenergy\.com\.br$ $http_origin;
+    ~^https://www\.consorcioliderenergy\.com\.br$ $http_origin;
 }
 
 log_format api_ext '$remote_addr $host "$request" $status rt=$request_time ust=$upstream_status urt=$upstream_response_time';

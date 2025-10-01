@@ -19,7 +19,11 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['https://app.consorcioliderenergy.com.br'],
+    'allowed_origins' => [
+        'https://app.consorcioliderenergy.com.br',
+        'https://consorcioliderenergy.com.br',
+        'https://www.consorcioliderenergy.com.br',
+    ],
 
     'allowed_origins_patterns' => [],
 
