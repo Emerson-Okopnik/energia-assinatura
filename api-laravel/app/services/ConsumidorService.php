@@ -31,12 +31,14 @@ class ConsumidorService {
         return 0;
       }
 
+      $consumidor->loadMissing(['dado_consumo', 'cliente']);
+      
       // Primeiro apaga o consumidor
       $consumidor->delete();
             
-      // Depois apaga o dados_consumo
-      if ($consumidor->dados_consumo) {
-        $dados_consumo->delete();
+      // Depois apaga os relacionados
+      if ($consumidor->dado_consumo) {
+        $consumidor->dado_consumo->delete();
       }
 
       if ($consumidor->cliente) {
