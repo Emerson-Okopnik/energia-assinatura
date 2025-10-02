@@ -39,6 +39,35 @@
     - "{{ app_root }}/shared/storage"
     - "{{ app_root }}/shared/bootstrap/cache"
 
+- name: Detectar executável do Chrome/Chromium (auto)
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ browsershot_chrome_candidates }}"
+  loop_control:
+    label: "{{ item }}"
+  register: browsershot_chrome_candidates_stats
+  when: browsershot_chrome_path == 'auto'
+  changed_when: false
+
+- name: Selecionar executável do Chrome/Chromium (auto)
+  ansible.builtin.set_fact:
+    browsershot_chrome_path: >-
+      {{ browsershot_chrome_candidates_stats.results
+         | selectattr('stat.exists', 'defined')
+         | selectattr('stat.exists')
+         | map(attribute='item')
+         | list
+         | first
+         | default('auto') }}
+  when: browsershot_chrome_path == 'auto'
+
+- name: Falhar se nenhum Chrome/Chromium foi encontrado
+  ansible.builtin.fail:
+    msg: >-
+      Não foi possível localizar um executável do Chrome/Chromium nos caminhos {{ browsershot_chrome_candidates | join(', ') }}.
+      Instale o navegador ou defina browsershot_chrome_path manualmente.
+  when: browsershot_chrome_path == 'auto'
+  
 - name: Renderizar .env
   ansible.builtin.template:
     src: env.laravel.j2

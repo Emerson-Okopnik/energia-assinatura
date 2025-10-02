@@ -38,14 +38,13 @@ jwt_secret: "{{ vault_jwt_secret | default(lookup('env', 'JWT_SECRET'), true) }}
 queue_connection: database
 
 vite_api_url: "https://{{ api_domain }}"
-browsershot_chrome_path: >-
-  {%- if ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('22.04', '>=') -%}
-  /snap/bin/chromium
-  {%- elif ansible_distribution == 'Ubuntu' -%}
-  /usr/bin/chromium-browser
-  {%- else -%}
-  /usr/bin/chromium
-  {%- endif -%}
+browsershot_chrome_candidates:
+  - /snap/bin/chromium
+  - /usr/bin/chromium-browser
+  - /usr/bin/chromium
+  - /usr/bin/google-chrome-stable
+  - /usr/bin/google-chrome
+browsershot_chrome_path: auto
 browsershot_node_path: /usr/bin/node
 
 letsencrypt_email: emer00k@gmail.com       # opcional
