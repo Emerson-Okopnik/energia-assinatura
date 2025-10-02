@@ -33,34 +33,6 @@
     - name: Garantir aplicação de handlers pendentes
       ansible.builtin.meta: flush_handlers
 
-    - name: Health check da API
-      block:
-        - name: Validar rota /health
-          ansible.builtin.uri:
-            url: https://api.consorcioliderenergy.com.br/health
-            method: GET
-            status_code: 200
-            validate_certs: true
-          register: health
-          retries: 20
-          delay: 2
-          until: health.status == 200
-      rescue:
-        - name: Aviso sobre fallback de health check
-          ansible.builtin.debug:
-            msg: "> Rota /health indisponível, validando resposta de /"
-
-        - name: Validar rota raíz como fallback
-          ansible.builtin.uri:
-            url: https://api.consorcioliderenergy.com.br/
-            method: GET
-            status_code: 200
-            validate_certs: true
-          register: health_root
-          retries: 20
-          delay: 2
-          until: health_root.status == 200
-
 - hosts: frontend
   serial: 1
   become: true
@@ -85,16 +57,3 @@
     - role: frontend
     - role: nginx
   post_tasks:
-    - name: Garantir aplicação de handlers pendentes
-      ansible.builtin.meta: flush_handlers
-
-    - name: Health check do frontend
-      ansible.builtin.uri:
-        url: "{{ frontend_origin }}"
-        method: GET
-        status_code: 200
-        validate_certs: true
-      register: frontend_health
-      retries: 20
-      delay: 2
-      until: frontend_health.status == 200
