@@ -4,17 +4,25 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use App\Models\UsinaConsumidor;
+use App\Services\Concerns\CachesFindAll;
 
 class UsinaConsumidorService {
     
+    use CachesFindAll;
+
     private UsinaConsumidor $usinaConsumidor;
+    private string $cacheKey = 'usina_consumidor.find_all';
 
     public function __construct(UsinaConsumidor $usinaConsumidor) {
         $this->usinaConsumidor = $usinaConsumidor;
     }
 
     public function create(array $data): int {
-        return $this->usinaConsumidor->create($data)->usic_id;
+        $id = $this->usinaConsumidor->create($data)->usic_id;
+
+        $this->forgetFindAllCache($this->cacheKey);
+
+        return $id;
     }
 
     public function update(int $id, array $data): string {
@@ -39,13 +47,29 @@ class UsinaConsumidorService {
     
         DB::table('usina_consumidor')->insert($novos);
     
-        return $registro ? $registro->update($data) : 0;
+        $updated = (int) $registro->update($data);
+
+        if ($updated) {
+            $this->forgetFindAllCache($this->cacheKey);
+        }
+
+        return (string) $updated;
     }
 
     public function delete(int $id): int {
         $registro = $this->usinaConsumidor->find($id);
     
-        return $registro ? $registro->delete() : 0;
+        if (!$registro) {
+            return 0;
+        }
+
+        $deleted = (int) $registro->delete();
+
+        if ($deleted) {
+            $this->forgetFindAllCache($this->cacheKey);
+        }
+
+        return $deleted;
     }
     
     public function findById(int $id): array|null {
@@ -60,15 +84,17 @@ class UsinaConsumidorService {
     }
 
     public function findAll(): array {
-        return $this->usinaConsumidor->with([
-            'usina.dadoGeracao',
-            'usina.comercializacao',
-            'usina.cliente.endereco',
-            'usina.vendedor',
-            'consumidor.cliente.endereco',
-            'consumidor.dado_consumo',
-            'consumidor.vendedor'
-        ])->get()->toArray();
+        return $this->rememberFindAll($this->cacheKey, function () {
+            return $this->usinaConsumidor->with([
+                'usina.dadoGeracao',
+                'usina.comercializacao',
+                'usina.cliente.endereco',
+                'usina.vendedor',
+                'consumidor.cliente.endereco',
+                'consumidor.dado_consumo',
+                'consumidor.vendedor'
+            ])->get();
+        });
     }
 
     public function createMany(array $data): int {
@@ -84,13 +110,25 @@ class UsinaConsumidorService {
             ];
         }
     
-        return DB::table('usina_consumidor')->insert($inserts) ? count($inserts) : 0;
+        $inserted = DB::table('usina_consumidor')->insert($inserts) ? count($inserts) : 0;
+
+        if ($inserted) {
+            $this->forgetFindAllCache($this->cacheKey);
+        }
+
+        return $inserted;
     }
 
     public function deleteVinculo(int $usi_id, int $con_id): bool {
-        return UsinaConsumidor::where('usi_id', $usi_id)
+        $deleted = UsinaConsumidor::where('usi_id', $usi_id)
             ->where('con_id', $con_id)
             ->delete() > 0;
+
+        if ($deleted) {
+            $this->forgetFindAllCache($this->cacheKey);
+        }
+
+        return $deleted;
     }
 
     public function findByUsinaId(int $usi_id) {

@@ -4,26 +4,44 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use App\Models\Usina;
+use App\Services\Concerns\CachesFindAll;
 
 class UsinaService {
     
+  use CachesFindAll;
+
   private Usina $usina;
+  private string $cacheKey = 'usina.find_all';
 
   public function __construct(Usina $usina) {
     $this->usina = $usina;
   }
 
   public function create(array $data): int {
-    return $this->usina->create($data)->usi_id;
+    $id = $this->usina->create($data)->usi_id;
+
+    $this->forgetFindAllCache($this->cacheKey);
+
+    return $id;
   }
 
   public function update(int $id, array $data): int {
     $registro = $this->usina->find($id);
-    return $registro ? $registro->update($data) : 0;
+    if (!$registro) {
+      return 0;
+    }
+
+    $updated = (int) $registro->update($data);
+
+    if ($updated) {
+      $this->forgetFindAllCache($this->cacheKey);
+    }
+
+    return $updated;
   }
 
   public function delete(int $id): int {
-    return DB::transaction(function () use ($id) {
+    $deleted = DB::transaction(function () use ($id) {
       $usina = $this->usina
         ->with(['dadoGeracao', 'comercializacao', 'cliente', 'dadosGeracaoRealUsina'])
         ->find($id);
@@ -53,6 +71,12 @@ class UsinaService {
     
       return 1;
     });
+
+    if ($deleted) {
+      $this->forgetFindAllCache($this->cacheKey);
+    }
+
+    return $deleted;
   }
 
   private function deletarCreditosDistribuidos(int $usiId): void {
@@ -93,14 +117,16 @@ class UsinaService {
   }
 
   public function findAll(): array {
-    return $this->usina->with([
-      'cliente.endereco',
-      'vendedor',
-      'comercializacao',
-      'dadoGeracao',
-    ])->get()->toArray();
+    return $this->rememberFindAll($this->cacheKey, function () {
+      return $this->usina->with([
+        'cliente.endereco',
+        'vendedor',
+        'comercializacao',
+        'dadoGeracao',
+      ])->get();
+    });
   }
-
+  
   public function buscarNaoVinculados() {
     return $this->usina
     ->whereNotIn('usi_id', function ($query) {

@@ -3,29 +3,57 @@
 namespace App\Services;
 
 use App\Models\CreditosDistribuidosUsina;
+use App\Services\Concerns\CachesFindAll;
 
 class CreditosDistribuidosUsinaService {
 
+    use CachesFindAll;
+
     private CreditosDistribuidosUsina $creditosDistribuidosUsina;
+    private string $cacheKey = 'creditos_distribuidos_usina.find_all';
 
     public function __construct(CreditosDistribuidosUsina $creditosDistribuidosUsina) {
         $this->creditosDistribuidosUsina = $creditosDistribuidosUsina;
     }
 
     public function create(array $data): int {
-        return $this->creditosDistribuidosUsina->create($data)->cdu_id;
+        $id = $this->creditosDistribuidosUsina->create($data)->cdu_id;
+
+        $this->forgetFindAllCache($this->cacheKey);
+
+        return $id;
     }
 
     public function update(int $id, array $data): int {
         $registro = $this->creditosDistribuidosUsina->find($id);
+        
+        if (!$registro) {
+            return 0;
+        }
 
-        return $registro ? $registro->update($data) : 0;
+        $updated = (int) $registro->update($data);
+        
+        if ($updated) {
+            $this->forgetFindAllCache($this->cacheKey);
+        }
+
+        return $updated;
     }
 
     public function delete(int $id): int {
         $registro = $this->creditosDistribuidosUsina->find($id);
     
-        return $registro ? $registro->delete() : 0;
+        if (!$registro) {
+            return 0;
+        }
+
+        $deleted = (int) $registro->delete();
+
+        if ($deleted) {
+            $this->forgetFindAllCache($this->cacheKey);
+        }
+
+        return $deleted;
     }
 
     public function findById(int $id): array|null {
@@ -41,14 +69,16 @@ class CreditosDistribuidosUsinaService {
     }
 
     public function findAll(): array {
-        return $usina = $this->creditosDistribuidosUsina->with([
-          'usina.cliente.endereco',
-          'usina.comercializacao',
-          'usina.dadoGeracao',
-          'creditosDistribuidos',
-          'valorAcumuladoReserva',
-          'faturamentoUsina',
-        ])->get()->toArray();
+        return $this->rememberFindAll($this->cacheKey, function () {
+            return $this->creditosDistribuidosUsina->with([
+              'usina.cliente.endereco',
+              'usina.comercializacao',
+              'usina.dadoGeracao',
+              'creditosDistribuidos',
+              'valorAcumuladoReserva',
+              'faturamentoUsina',
+            ])->get();
+        });
     }
 
     public function buscarPorAnoEUsina(int $usiId, int $ano): array {

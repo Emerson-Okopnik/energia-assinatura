@@ -3,29 +3,57 @@
 namespace App\Services;
 
 use App\Models\DadosGeracaoRealUsina;
+use App\Services\Concerns\CachesFindAll;
 
 class DadosGeracaoRealUsinaService {
 
+  use CachesFindAll;
+
   private DadosGeracaoRealUsina $dadosGeracaoRealUsina;
+  private string $cacheKey = 'dados_geracao_real_usina.find_all';
 
   public function __construct(DadosGeracaoRealUsina $dadosGeracaoRealUsina) {
     $this->dadosGeracaoRealUsina = $dadosGeracaoRealUsina;
   }
 
   public function create(array $data): int {
-    return $this->dadosGeracaoRealUsina->create($data)->dgru_id;
+    $id = $this->dadosGeracaoRealUsina->create($data)->dgru_id;
+
+    $this->forgetFindAllCache($this->cacheKey);
+
+    return $id;
   }
 
   public function update(int $id, array $data): int {
     $registro = $this->dadosGeracaoRealUsina->find($id);
+    
+    if (!$registro) {
+      return 0;
+    }
 
-    return $registro ? $registro->update($data) : 0;
+    $updated = (int) $registro->update($data);
+
+    if ($updated) {
+      $this->forgetFindAllCache($this->cacheKey);
+    }
+
+    return $updated;
   }
 
   public function delete(int $id): int {
     $registro = $this->dadosGeracaoRealUsina->find($id);
+    
+    if (!$registro) {
+      return 0;
+    }
 
-    return $registro ? $registro->delete() : 0;
+    $deleted = (int) $registro->delete();
+   
+    if ($deleted) {
+      $this->forgetFindAllCache($this->cacheKey);
+    }
+
+    return $deleted;
   }
 
   public function findById(int $id): array|null {
@@ -38,13 +66,13 @@ class DadosGeracaoRealUsinaService {
   }
 
   public function findAll(): array {
-    $dados = $this->dadosGeracaoRealUsina->with([
-      'usina',
-      'cliente.endereco',
-      'dadosGeracaoReal',
-    ])->get()->toArray();
-
-    return $dados ? $dados : [];
+    return $this->rememberFindAll($this->cacheKey, function () {
+      return $this->dadosGeracaoRealUsina->with([
+        'usina',
+        'cliente.endereco',
+        'dadosGeracaoReal',
+      ])->get();
+    });
   }
 
   public function findByUsinaId(int $usi_id): array {

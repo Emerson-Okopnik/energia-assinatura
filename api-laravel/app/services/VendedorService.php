@@ -3,29 +3,55 @@
 namespace App\Services;
 
 use App\Models\Vendedor;
+use App\Services\Concerns\CachesFindAll;
 
 class VendedorService {
 
+  use CachesFindAll;
+
   private Vendedor $vendedor;
+  private string $cacheKey = 'vendedor.find_all';
 
   public function __construct(Vendedor $vendedor) {
     $this->vendedor = $vendedor;
   }
 
   public function create(array $data): int {
-    return $this->vendedor->create($data)->ven_id;
+    $id = $this->vendedor->create($data)->ven_id;
+
+    $this->forgetFindAllCache($this->cacheKey);
+
+    return $id;
   }
 
   public function update(int $id, array $data): int {
     $registro = $this->vendedor->find($id);
+    if (!$registro) {
+      return 0;
+    }
 
-    return $registro ? $registro->update($data) : 0;
+    $updated = (int) $registro->update($data);
+    
+    if ($updated) {
+      $this->forgetFindAllCache($this->cacheKey);
+    }
+
+    return $updated;
   }
 
   public function delete(int $id): int {
     $registro = $this->vendedor->find($id);
+    if (!$registro) {
+      return 0;
+    }
 
-    return $registro ? $registro->delete() : 0;
+    $deleted = (int) $registro->delete();
+
+    if ($deleted) {
+      $this->forgetFindAllCache($this->cacheKey);
+    }
+
+    return $deleted;
   }
 
   public function findById(int $id): array|null {
@@ -35,8 +61,8 @@ class VendedorService {
   }
 
   public function findAll(): array {
-    $dados = $this->vendedor->all();
-
-    return $dados->isNotEmpty() ? $dados->toArray() : [];
+    return $this->rememberFindAll($this->cacheKey, function () {
+      return $this->vendedor->all();
+    });
   }
 }

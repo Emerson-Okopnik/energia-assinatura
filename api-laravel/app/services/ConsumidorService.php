@@ -4,27 +4,45 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use App\Models\Consumidor;
+use App\Services\Concerns\CachesFindAll;
 
 class ConsumidorService {
     
+  use CachesFindAll;
+
   private Consumidor $consumidor;
+  private string $cacheKey = 'consumidor.find_all';
 
   public function __construct(Consumidor $consumidor) {
     $this->consumidor = $consumidor;
   }
 
   public function create(array $data): int {
-    return $this->consumidor->create($data)->con_id;
+    $id = $this->consumidor->create($data)->con_id;
+
+    $this->forgetFindAllCache($this->cacheKey);
+
+    return $id;
   }
 
   public function update(int $id, array $data): int {
     $consumidor = $this->consumidor->find($id);
     
-    return $consumidor ? $consumidor->update($data) : 0;
+    if (!$consumidor) {
+      return 0;
+    }
+
+    $updated = (int) $consumidor->update($data);
+
+    if ($updated) {
+      $this->forgetFindAllCache($this->cacheKey);
+    }
+
+    return $updated;
   }
 
   public function delete(int $id): int {
-    return DB::transaction(function () use ($id) {
+    $deleted = DB::transaction(function () use ($id) {
       $consumidor = Consumidor::find($id);
     
       if (!$consumidor) {
@@ -47,6 +65,12 @@ class ConsumidorService {
     
       return 1;
     });
+    
+    if ($deleted) {
+      $this->forgetFindAllCache($this->cacheKey);
+    }
+
+    return $deleted;
   }
 
   public function findById(int $id): array|null {
@@ -55,7 +79,9 @@ class ConsumidorService {
   }
 
   public function findAll(): array {
-    return $this->consumidor->with(['cliente.endereco', 'vendedor', 'dado_consumo'])->get()->toArray();
+    return $this->rememberFindAll($this->cacheKey, function () {
+      return $this->consumidor->with(['cliente.endereco', 'vendedor', 'dado_consumo'])->get();
+    });
   }
 
   public function buscarNaoVinculados() {
