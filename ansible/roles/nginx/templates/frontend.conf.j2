@@ -17,6 +17,8 @@
         try_files $uri $uri/ /index.html;
     }
 
+    set $api_upstream {{ api_domain }};
+
     location /api/ {
         # usa variável -> Nginx resolve apenas quando chega a request
         proxy_pass https://$api_upstream;

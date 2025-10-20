@@ -131,6 +131,6 @@ Route::middleware('auth:api')->group(function () {
   Route::delete('/dados-geracao-real-usina/{id}', [DadosGeracaoRealUsinaController::class, 'destroy']);
   Route::get('/dados-geracao-real-usina/usina/{usi_id}', [DadosGeracaoRealUsinaController::class, 'byUsinaId']);
 
-  Route::get('/gerar-pdf-usina/{id}', [PDFController::class, 'gerarUsinaPDF']);
-  Route::get('/gerar-pdf-consumidores/{id}', [PDFController::class, 'gerarConsumidoresPDF']);
+  Route::get('/gerar-pdf-usina/{usi_id}', [PDFController::class, 'gerarUsinaPDF']);
+  Route::get('/gerar-pdf-consumidores/{usi_id}', [PDFController::class, 'gerarConsumidoresPDF']);
 });

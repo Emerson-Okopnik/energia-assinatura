@@ -241,7 +241,7 @@ class PDFController extends Controller {
         'uc' => $uc,
     ])->render();
 
-    $pdf = Browsershot::html($html)
+    $pdf = $this->configureBrowsershot(Browsershot::html($html))
         ->format('A4')
         ->showBackground()
         ->deviceScaleFactor(2)
@@ -266,7 +266,7 @@ class PDFController extends Controller {
         'consumidores' => $consumidores,
     ])->render();
 
-    $pdf = Browsershot::html($html)
+    $pdf = $this->configureBrowsershot(Browsershot::html($html))
         ->format('A4')
         ->margins(10, 10, 10, 10)
         ->showBackground()
@@ -279,5 +279,23 @@ class PDFController extends Controller {
     return response($pdf, 200)
         ->header('Content-Type', 'application/pdf')
         ->header('Content-Disposition', 'inline; filename="consumidores_usina_' . $id . '.pdf"');
+  }
+
+  private function configureBrowsershot(Browsershot $browsershot): Browsershot {
+    $chromePath = config('services.browsershot.chrome_path');
+    if (!empty($chromePath)) {
+      $browsershot->setChromePath($chromePath);
+    }
+
+    $nodePath = config('services.browsershot.node_path');
+    if (!empty($nodePath)) {
+      $browsershot->setNodeBinary($nodePath);
+    }
+
+    if (config('services.browsershot.disable_sandbox')) {
+      $browsershot->addChromiumArguments(['--no-sandbox', '--disable-setuid-sandbox']);
+    }
+
+    return $browsershot;
   }
 }

@@ -46,6 +46,7 @@ browsershot_chrome_candidates:
   - /usr/bin/google-chrome
 browsershot_chrome_path: auto
 browsershot_node_path: /usr/bin/node
+browsershot_disable_sandbox: true
 
 letsencrypt_email: emer00k@gmail.com       # opcional
 
