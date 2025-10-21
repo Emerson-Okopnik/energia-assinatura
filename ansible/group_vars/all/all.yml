@@ -39,12 +39,12 @@ queue_connection: database
 
 vite_api_url: "https://{{ api_domain }}"
 browsershot_chrome_candidates:
-  - /snap/bin/chromium
-  - /usr/bin/chromium-browser
-  - /usr/bin/chromium
-  - /usr/bin/google-chrome-stable
   - /usr/bin/google-chrome
-browsershot_chrome_path: auto
+  - /usr/bin/google-chrome-stable
+  - /usr/bin/chromium
+  - /usr/bin/chromium-browser
+  - /snap/bin/chromium
+browsershot_chrome_path: /usr/bin/google-chrome
 browsershot_node_path: /usr/bin/node
 browsershot_disable_sandbox: true
 

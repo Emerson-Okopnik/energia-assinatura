@@ -1,10 +1,11 @@
 # roles/common/tasks/main.yml
+
 - name: Atualizar cache APT
   ansible.builtin.apt:
     update_cache: yes
     cache_valid_time: 3600
 
-- name: Instalar pacotes base
+- name: Instalar pacotes base do sistema
   ansible.builtin.apt:
     name:
       - git
@@ -12,54 +13,59 @@
       - curl
       - htop
       - gnupg
+      - ca-certificates
       - software-properties-common
       - nginx
       - python3-venv
       - build-essential
       - libpq-dev
       - ufw
-      - chromium-browser
-      - libatk1.0-0
-      - libatk-bridge2.0-0
-      - libnss3
-      - libx11-xcb1
-      - libxcomposite1
-      - libxdamage1
-      - libxrandr2
-      - libgbm1
-      - fonts-liberation
     state: present
 
-- name: Instalar Chromium via APT em distribuições Debian
-  ansible.builtin.apt:
-    name: chromium
-    state: present
-  when:
-    - ansible_distribution == "Debian"
+- name: Adicionar chave GPG do NodeSource
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+    dest: /usr/share/keyrings/nodesource.gpg
+    mode: "0644"
+  when: ansible_os_family == "Debian"
 
-- name: Garantir que o Snapd esteja instalado em distribuições Ubuntu 22.04+
-  ansible.builtin.apt:
-    name: snapd
-    state: present
-  when:
-    - ansible_distribution == "Ubuntu"
-    - ansible_distribution_version is version('22.04', '>=')
-
-- name: Instalar Chromium via Snap em distribuições Ubuntu 22.04+
-  ansible.builtin.command:
-    cmd: snap install chromium
-    creates: /snap/bin/chromium
-  when:
-    - ansible_distribution == "Ubuntu"
-    - ansible_distribution_version is version('22.04', '>=')
-
-- name: Instalar Node.js e npm
-  ansible.builtin.apt:
-    name:
-      - nodejs
-      - npm
+- name: Configurar repositório NodeSource Node 18.x
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/nodesource.gpg]
+      https://deb.nodesource.com/node_18.x nodistro main
+    filename: nodesource-node18
     state: present
     update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Instalar Node.js 18.x (inclui npm)
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+
+- name: Adicionar chave GPG do Google Chrome
+  ansible.builtin.get_url:
+    url: https://dl-ssl.google.com/linux/linux_signing_key.pub
+    dest: /usr/share/keyrings/google-chrome.gpg
+    mode: "0644"
+  when: ansible_architecture == "x86_64"
+
+- name: Configurar repositório do Google Chrome
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg]
+      http://dl.google.com/linux/chrome/deb/ stable main
+    filename: google-chrome
+    state: present
+  when: ansible_architecture == "x86_64"
+
+- name: Instalar Google Chrome estável
+  ansible.builtin.apt:
+    name: google-chrome-stable
+    state: present
+    update_cache: yes
+  when: ansible_architecture == "x86_64"
 
 - name: Instalar Composer globalmente
   ansible.builtin.apt:

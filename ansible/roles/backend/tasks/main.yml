@@ -39,6 +39,25 @@
     - "{{ app_root }}/shared/storage"
     - "{{ app_root }}/shared/bootstrap/cache"
 
+- name: Garantir diretórios temporários do Browsershot
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ php_fpm_pool_user }}"
+    group: "{{ php_fpm_pool_group }}"
+    mode: "0775"
+  loop:
+    - "{{ app_root }}/shared/storage/app"
+    - "{{ app_root }}/shared/storage/app/browsershot-tmp"
+
+- name: Ajustar permissões do cache do bootstrap da release
+  ansible.builtin.file:
+    path: "{{ release_path }}/bootstrap/cache"
+    state: directory
+    owner: "{{ php_fpm_pool_user }}"
+    group: "{{ php_fpm_pool_group }}"
+    mode: "0775"
+
 - name: Detectar executável do Chrome/Chromium (auto)
   ansible.builtin.stat:
     path: "{{ item }}"
@@ -103,6 +122,13 @@
     path: "{{ release_path }}"
     production: false
 
+- name: Garantir instalação do Puppeteer local
+  community.general.npm:
+    path: "{{ release_path }}"
+    name: puppeteer
+    production: false
+    state: present
+
 - name: Construir assets Laravel (se houver)
   ansible.builtin.command:
     cmd: npm run build
@@ -162,3 +188,33 @@
     enabled: true
     state: started
 
+- name: Executar php artisan config:clear
+  ansible.builtin.command:
+    cmd: php artisan config:clear
+    chdir: "{{ release_path }}"
+  changed_when: true
+
+- name: Executar php artisan cache:clear
+  ansible.builtin.command:
+    cmd: php artisan cache:clear
+    chdir: "{{ release_path }}"
+  changed_when: true
+
+- name: Recarregar serviço PHP-FPM após deploy
+  ansible.builtin.systemd:
+    name: "php{{ php_version }}-fpm"
+    state: reloaded
+    daemon_reload: true
+
+- name: Coletar informações de serviços para reinício condicional
+  ansible.builtin.service_facts:
+
+- name: Reiniciar serviços auxiliares de filas, se presentes
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - supervisor
+    - horizon
+    - laravel-horizon
+  when: item + '.service' in ansible_facts.services
