@@ -118,11 +118,15 @@
     optimize_autoloader: true
 
 - name: Instalar dependências npm (Browsershot/Puppeteer)
+  become: true
+  become_user: "{{ app_user }}"
   community.general.npm:
     path: "{{ release_path }}"
     production: false
 
 - name: Garantir instalação do Puppeteer local
+  become: true
+  become_user: "{{ app_user }}"
   community.general.npm:
     path: "{{ release_path }}"
     name: puppeteer
@@ -130,6 +134,8 @@
     state: present
 
 - name: Construir assets Laravel (se houver)
+  become: true
+  become_user: "{{ app_user }}"
   ansible.builtin.command:
     cmd: npm run build
     chdir: "{{ release_path }}"

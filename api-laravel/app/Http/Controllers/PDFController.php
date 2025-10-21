@@ -14,246 +14,239 @@ use Carbon\Carbon;
 
 class PDFController extends Controller {
 
-  public function gerarUsinaPDF(Request $request, $id) {
+  public function gerarUsinaPDF(Request $request, $id)
+  {
+    try {
+        // Carrega relações necessárias; adicione outras se precisar no Blade
+        $usina = Usina::with(['cliente.consumidores', 'dadoGeracao', 'comercializacao'])->findOrFail($id);
 
-    $usina = Usina::with('cliente', 'dadoGeracao', 'comercializacao')->findOrFail($id);
+        // Guard clauses para erros óbvios de dados ausentes
+        if (!$usina->comercializacao) {
+            return response()->json(['message' => 'Usina sem dados de comercialização (valor_kwh).'], 422);
+        }
+        if (!$usina->dadoGeracao) {
+            return response()->json(['message' => 'Usina sem dados de geração cadastrados.'], 422);
+        }
 
-    // Pega mês/ano da query ou usa atuais
-    $mes = intval($request->query('mes')) ?: Carbon::now()->month;
-    $ano = intval($request->query('ano')) ?: Carbon::now()->year;
+        // Mês/Ano válidos (1..12)
+        $mes = (int) $request->query('mes', now()->month);
+        if ($mes < 1 || $mes > 12) { $mes = now()->month; }
+        $ano = (int) $request->query('ano', now()->year);
+        $observacoes = (string) $request->query('observacoes', '');
 
-    $geracao = $usina->dadoGeracao;
-
-    // Mapeia o nome do mês em português para a coluna do banco
-    $nomesMeses = [
-        1 => 'janeiro',
-        2 => 'fevereiro',
-        3 => 'marco',
-        4 => 'abril',
-        5 => 'maio',
-        6 => 'junho',
-        7 => 'julho',
-        8 => 'agosto',
-        9 => 'setembro',
-        10 => 'outubro',
-        11 => 'novembro',
-        12 => 'dezembro',
-    ];
-
-    $colunaMes = $nomesMeses[$mes];
-
-    // Geração do mês informado
-    $geracaoMes = floatval($geracao->$colunaMes ?? 0);
-    $mesAnoSelecionado = ucfirst($nomesMeses[$mes]) . '/' . substr($ano, -2);
-    $observacoes = $request->query('observacoes', '');
-
-    $valor_kwh = $usina->comercializacao->valor_kwh;
-    $valor_fixo = $geracao->menor_geracao * $valor_kwh;
-    $media = $geracao->media;
-    $menor = $geracao->menor_geracao;
-    $faturaEnergia = 100;
-    $percentualLei = 45;
-    $valorFinalFioB = 0.13 * ($percentualLei / 100);
-
-    $fixoSelecionado = $valor_fixo;
-    $injetadoSelecionado = ($geracaoMes > $media)
-        ? ($media - $menor) * $valor_kwh
-        : ($geracaoMes - $menor) * $valor_kwh;
-    $creditadoSelecionado = ($geracaoMes < $media)
-        ? ($media - $geracaoMes) * $valor_kwh
-        : 0;
-    $cuoSelecionado = -1 * ($faturaEnergia + ($geracaoMes * $valorFinalFioB));
-    $valorReceber = $fixoSelecionado + $injetadoSelecionado + $creditadoSelecionado + $cuoSelecionado;
-
-    $meses = [
-            'Janeiro' => $geracao->janeiro,
-            'Fevereiro' => $geracao->fevereiro,
-            'Marco' => $geracao->marco,
-            'Abril' => $geracao->abril,
-            'Maio' => $geracao->maio,
-            'Junho' => $geracao->junho,
-            'Julho' => $geracao->julho,
-            'Agosto' => $geracao->agosto,
-            'Setembro' => $geracao->setembro,
-            'Outubro' => $geracao->outubro,
-            'Novembro' => $geracao->novembro,
-            'Dezembro' => $geracao->dezembro,
-    ];
-
-    $dadosMensais = [];
-    $maxGeracao = max(array_map('floatval', array_values($meses)));
-
-    foreach ($meses as $mesNome => $valor) {
-        $fixo = $valor_fixo;
-        $injetado = ($valor > $media) ? ($media - $menor) * $valor_kwh : ($valor - $menor) * $valor_kwh;
-        $creditado = ($valor < $media) ? ($media - $valor) * $valor_kwh : 0;
-        $cuo = -1 * ($faturaEnergia + ($valor * $valorFinalFioB));
-        $valor_final = $fixo + $injetado + $creditado + $cuo;
-
-        $dadosMensais[$mesNome] = [
-            'fixo' => $fixo,
-            'injetado' => $injetado,
-            'creditado' => $creditado,
-            'cuo' => $cuo,
-            'valor_final' => $valor_final,
+        // Mapa de colunas no banco
+        $nomesMeses = [
+            1=>'janeiro',2=>'fevereiro',3=>'marco',4=>'abril',5=>'maio',6=>'junho',
+            7=>'julho',8=>'agosto',9=>'setembro',10=>'outubro',11=>'novembro',12=>'dezembro',
         ];
-    }
+        $colunaMes = $nomesMeses[$mes];
 
-    $ano = now()->year;
-    $faturamento = CreditosDistribuidosUsina::where('usi_id', $id)
-        ->where('ano', $ano)
-        ->with(['creditosDistribuidos', 'valorAcumuladoReserva', 'faturamentoUsina'])
-        ->first();
+        $geracaoRow = $usina->dadoGeracao;
+        $valor_kwh  = (float) ($usina->comercializacao->valor_kwh ?? 0);
 
-    $geracaoReal = DadosGeracaoRealUsina::where('usi_id', $id)
-        ->where('ano', $ano)
-        ->with('dadosGeracaoReal')
-        ->first();
+        // Valores de referência
+        $media  = (float) ($geracaoRow?->media ?? 0);
+        $menor  = (float) ($geracaoRow?->menor_geracao ?? 0);
+        $geracaoMes = (float) ($geracaoRow?->$colunaMes ?? 0);
 
-    $dadosFaturamento = [];
-    if ($faturamento && $geracaoReal) {
-        $creditos = $faturamento->creditosDistribuidos;
-        $reserva = $faturamento->valorAcumuladoReserva;
-        $pago    = $faturamento->faturamentoUsina;
-        $geracao = $geracaoReal->dadosGeracaoReal;
+        $valor_fixo = $menor * $valor_kwh;
+        $faturaEnergia = 100;            // seu parâmetro fixo
+        $percentualLei = 45;             // idem
+        $valorFinalFioB = 0.13 * ($percentualLei / 100);
 
-        $mesesKeys = [
-            'janeiro','fevereiro','marco','abril','maio','junho',
-            'julho','agosto','setembro','outubro','novembro','dezembro'
+        $fixoSelecionado = $valor_fixo;
+        $injetadoSelecionado = ($geracaoMes > $media)
+            ? ($media - $menor) * $valor_kwh
+            : ($geracaoMes - $menor) * $valor_kwh;
+        $creditadoSelecionado = ($geracaoMes < $media)
+            ? ($media - $geracaoMes) * $valor_kwh
+            : 0;
+        $cuoSelecionado = -1 * ($faturaEnergia + ($geracaoMes * $valorFinalFioB));
+        $valorReceber = $fixoSelecionado + $injetadoSelecionado + $creditadoSelecionado + $cuoSelecionado;
+
+        // Série mensal (safe)
+        $meses = [
+            'Janeiro'  => (float) ($geracaoRow?->janeiro  ?? 0),
+            'Fevereiro'=> (float) ($geracaoRow?->fevereiro?? 0),
+            'Marco'    => (float) ($geracaoRow?->marco    ?? 0),
+            'Abril'    => (float) ($geracaoRow?->abril    ?? 0),
+            'Maio'     => (float) ($geracaoRow?->maio     ?? 0),
+            'Junho'    => (float) ($geracaoRow?->junho    ?? 0),
+            'Julho'    => (float) ($geracaoRow?->julho    ?? 0),
+            'Agosto'   => (float) ($geracaoRow?->agosto   ?? 0),
+            'Setembro' => (float) ($geracaoRow?->setembro ?? 0),
+            'Outubro'  => (float) ($geracaoRow?->outubro  ?? 0),
+            'Novembro' => (float) ($geracaoRow?->novembro ?? 0),
+            'Dezembro' => (float) ($geracaoRow?->dezembro ?? 0),
         ];
+        $valoresGeracao = array_values($meses);
+        $maxGeracao = count($valoresGeracao) ? max($valoresGeracao) : 0;
 
-        foreach ($mesesKeys as $chave) {
-            if ($pago->$chave > 0) {
-                $dadosFaturamento[Str::ucfirst($chave)] = [
-                    'geracao'  => $geracao->$chave ?? 0,
-                    'guardado' => $reserva->$chave ?? 0,
-                    'creditado'=> $creditos->$chave ?? 0,
-                    'pago'     => $pago->$chave ?? 0,
-                ];
+        // Tabela mensal de valores
+        $dadosMensais = [];
+        foreach ($meses as $mesNome => $valor) {
+            $fixo      = $valor_fixo;
+            $injetado  = ($valor > $media) ? ($media - $menor) * $valor_kwh : ($valor - $menor) * $valor_kwh;
+            $creditado = ($valor < $media) ? ($media - $valor) * $valor_kwh : 0;
+            $cuo       = -1 * ($faturaEnergia + ($valor * $valorFinalFioB));
+            $dadosMensais[$mesNome] = [
+                'fixo' => $fixo,
+                'injetado' => $injetado,
+                'creditado' => $creditado,
+                'cuo' => $cuo,
+                'valor_final' => $fixo + $injetado + $creditado + $cuo,
+            ];
+        }
+
+        // Faturamento/geração real do ano selecionado
+        $faturamento = CreditosDistribuidosUsina::where('usi_id', $id)
+            ->where('ano', $ano)
+            ->with(['creditosDistribuidos', 'valorAcumuladoReserva', 'faturamentoUsina'])
+            ->first();
+
+        $geracaoReal = DadosGeracaoRealUsina::where('usi_id', $id)
+            ->where('ano', $ano)
+            ->with('dadosGeracaoReal')
+            ->first();
+
+        $dadosFaturamento = [];
+        if (
+            $faturamento && $geracaoReal &&
+            $faturamento->creditosDistribuidos &&
+            $faturamento->valorAcumuladoReserva &&
+            $faturamento->faturamentoUsina &&
+            $geracaoReal->dadosGeracaoReal
+        ) {
+            $creditos = $faturamento->creditosDistribuidos;
+            $reserva  = $faturamento->valorAcumuladoReserva;
+            $pago     = $faturamento->faturamentoUsina;
+            $geracaoMensalReal = $geracaoReal->dadosGeracaoReal;
+
+            foreach (array_values($nomesMeses) as $chave) {
+                $pagoVal = (float) ($pago?->$chave ?? 0);
+                if ($pagoVal > 0) {
+                    $dadosFaturamento[\Illuminate\Support\Str::ucfirst($chave)] = [
+                        'geracao'   => (float) ($geracaoMensalReal?->$chave ?? 0),
+                        'guardado'  => (float) ($reserva?->$chave ?? 0),
+                        'creditado' => (float) ($creditos?->$chave ?? 0),
+                        'pago'      => $pagoVal,
+                    ];
+                }
             }
         }
+
+        $totalGuardado = array_sum(array_column($dadosFaturamento, 'guardado'));
+        $totalCreditado = array_sum(array_column($dadosFaturamento, 'creditado'));
+        $totalPago      = array_sum(array_column($dadosFaturamento, 'pago'));
+
+        $totalEnergiaReceber      = $totalGuardado * $valor_kwh;
+        $totalFaturaConcessionaria= $totalCreditado;
+        $totalFaturasEmitidas     = $totalPago;
+        $saldo                    = $totalEnergiaReceber - $totalFaturaConcessionaria - $totalFaturasEmitidas;
+
+        // UC: pega a primeira do cliente se existir
+        $uc = optional(optional(optional($usina->cliente)->consumidores)->first())->uc ?? 'N/A';
+
+        // Imagens inline (sem depender de fileinfo/mime_content_type)
+        $logoDataUri          = $this->inlinePublicImage('img/logo-consorcio-lider-energy.png');
+        $iconeSolDataUri      = $this->inlinePublicImage('img/sol.png');
+        $iconeRelogioDataUri  = $this->inlinePublicImage('img/relogio.png');
+        $iconeWebDataUri      = $this->inlinePublicImage('img/web.png');
+        $iconeWppDataUri      = $this->inlinePublicImage('img/whatsapp.png');
+        $iconeEmailDataUri    = $this->inlinePublicImage('img/email.png');
+        $iconeCo2DataUri      = $this->inlinePublicImage('img/icone-co2.png');
+        $iconeArvoreDataUri   = $this->inlinePublicImage('img/icone-Arvore.png');
+        $iconeInfoDataUri     = $this->inlinePublicImage('img/icone-info.png');
+        $iconeDinheiroDataUri = $this->inlinePublicImage('img/dinheiro.png');
+        $iconeLampadaDataUri  = $this->inlinePublicImage('img/lampada.png');
+        $iconeInstagramDataUri= $this->inlinePublicImage('img/instagram.png');
+        $iconeLinkedinDataUri = $this->inlinePublicImage('img/linkedin.png');
+
+        $mesAnoSelecionado = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
+
+        $html = view('usina', [
+            'usina' => $usina,
+            'dadosMensais' => $dadosMensais,
+            'valoresGeracao' => $valoresGeracao,
+            'nomesMeses' => array_keys($meses),
+            'maxGeracao' => $maxGeracao,
+            'logo' => $logoDataUri,
+            'iconeSol' => $iconeSolDataUri,
+            'iconeRelogio' => $iconeRelogioDataUri,
+            'iconeWeb' => $iconeWebDataUri,
+            'iconeWpp' => $iconeWppDataUri,
+            'iconeEmail' => $iconeEmailDataUri,
+            'iconeCo2' => $iconeCo2DataUri,
+            'iconeArvore' => $iconeArvoreDataUri,
+            'iconeInfo' => $iconeInfoDataUri,
+            'iconeDinheiro' => $iconeDinheiroDataUri,
+            'iconeLampada' => $iconeLampadaDataUri,
+            'iconeInstagram' => $iconeInstagramDataUri,
+            'iconeLinkedin' => $iconeLinkedinDataUri,
+            'valorReceber' => $valorReceber,
+            'mesAnoSelecionado' => $mesAnoSelecionado,
+            'geracaoMes' => $geracaoMes,
+            'dadosFaturamento' => $dadosFaturamento,
+            'observacoes' => $observacoes,
+            'totalEnergiaReceber' => $totalEnergiaReceber,
+            'totalFaturaConcessionaria' => $totalFaturaConcessionaria,
+            'totalFaturasEmitidas' => $totalFaturasEmitidas,
+            'saldo' => $saldo,
+            'uc' => $uc,
+        ])->render();
+
+        $pdf = $this->configureBrowsershot(Browsershot::html($html))
+            ->format('A4')
+            ->showBackground()
+            ->deviceScaleFactor(2)
+            ->waitUntilNetworkIdle()
+            ->timeout(60)
+            ->pdf();
+
+        return response($pdf, 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'inline; filename="grafico_usina.pdf"');
+
+    } catch (\Throwable $e) {
+        \Log::error('Erro ao gerarUsinaPDF', [
+            'usina_id' => $id,
+            'mensagem' => $e->getMessage(),
+            'trace'    => $e->getTraceAsString(),
+        ]);
+        return response()->json(['message' => 'Erro ao gerar PDF da usina.'], 500);
+    }
+  }
+
+ //Gera um Data URI de uma imagem no public/ sem depender do fileinfo.
+
+  private function inlinePublicImage(string $relativePath, string $defaultMime = 'image/png'): string
+  {
+    $path = public_path($relativePath);
+    if (!is_file($path)) {
+        // Retorna um pixel PNG transparente se o arquivo não existir (evita quebrar o PDF)
+        $transparentPng1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+        return "data:image/png;base64,{$transparentPng1x1}";
     }
 
-    $totalGuardado = array_sum(array_column($dadosFaturamento, 'guardado'));
-    $totalCreditado = array_sum(array_column($dadosFaturamento, 'creditado'));
-    $totalPago      = array_sum(array_column($dadosFaturamento, 'pago'));
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $mimeMap = [
+        'png'  => 'image/png',
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'gif'  => 'image/gif',
+        'svg'  => 'image/svg+xml',
+    ];
+    $mime = $mimeMap[$ext] ?? $defaultMime;
 
-    $totalEnergiaReceber = $totalGuardado * $valor_kwh;
-    $totalFaturaConcessionaria = $totalCreditado;
-    $totalFaturasEmitidas = $totalPago;
-    $saldo = $totalEnergiaReceber - $totalFaturaConcessionaria - $totalFaturasEmitidas;
-
-    $uc = optional($usina->cliente->consumidores)->uc ?? 'N/A';
-
-    $logoPath = public_path('img/logo-consorcio-lider-energy.png');
-    $logoBase64 = base64_encode(file_get_contents($logoPath));
-    $logoMime = mime_content_type($logoPath);
-    $logoDataUri = "data:$logoMime;base64,$logoBase64";
-
-    $iconeSolPath = public_path('img/sol.png');
-    $iconeSolBase64 = base64_encode(file_get_contents($iconeSolPath));
-    $iconeSolMime = mime_content_type($iconeSolPath);
-    $iconeSolDataUri = "data:$iconeSolMime;base64,$iconeSolBase64";
-
-    $iconeRelogioPath = public_path('img/relogio.png');
-    $iconeRelogioBase64 = base64_encode(file_get_contents($iconeRelogioPath));
-    $iconeRelogioMime = mime_content_type($iconeRelogioPath);
-    $iconeRelogioDataUri = "data:$iconeRelogioMime;base64,$iconeRelogioBase64";
-
-    $iconeWebPath = public_path('img/web.png');
-    $iconeWebBase64 = base64_encode(file_get_contents($iconeWebPath));
-    $iconeWebMime = mime_content_type($iconeWebPath);
-    $iconeWebDataUri = "data:$iconeWebMime;base64,$iconeWebBase64";
-
-    $iconeWppPath = public_path('img/whatsapp.png');
-    $iconeWppBase64 = base64_encode(file_get_contents($iconeWppPath));
-    $iconeWppMime = mime_content_type($iconeWppPath);
-    $iconeWppDataUri = "data:$iconeWppMime;base64,$iconeWppBase64";
-
-    $iconeEmailPath = public_path('img/email.png');
-    $iconeEmailBase64 = base64_encode(file_get_contents($iconeEmailPath));
-    $iconeEmailMime = mime_content_type($iconeEmailPath);
-    $iconeEmailDataUri = "data:$iconeEmailMime;base64,$iconeEmailBase64";
-
-    $iconeCo2Path = public_path('img/icone-co2.png');
-    $iconeCo2Base64 = base64_encode(file_get_contents($iconeCo2Path));
-    $iconeCo2Mime = mime_content_type($iconeCo2Path);
-    $iconeCo2DataUri = "data:$iconeCo2Mime;base64,$iconeCo2Base64";
-
-    $iconeArvorePath = public_path('img/icone-Arvore.png');
-    $iconeArvoreBase64 = base64_encode(file_get_contents($iconeArvorePath));
-    $iconeArvoreMime = mime_content_type($iconeArvorePath);
-    $iconeArvoreDataUri = "data:$iconeArvoreMime;base64,$iconeArvoreBase64";
-
-    $iconeInfoPath = public_path('img/icone-info.png');
-    $iconeInfoBase64 = base64_encode(file_get_contents($iconeInfoPath));
-    $iconeInfoMime = mime_content_type($iconeInfoPath);
-    $iconeInfoDataUri = "data:$iconeInfoMime;base64,$iconeInfoBase64";
-
-    $iconeDinheiroPath = public_path('img/dinheiro.png');
-    $iconeDinheiroBase64 = base64_encode(file_get_contents($iconeDinheiroPath));
-    $iconeDinheiroMime = mime_content_type($iconeDinheiroPath);
-    $iconeDinheiroDataUri = "data:$iconeDinheiroMime;base64,$iconeDinheiroBase64";
-
-    $iconeLampadaPath = public_path('img/lampada.png');
-    $iconeLampadaBase64 = base64_encode(file_get_contents($iconeLampadaPath));
-    $iconeLampadaMime = mime_content_type($iconeLampadaPath);
-    $iconeLampadaDataUri = "data:$iconeLampadaMime;base64,$iconeLampadaBase64";
-
-    $iconeInstagramPath = public_path('img/instagram.png');
-    $iconeInstagramBase64 = base64_encode(file_get_contents($iconeInstagramPath));
-    $iconeInstagramMime = mime_content_type($iconeInstagramPath);
-    $iconeInstagramDataUri = "data:$iconeInstagramMime;base64,$iconeInstagramBase64";
-
-    $iconeLinkedinPath = public_path('img/linkedin.png');
-    $iconeLinkedinBase64 = base64_encode(file_get_contents($iconeLinkedinPath));
-    $iconeLinkedinMime = mime_content_type($iconeLinkedinPath);
-    $iconeLinkedinDataUri = "data:$iconeLinkedinMime;base64,$iconeLinkedinBase64";
-
-    $html = view('usina', [
-        'usina' => $usina,
-        'dadosMensais' => $dadosMensais,
-        'valoresGeracao' => array_map('floatval', array_values($meses)),
-        'nomesMeses' => array_keys($meses),
-        'maxGeracao' => $maxGeracao,
-        'logo' => $logoDataUri,
-        'iconeSol' => $iconeSolDataUri,
-        'iconeRelogio' => $iconeRelogioDataUri,
-        'iconeWeb' => $iconeWebDataUri,
-        'iconeWpp' => $iconeWppDataUri,
-        'iconeEmail' => $iconeEmailDataUri,
-        'iconeCo2' => $iconeCo2DataUri,
-        'iconeArvore' => $iconeArvoreDataUri,
-        'iconeInfo' => $iconeInfoDataUri,
-        'iconeDinheiro' => $iconeDinheiroDataUri,
-        'iconeLampada' => $iconeLampadaDataUri,
-        'iconeInstagram' => $iconeInstagramDataUri,
-        'iconeLinkedin' => $iconeLinkedinDataUri,
-        'valorReceber' => $valorReceber,
-        'mesAnoSelecionado' => $mesAnoSelecionado,
-        'geracaoMes' => $geracaoMes,
-        'dadosFaturamento' => $dadosFaturamento,
-        'observacoes' => $observacoes,
-        'totalEnergiaReceber' => $totalEnergiaReceber,
-        'totalFaturaConcessionaria' => $totalFaturaConcessionaria,
-        'totalFaturasEmitidas' => $totalFaturasEmitidas,
-        'saldo' => $saldo,
-        'uc' => $uc,
-    ])->render();
-
-    $pdf = $this->configureBrowsershot(Browsershot::html($html))
-        ->format('A4')
-        ->showBackground()
-        ->deviceScaleFactor(2)
-        ->waitUntilNetworkIdle()
-        ->timeout(60)
-        ->pdf();
-
-    return response($pdf, 200)
-        ->header('Content-Type', 'application/pdf')
-        ->header('Content-Disposition', 'inline; filename="grafico_usina.pdf"');
+    $data = @file_get_contents($path);
+    if ($data === false) {
+        $transparentPng1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+        return "data:image/png;base64,{$transparentPng1x1}";
+    }
+    return "data:{$mime};base64," . base64_encode($data);
   }
-    
+
   public function gerarConsumidoresPDF($id) {
   
     $usina = Usina::with('cliente')->findOrFail($id);

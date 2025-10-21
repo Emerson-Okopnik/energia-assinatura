@@ -22,18 +22,25 @@
       - ufw
     state: present
 
-- name: Adicionar chave GPG do NodeSource
+# -----------------------------------------------------------------------------
+# Node.js (necessário para Browsershot/Puppeteer)
+# -----------------------------------------------------------------------------
+- name: Baixar chave GPG do NodeSource (ASCII)
   ansible.builtin.get_url:
     url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
-    dest: /usr/share/keyrings/nodesource.gpg
+    dest: /usr/share/keyrings/nodesource.asc
     mode: "0644"
   when: ansible_os_family == "Debian"
 
-- name: Configurar repositório NodeSource Node 18.x
+- name: Converter chave GPG do NodeSource para keyring (idempotente)
+  ansible.builtin.command:
+    cmd: gpg --dearmor --yes -o /usr/share/keyrings/nodesource.gpg /usr/share/keyrings/nodesource.asc
+    creates: /usr/share/keyrings/nodesource.gpg
+  when: ansible_os_family == "Debian"
+
+- name: Configurar repositório NodeSource Node 18.x (nodistro)
   ansible.builtin.apt_repository:
-    repo: >-
-      deb [signed-by=/usr/share/keyrings/nodesource.gpg]
-      https://deb.nodesource.com/node_18.x nodistro main
+    repo: "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main"
     filename: nodesource-node18
     state: present
     update_cache: yes
@@ -43,29 +50,56 @@
   ansible.builtin.apt:
     name: nodejs
     state: present
+  when: ansible_os_family == "Debian"
 
-- name: Adicionar chave GPG do Google Chrome
+- name: Validar versão mínima do Node.js
+  ansible.builtin.command:
+    cmd: node --version
+  register: node_version_check
+  changed_when: false
+  when: ansible_os_family == "Debian"
+
+- name: Garantir que o Node.js atende ao requisito do Browsershot
+  ansible.builtin.assert:
+    that:
+      - (node_version_check.stdout | trim | regex_replace('^v','')) is version('18.0.0', '>=')
+    fail_msg: "A versão instalada do Node.js precisa ser >= 18.x para o Browsershot funcionar corretamente."
+    success_msg: "Versão do Node.js validada com sucesso."
+  when: ansible_os_family == "Debian"
+
+# -----------------------------------------------------------------------------
+# Google Chrome (motor do Puppeteer/Browsershot)
+# -----------------------------------------------------------------------------
+- name: Baixar chave GPG do Google Chrome (ASCII)
   ansible.builtin.get_url:
     url: https://dl-ssl.google.com/linux/linux_signing_key.pub
-    dest: /usr/share/keyrings/google-chrome.gpg
+    dest: /usr/share/keyrings/google-chrome.asc
     mode: "0644"
+  when: ansible_architecture == "x86_64"
+
+- name: Converter chave GPG do Google Chrome para keyring (idempotente)
+  ansible.builtin.command:
+    cmd: gpg --dearmor --yes -o /usr/share/keyrings/google-chrome.gpg /usr/share/keyrings/google-chrome.asc
+    creates: /usr/share/keyrings/google-chrome.gpg
   when: ansible_architecture == "x86_64"
 
 - name: Configurar repositório do Google Chrome
   ansible.builtin.apt_repository:
     repo: >-
       deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg]
-      http://dl.google.com/linux/chrome/deb/ stable main
+      https://dl.google.com/linux/chrome/deb/ stable main
     filename: google-chrome
-    state: present
-  when: ansible_architecture == "x86_64"
-
-- name: Instalar Google Chrome estável
-  ansible.builtin.apt:
-    name: google-chrome-stable
     state: present
     update_cache: yes
   when: ansible_architecture == "x86_64"
+
+- name: Instalar Google Chrome (deixa o APT puxar dependências)
+  ansible.builtin.apt:
+    name:
+      - google-chrome-stable
+      - fonts-liberation
+    state: present
+  when: ansible_architecture in ['x86_64', 'amd64']
 
 - name: Instalar Composer globalmente
   ansible.builtin.apt:
