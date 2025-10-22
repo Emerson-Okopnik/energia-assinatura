@@ -127,10 +127,9 @@ export default {
         this.consumidoresAlocados = alocadosResponse.data;
         this.UsinaDadosGeracao = dadosGeracao.data;
 
-        // Cálculo dos créditos disponíveis
         const usina = alocadosResponse.data.length > 0 ? alocadosResponse.data[0].usina : null;
 
-        if (usina && usina.dado_geracao && usina.dado_geracao.media) {
+        if (usina?.dado_geracao?.media) {
           const geracaoMedia = usina.dado_geracao.media;
           const consumoTotal = alocadosResponse.data.reduce((soma, vinculo) => {
             return soma + (vinculo.consumidor?.dado_consumo?.media || 0);
@@ -138,12 +137,13 @@ export default {
 
           this.creditosDisponiveis = (geracaoMedia - consumoTotal).toFixed(2) + ' kWh';
         } else {
-          this.creditosDisponiveis = this.UsinaDadosGeracao.dado_geracao.media + ' kWh';
+          this.creditosDisponiveis = (this.UsinaDadosGeracao?.dado_geracao?.media || 0) + ' kWh';
         }
       } catch (error) {
         console.error('Erro ao carregar consumidores:', error);
         this.consumidoresDisponiveis = [];
         this.consumidoresAlocados = [];
+        this.creditosDisponiveis = '0 kWh';
       }
     },
     alternarSelecionadoDisponivel(consumidor) {
@@ -234,9 +234,12 @@ export default {
           cli_id = usinaInfo.cli_id;
           const usic_id = primeiraRelacao.usic_id;
 
-          con_ids = this.consumidoresAlocados.map(c => c.consumidor.con_id);
+          const existingIds = new Set(this.consumidoresAlocados.map(c => c.consumidor.con_id));
+          con_ids = [...existingIds];
           novosConIds.forEach(id => {
-            if (!con_ids.includes(id)) con_ids.push(id);
+            if (!existingIds.has(id)) {
+              con_ids.push(id);
+            }
           });
 
           await axios.put(`${baseURL}/usina-consumidor/${usic_id}`, { usi_id, cli_id, con_ids }, {

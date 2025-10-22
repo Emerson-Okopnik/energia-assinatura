@@ -17,8 +17,27 @@ class PDFController extends Controller {
   public function gerarUsinaPDF(Request $request, $id)
   {
     try {
-        // Carrega relações necessárias; adicione outras se precisar no Blade
-        $usina = Usina::with(['cliente.consumidores', 'dadoGeracao', 'comercializacao'])->findOrFail($id);
+        $usina = Usina::select([
+            'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 
+            'data_limite_troca_titularidade', 'data_ass_contrato', 'status', 'andamento_processo'
+        ])
+        ->with([
+            'cliente' => function ($query) {
+                $query->select('cli_id', 'nome', 'cpf_cnpj', 'telefone', 'email', 'end_id')
+                    ->with(['consumidores' => function ($q) {
+                        $q->select('con_id', 'cli_id', 'uc');
+                    }]);
+            },
+            'dadoGeracao' => function ($query) {
+                $query->select('dger_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro', 'media', 'menor_geracao');
+            },
+            'comercializacao' => function ($query) {
+                $query->select('com_id', 'valor_kwh', 'valor_fixo', 'cia_energia', 
+                    'valor_final_media', 'previsao_conexao', 'data_conexao');
+            }
+        ])
+        ->findOrFail($id);
 
         // Guard clauses para erros óbvios de dados ausentes
         if (!$usina->comercializacao) {
@@ -98,15 +117,34 @@ class PDFController extends Controller {
             ];
         }
 
-        // Faturamento/geração real do ano selecionado
-        $faturamento = CreditosDistribuidosUsina::where('usi_id', $id)
-            ->where('ano', $ano)
-            ->with(['creditosDistribuidos', 'valorAcumuladoReserva', 'faturamentoUsina'])
-            ->first();
+        $faturamento = CreditosDistribuidosUsina::select([
+            'cdu_id', 'cd_id', 'usi_id', 'cli_id', 'fa_id', 'var_id', 'ano'
+        ])
+        ->where('usi_id', $id)
+        ->where('ano', $ano)
+        ->with([
+            'creditosDistribuidos' => function ($query) {
+                $query->select('cd_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
+            },
+            'valorAcumuladoReserva' => function ($query) {
+                $query->select('var_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro', 'total');
+            },
+            'faturamentoUsina' => function ($query) {
+                $query->select('fa_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
+            }
+        ])
+        ->first();
 
-        $geracaoReal = DadosGeracaoRealUsina::where('usi_id', $id)
+        $geracaoReal = DadosGeracaoRealUsina::select(['dgru_id', 'dgr_id', 'usi_id', 'cli_id', 'ano'])
+            ->where('usi_id', $id)
             ->where('ano', $ano)
-            ->with('dadosGeracaoReal')
+            ->with(['dadosGeracaoReal' => function ($query) {
+                $query->select('dgr_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
+            }])
             ->first();
 
         $dadosFaturamento = [];
@@ -217,7 +255,7 @@ class PDFController extends Controller {
     }
   }
 
- //Gera um Data URI de uma imagem no public/ sem depender do fileinfo.
+  //Gera um Data URI de uma imagem no public/ sem depender do fileinfo.
 
   private function inlinePublicImage(string $relativePath, string $defaultMime = 'image/png'): string
   {
@@ -249,9 +287,30 @@ class PDFController extends Controller {
 
   public function gerarConsumidoresPDF($id) {
   
-    $usina = Usina::with('cliente')->findOrFail($id);
-    $consumidores = UsinaConsumidor::where('usi_id', $id)
-        ->with(['consumidor.cliente.endereco', 'consumidor.dado_consumo'])
+    $usina = Usina::select('usi_id', 'cli_id')
+        ->with(['cliente' => function ($query) {
+            $query->select('cli_id', 'nome');
+        }])
+        ->findOrFail($id);
+        
+    $consumidores = UsinaConsumidor::select('usic_id', 'usi_id', 'con_id', 'cli_id')
+        ->where('usi_id', $id)
+        ->with([
+            'consumidor' => function ($query) {
+                $query->select('con_id', 'cli_id', 'dcon_id', 'cia_energia', 'uc', 'rede', 'status')
+                    ->with([
+                        'cliente' => function ($q) {
+                            $q->select('cli_id', 'nome', 'cpf_cnpj', 'telefone', 'end_id')
+                                ->with(['endereco' => function ($eq) {
+                                    $eq->select('end_id', 'rua', 'numero', 'cidade', 'estado');
+                                }]);
+                        },
+                        'dado_consumo' => function ($q) {
+                            $q->select('dcon_id', 'media');
+                        }
+                    ]);
+            }
+        ])
         ->get();
 
     $html = view('listagem-consumidores', [

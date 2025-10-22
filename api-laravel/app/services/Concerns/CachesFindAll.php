@@ -2,33 +2,49 @@
 
 namespace App\Services\Concerns;
 
-use Closure;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 trait CachesFindAll
 {
-    protected int $findAllCacheTtl = 300;
+    /**
+     * Cache TTL in seconds (5 minutes by default)
+     */
+    private int $findAllCacheTtl = 300;
 
     /**
-     * @template T
-     * @param  Closure():Collection|array  $callback
+     * Remember the result of findAll queries with caching
+     *
+     * @param string $cacheKey
+     * @param callable $callback
+     * @return array
      */
-    protected function rememberFindAll(string $cacheKey, Closure $callback): array
+    protected function rememberFindAll(string $cacheKey, callable $callback): array
     {
         return Cache::remember($cacheKey, $this->findAllCacheTtl, function () use ($callback) {
             $result = $callback();
-
-            if ($result instanceof Collection) {
-                return $result->toArray();
-            }
-
-            return is_array($result) ? $result : [];
+            return is_array($result) ? $result : $result->toArray();
         });
     }
 
+    /**
+     * Forget (invalidate) the findAll cache
+     *
+     * @param string $cacheKey
+     * @return void
+     */
     protected function forgetFindAllCache(string $cacheKey): void
     {
         Cache::forget($cacheKey);
+    }
+
+    /**
+     * Set custom TTL for findAll cache
+     *
+     * @param int $seconds
+     * @return void
+     */
+    protected function setFindAllCacheTtl(int $seconds): void
+    {
+        $this->findAllCacheTtl = $seconds;
     }
 }

@@ -35,17 +35,20 @@ class UsinaConsumidorService {
         UsinaConsumidor::where('usi_id', $registro->usi_id)->delete();
     
         $novos = [];
+        $now = now();
         foreach ($data['con_ids'] as $conId) {
             $novos[] = [
                 'usi_id' => $data['usi_id'],
                 'cli_id' => $data['cli_id'],
                 'con_id' => $conId,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
     
-        DB::table('usina_consumidor')->insert($novos);
+        if (!empty($novos)) {
+            DB::table('usina_consumidor')->insert($novos);
+        }
     
         $updated = (int) $registro->update($data);
 
@@ -73,44 +76,107 @@ class UsinaConsumidorService {
     }
     
     public function findById(int $id): array|null {
-        $usinaConsumidor = $this->usinaConsumidor->with([
-            'usina.dadoGeracao',
-            'usina.comercializacao',
-            'usina.cliente.endereco',
-            'consumidor.cliente.endereco',
-            'consumidor.dado_consumo'
-        ])->find($id);
+        $usinaConsumidor = $this->usinaConsumidor
+            ->select(['usic_id', 'usi_id', 'con_id', 'cli_id', 'created_at', 'updated_at'])
+            ->with([
+                'usina' => function ($query) {
+                    $query->select('usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 'status')
+                        ->with([
+                            'dadoGeracao' => function ($q) {
+                                $q->select('dger_id', 'media', 'menor_geracao');
+                            },
+                            'comercializacao' => function ($q) {
+                                $q->select('com_id', 'valor_kwh', 'cia_energia', 'data_conexao');
+                            },
+                            'cliente' => function ($q) {
+                                $q->select('cli_id', 'nome', 'cpf_cnpj', 'end_id')
+                                    ->with(['endereco' => function ($eq) {
+                                        $eq->select('end_id', 'rua', 'numero', 'cidade', 'estado');
+                                    }]);
+                            }
+                        ]);
+                },
+                'consumidor' => function ($query) {
+                    $query->select('con_id', 'cli_id', 'dcon_id', 'ven_id', 'cia_energia', 'uc', 'status')
+                        ->with([
+                            'cliente' => function ($q) {
+                                $q->select('cli_id', 'nome', 'cpf_cnpj', 'end_id')
+                                    ->with(['endereco' => function ($eq) {
+                                        $eq->select('end_id', 'rua', 'numero', 'cidade', 'estado');
+                                    }]);
+                            },
+                            'dado_consumo' => function ($q) {
+                                $q->select('dcon_id', 'media');
+                            }
+                        ]);
+                }
+            ])
+            ->find($id);
         return $usinaConsumidor ? $usinaConsumidor->toArray() : null;
     }
 
     public function findAll(): array {
         return $this->rememberFindAll($this->cacheKey, function () {
-            return $this->usinaConsumidor->with([
-                'usina.dadoGeracao',
-                'usina.comercializacao',
-                'usina.cliente.endereco',
-                'usina.vendedor',
-                'consumidor.cliente.endereco',
-                'consumidor.dado_consumo',
-                'consumidor.vendedor'
-            ])->get();
+            return $this->usinaConsumidor
+                ->select(['usic_id', 'usi_id', 'con_id', 'cli_id', 'created_at', 'updated_at'])
+                ->with([
+                    'usina' => function ($query) {
+                        $query->select('usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 'status')
+                            ->with([
+                                'dadoGeracao' => function ($q) {
+                                    $q->select('dger_id', 'media', 'menor_geracao');
+                                },
+                                'comercializacao' => function ($q) {
+                                    $q->select('com_id', 'valor_kwh', 'cia_energia', 'data_conexao');
+                                },
+                                'cliente' => function ($q) {
+                                    $q->select('cli_id', 'nome', 'cpf_cnpj', 'telefone', 'end_id')
+                                        ->with(['endereco' => function ($eq) {
+                                            $eq->select('end_id', 'rua', 'numero', 'cidade', 'estado');
+                                        }]);
+                                },
+                                'vendedor' => function ($q) {
+                                    $q->select('ven_id', 'nome');
+                                }
+                            ]);
+                    },
+                    'consumidor' => function ($query) {
+                        $query->select('con_id', 'cli_id', 'dcon_id', 'ven_id', 'cia_energia', 'uc', 'status')
+                            ->with([
+                                'cliente' => function ($q) {
+                                    $q->select('cli_id', 'nome', 'cpf_cnpj', 'telefone', 'end_id')
+                                        ->with(['endereco' => function ($eq) {
+                                            $eq->select('end_id', 'rua', 'numero', 'cidade', 'estado');
+                                        }]);
+                                },
+                                'dado_consumo' => function ($q) {
+                                    $q->select('dcon_id', 'media');
+                                },
+                                'vendedor' => function ($q) {
+                                    $q->select('ven_id', 'nome');
+                                }
+                            ]);
+                    }
+                ])
+                ->get();
         });
     }
 
     public function createMany(array $data): int {
         $inserts = [];
+        $now = now();
     
         foreach ($data['con_ids'] as $conId) {
             $inserts[] = [
                 'usi_id' => $data['usi_id'],
                 'cli_id' => $data['cli_id'],
                 'con_id' => $conId,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
     
-        $inserted = DB::table('usina_consumidor')->insert($inserts) ? count($inserts) : 0;
+        $inserted = !empty($inserts) && DB::table('usina_consumidor')->insert($inserts) ? count($inserts) : 0;
 
         if ($inserted) {
             $this->forgetFindAllCache($this->cacheKey);
@@ -132,14 +198,48 @@ class UsinaConsumidorService {
     }
 
     public function findByUsinaId(int $usi_id) {
-        return $this->usinaConsumidor->where('usi_id', $usi_id)->with([
-                'usina.cliente.endereco',
-                'usina.comercializacao',
-                'usina.dadoGeracao',
-                'usina.vendedor',
-                'consumidor.cliente.endereco',
-                'consumidor.dado_consumo',
-                'consumidor.vendedor'
-            ])->get();
+        return $this->usinaConsumidor
+            ->select(['usic_id', 'usi_id', 'con_id', 'cli_id'])
+            ->where('usi_id', $usi_id)
+            ->with([
+                'usina' => function ($query) {
+                    $query->select('usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 'status')
+                        ->with([
+                            'cliente' => function ($q) {
+                                $q->select('cli_id', 'nome', 'cpf_cnpj', 'end_id')
+                                    ->with(['endereco' => function ($eq) {
+                                        $eq->select('end_id', 'rua', 'numero', 'cidade', 'estado');
+                                    }]);
+                            },
+                            'comercializacao' => function ($q) {
+                                $q->select('com_id', 'valor_kwh', 'cia_energia');
+                            },
+                            'dadoGeracao' => function ($q) {
+                                $q->select('dger_id', 'media');
+                            },
+                            'vendedor' => function ($q) {
+                                $q->select('ven_id', 'nome');
+                            }
+                        ]);
+                },
+                'consumidor' => function ($query) {
+                    $query->select('con_id', 'cli_id', 'dcon_id', 'ven_id', 'cia_energia', 'uc', 'status')
+                        ->with([
+                            'cliente' => function ($q) {
+                                $q->select('cli_id', 'nome', 'cpf_cnpj', 'end_id')
+                                    ->with(['endereco' => function ($eq) {
+                                        $eq->select('end_id', 'rua', 'numero', 'cidade', 'estado');
+                                    }]);
+                            },
+                            'dado_consumo' => function ($q) {
+                                $q->select('dcon_id', 'media');
+                            },
+                            'vendedor' => function ($q) {
+                                $q->select('ven_id', 'nome');
+                            }
+                        ]);
+                }
+            ])
+            ->get();
     }
 }
