@@ -2,3 +2,5 @@
 # Configurações específicas para o grupo de hosts "frontend"
 nginx_configure_api: false
 nginx_configure_frontend: true
+frontend_api_upstream_host: "{{ hostvars[groups['app'][0]].private_ip | default(api_domain) }}"
+frontend_api_upstream_scheme: https

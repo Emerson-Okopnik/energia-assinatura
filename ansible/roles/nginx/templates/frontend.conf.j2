@@ -1,4 +1,6 @@
 {% set enable_ssl = nginx_frontend_ssl_enabled | default(false) | bool %}
+{% set api_upstream_host = frontend_api_upstream_host | default(api_domain) %}
+{% set api_upstream_scheme = frontend_api_upstream_scheme | default('https') %}
 {% set common_block %}
     root {{ frontend_root }};
     index index.html;
@@ -17,15 +19,17 @@
         try_files $uri $uri/ /index.html;
     }
 
-    set $api_upstream {{ api_domain }};
+    set $api_upstream {{ api_upstream_host }};
 
     location /api/ {
         # usa variável -> Nginx resolve apenas quando chega a request
-        proxy_pass https://$api_upstream;
+        proxy_pass {{ api_upstream_scheme }}://$api_upstream;
 
+        {% if api_upstream_scheme == 'https' %}
         # SNI para o certificado do backend
         proxy_ssl_server_name on;
         proxy_ssl_name {{ api_domain }};
+        {% endif %}
 
         # headers usuais
         proxy_set_header Host {{ api_domain }};

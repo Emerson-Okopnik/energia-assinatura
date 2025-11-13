@@ -28,16 +28,18 @@ php_fpm_access_log: "/var/log/php{{ php_version }}-fpm.access.log"
 php_fpm_slow_log: "/var/log/php{{ php_version }}-fpm.slow.log"
 php_fpm_request_slowlog_timeout: 10s
 
-db_host: "{{ vault_db_host | default(lookup('env', 'RDS_ENDPOINT'), true) }}"
+db_host: "{{ vault_db_host | default('127.0.0.1', true) }}"
 db_port: 5432
-db_name: postgres
-db_username: "{{vault_db_username | default(lookup('env', 'DB_USERNAME'), true) }}"
+db_name: "{{ vault_db_name | default('energia_assinatura', true) }}"
+db_username: "{{ vault_db_username | default('energia_app', true) }}"
 db_password: "{{ vault_db_password | default(lookup('env', 'DB_PASSWORD'), true) }}"          # ansible-vault
 app_key: "{{ vault_app_key | default(lookup('env', 'APP_KEY'), true) }}"                  # Base64::32 chars
 jwt_secret: "{{ vault_jwt_secret | default(lookup('env', 'JWT_SECRET'), true) }}"            # 32+ chars
 queue_connection: database
 
-vite_api_url: "https://{{ api_domain }}"
+manage_local_postgresql: true
+
+vite_api_url: "https://{{ app_domain }}"
 browsershot_chrome_candidates:
   - /usr/bin/google-chrome
   - /usr/bin/google-chrome-stable
