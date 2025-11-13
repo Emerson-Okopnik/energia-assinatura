@@ -11,11 +11,15 @@ class Vendedor extends Model {
 
     protected $fillable = [
         'nome',
+        'email',
+        'telefone',
         'patente',
     ];
 
     protected $casts = [
         'nome' => 'string',
+        'email' => 'string',
+        'telefone' => 'string',
         'patente' => 'string',
     ];
 

@@ -10,6 +10,8 @@ return new class extends Migration
         Schema::create('vendedor', function (Blueprint $table) {
             $table->id('ven_id');
             $table->string('nome');
+            $table->string('email')->nullable();
+            $table->string('telefone')->nullable();
             $table->string('patente');
             $table->timestamps();
         });

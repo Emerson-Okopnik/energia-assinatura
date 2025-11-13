@@ -20,6 +20,8 @@ class VendedorController extends Controller {
     public function store(Request $request): JsonResponse {
         $data = $request->validate([
             'nome' => 'required|string',
+            'email' => 'nullable|email',
+            'telefone' => 'nullable|string',
             'patente' => 'nullable|string',
         ]);
 
@@ -40,6 +42,8 @@ class VendedorController extends Controller {
     public function update(Request $request, int $id): JsonResponse {
         $data = $request->validate([
             'nome' => 'required|string',
+            'email' => 'nullable|email',
+            'telefone' => 'nullable|string',
             'patente' => 'nullable|string',
         ]);
 
