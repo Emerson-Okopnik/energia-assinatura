@@ -186,8 +186,16 @@
           <div class="row mb-3">
             <div class="col-md-4">
               <label for="data_limite_troca">Data Limite Troca Titularidade</label>
-              <input id="data_limite_troca" type="date" class="form-control"
-                v-model="form.data_limite_troca_titularidade" />
+              <input
+                id="data_limite_troca"
+                type="date"
+                class="form-control"
+                :class="{ 'is-invalid': errors.data_limite_troca_titularidade }"
+                v-model="form.data_limite_troca_titularidade"
+              />
+              <div v-if="errors.data_limite_troca_titularidade" class="invalid-feedback">
+                {{ errors.data_limite_troca_titularidade }}
+              </div>
             </div>
             <div class="col-md-4">
               <label for="status_usina">Status da Usina</label>
@@ -383,6 +391,21 @@ export default {
       if (formatted !== val) {
         this.form.telefone = formatted;
       }
+    },
+    'form.data_ass_contrato'(novaData) {
+      if (!novaData) {
+        this.form.data_limite_troca_titularidade = '';
+        this.validarDataLimiteTroca();
+        return;
+      }
+      const dataCalculada = this.calcularDataLimiteTroca(novaData);
+      if (dataCalculada && this.form.data_limite_troca_titularidade !== dataCalculada) {
+        this.form.data_limite_troca_titularidade = dataCalculada;
+      }
+      this.validarDataLimiteTroca();
+    },
+    'form.data_limite_troca_titularidade'() {
+      this.validarDataLimiteTroca();
     }
   },
   methods: {
@@ -411,6 +434,37 @@ export default {
         v = v.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
       }
       return v.trim();
+    },
+    calcularDataLimiteTroca(dataAssinatura) {
+      if (!dataAssinatura) {
+        return '';
+      }
+      const data = new Date(`${dataAssinatura}T00:00:00`);
+      if (Number.isNaN(data.getTime())) {
+        return '';
+      }
+      data.setDate(data.getDate() + 30);
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    },
+    validarDataLimiteTroca() {
+      if (!this.form.data_ass_contrato) {
+        delete this.errors.data_limite_troca_titularidade;
+        return true;
+      }
+      const dataCalculada = this.calcularDataLimiteTroca(this.form.data_ass_contrato);
+      if (!dataCalculada) {
+        this.errors.data_limite_troca_titularidade = 'Data de assinatura inválida.';
+        return false;
+      }
+      if (this.form.data_limite_troca_titularidade !== dataCalculada) {
+        this.errors.data_limite_troca_titularidade = 'A data limite deve ser 30 dias após a assinatura.';
+        return false;
+      }
+      delete this.errors.data_limite_troca_titularidade;
+      return true;
     },
     async fetchVendedores() {
       try {
@@ -449,7 +503,8 @@ export default {
           this.errors[field] = 'Campo obrigatório';
         }
       });
-      return Object.keys(this.errors).length === 0;
+      const datasValidas = this.validarDataLimiteTroca();
+      return Object.keys(this.errors).length === 0 && datasValidas;
     },
     resetForm() {
       this.form = {
