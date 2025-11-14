@@ -112,9 +112,13 @@ jobs:
       - name: Write bastion private key
         env:
           BASTION_KEY: ${{ secrets.BASTION_SSH_KEY }}
+          BASTION_KEY_PASSPHRASE: ${{ secrets.BASTION_SSH_PASSPHRASE }}
         run: |
           install -m 600 /dev/null /tmp/key_nopass.pem
           printf '%s' "$BASTION_KEY" > /tmp/key_nopass.pem
+          if [ -n "$BASTION_KEY_PASSPHRASE" ]; then
+            ssh-keygen -p -P "$BASTION_KEY_PASSPHRASE" -N '' -f /tmp/key_nopass.pem >/dev/null
+          fi
       - name: Prepare Ansible vault password
         working-directory: ansible
         env:
