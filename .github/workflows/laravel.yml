@@ -103,29 +103,54 @@ jobs:
       - name: Install Ansible collections
         working-directory: ansible
         run: ansible-galaxy collection install -r collections/requirements.yml
-      - name: Start SSH agent and add deploy key
+      - name: Start SSH agent
+        run: |
+          eval "$(ssh-agent -s)"
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+      - name: Add deploy key to agent
         env:
           DEPLOY_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
           DEPLOY_KEY_PASSPHRASE: ${{ secrets.PROD_DEPLOY_SSH_PASSPHRASE }}
         run: |
           install -m 600 /dev/null /tmp/deploy_key
-          printf '%s' "$DEPLOY_KEY" > /tmp/deploy_key
+          printf '%s\n' "$DEPLOY_KEY" > /tmp/deploy_key
           if [ -n "$DEPLOY_KEY_PASSPHRASE" ]; then
-            ssh-keygen -p -P "$DEPLOY_KEY_PASSPHRASE" -N '' -f /tmp/deploy_key >/dev/null
+            ASKPASS=$(mktemp)
+            cat <<'EOF' > "$ASKPASS"
+            #!/usr/bin/env bash
+            echo "$DEPLOY_KEY_PASSPHRASE"
+            EOF
+            chmod +x "$ASKPASS"
+            export SSH_ASKPASS="$ASKPASS"
+            export DISPLAY=:0
+            setsid ssh-add /tmp/deploy_key < /dev/null
+            rm -f "$ASKPASS"
+            unset SSH_ASKPASS DISPLAY
+          else
+            ssh-add /tmp/deploy_key
           fi
-          eval "$(ssh-agent -s)"
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
-          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
-          ssh-add /tmp/deploy_key
-      - name: Write bastion private key
+      - name: Add bastion key to agent
         env:
           BASTION_KEY: ${{ secrets.BASTION_SSH_KEY }}
           BASTION_KEY_PASSPHRASE: ${{ secrets.BASTION_SSH_PASSPHRASE }}
         run: |
-          install -m 600 /dev/null /tmp/key_nopass.pem
-          printf '%s' "$BASTION_KEY" > /tmp/key_nopass.pem
+          install -m 600 /dev/null /tmp/bastion_key
+          printf '%s\n' "$BASTION_KEY" > /tmp/bastion_key
           if [ -n "$BASTION_KEY_PASSPHRASE" ]; then
-            ssh-keygen -p -P "$BASTION_KEY_PASSPHRASE" -N '' -f /tmp/key_nopass.pem >/dev/null
+            ASKPASS=$(mktemp)
+            cat <<'EOF' > "$ASKPASS"
+            #!/usr/bin/env bash
+            echo "$BASTION_KEY_PASSPHRASE"
+            EOF
+            chmod +x "$ASKPASS"
+            export SSH_ASKPASS="$ASKPASS"
+            export DISPLAY=:0
+            setsid ssh-add /tmp/bastion_key < /dev/null
+            rm -f "$ASKPASS"
+            unset SSH_ASKPASS DISPLAY
+          else
+            ssh-add /tmp/bastion_key
           fi
       - name: Prepare Ansible vault password
         working-directory: ansible
@@ -138,8 +163,9 @@ jobs:
         env:
           ANSIBLE_VAULT_PASSWORD_FILE: ${{ github.workspace }}/ansible/.vault_pass
           ANSIBLE_FORCE_COLOR: 'true'
+          ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: ansible-playbook deploy.yml
       - name: Cleanup sensitive files
         if: always()
         run: |
-          rm -f ansible/.vault_pass /tmp/key_nopass.pem /tmp/deploy_key
+          rm -f ansible/.vault_pass /tmp/bastion_key /tmp/deploy_key
