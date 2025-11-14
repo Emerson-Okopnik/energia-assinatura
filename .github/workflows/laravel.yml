@@ -104,11 +104,19 @@ jobs:
         working-directory: ansible
         run: ansible-galaxy collection install -r collections/requirements.yml
       - name: Start SSH agent and add deploy key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.PROD_DEPLOY_SSH_KEY }}
-            ssh-passphrase: ${{ secrets.PROD_DEPLOY_SSH_PASSPHRASE || '' }}
+        env:
+          DEPLOY_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          DEPLOY_KEY_PASSPHRASE: ${{ secrets.PROD_DEPLOY_SSH_PASSPHRASE }}
+        run: |
+          install -m 600 /dev/null /tmp/deploy_key
+          printf '%s' "$DEPLOY_KEY" > /tmp/deploy_key
+          if [ -n "$DEPLOY_KEY_PASSPHRASE" ]; then
+            ssh-keygen -p -P "$DEPLOY_KEY_PASSPHRASE" -N '' -f /tmp/deploy_key >/dev/null
+          fi
+          eval "$(ssh-agent -s)"
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+          ssh-add /tmp/deploy_key
       - name: Write bastion private key
         env:
           BASTION_KEY: ${{ secrets.BASTION_SSH_KEY }}
@@ -134,4 +142,4 @@ jobs:
       - name: Cleanup sensitive files
         if: always()
         run: |
-          rm -f ansible/.vault_pass /tmp/key_nopass.pem
+          rm -f ansible/.vault_pass /tmp/key_nopass.pem /tmp/deploy_key
