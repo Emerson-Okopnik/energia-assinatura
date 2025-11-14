@@ -4,7 +4,6 @@
   become: true
   vars:
     app_path: /var/www/energia-assinatura/current
-    api_domain: api.consorcioliderenergy.com.br
     frontend_origin: https://app.consorcioliderenergy.com.br
     php_fpm_service: php8.2-fpm
     release_path: "{{ app_path }}"
