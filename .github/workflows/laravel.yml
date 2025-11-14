@@ -116,17 +116,15 @@ jobs:
           install -m 600 /dev/null /tmp/deploy_key
           printf '%s\n' "$DEPLOY_KEY" > /tmp/deploy_key
           if [ -n "$DEPLOY_KEY_PASSPHRASE" ]; then
+            export SSH_KEY_PASSPHRASE="$DEPLOY_KEY_PASSPHRASE"
             ASKPASS=$(mktemp)
-            cat <<'EOF' > "$ASKPASS"
-            #!/usr/bin/env bash
-            echo "$DEPLOY_KEY_PASSPHRASE"
-            EOF
+            printf '%s\n' '#!/usr/bin/env bash' 'echo "$SSH_KEY_PASSPHRASE"' > "$ASKPASS"
             chmod +x "$ASKPASS"
             export SSH_ASKPASS="$ASKPASS"
             export DISPLAY=:0
             setsid ssh-add /tmp/deploy_key < /dev/null
             rm -f "$ASKPASS"
-            unset SSH_ASKPASS DISPLAY
+            unset SSH_ASKPASS SSH_KEY_PASSPHRASE DISPLAY
           else
             ssh-add /tmp/deploy_key
           fi
@@ -138,17 +136,15 @@ jobs:
           install -m 600 /dev/null /tmp/bastion_key
           printf '%s\n' "$BASTION_KEY" > /tmp/bastion_key
           if [ -n "$BASTION_KEY_PASSPHRASE" ]; then
+            export SSH_BASTION_PASSPHRASE="$BASTION_KEY_PASSPHRASE"
             ASKPASS=$(mktemp)
-            cat <<'EOF' > "$ASKPASS"
-            #!/usr/bin/env bash
-            echo "$BASTION_KEY_PASSPHRASE"
-            EOF
+            printf '%s\n' '#!/usr/bin/env bash' 'echo "$SSH_BASTION_PASSPHRASE"' > "$ASKPASS"
             chmod +x "$ASKPASS"
             export SSH_ASKPASS="$ASKPASS"
             export DISPLAY=:0
             setsid ssh-add /tmp/bastion_key < /dev/null
             rm -f "$ASKPASS"
-            unset SSH_ASKPASS DISPLAY
+            unset SSH_ASKPASS SSH_BASTION_PASSPHRASE DISPLAY
           else
             ssh-add /tmp/bastion_key
           fi
