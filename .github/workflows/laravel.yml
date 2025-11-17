@@ -110,6 +110,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Remover vault criptografado (somente no runner)
+        run: rm -f ansible/group_vars/all/vault.yml
+        
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'

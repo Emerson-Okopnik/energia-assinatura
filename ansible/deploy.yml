@@ -2,15 +2,31 @@
 - hosts: app
   serial: 1
   become: true
+
   vars:
     app_path: /var/www/energia-assinatura/current
-    api_domain: api.consorcioliderenergy.com.br
     frontend_origin: https://app.consorcioliderenergy.com.br
     php_fpm_service: php8.2-fpm
     release_path: "{{ app_path }}"
     repo_path: "{{ app_root }}/repo"
     nginx_configure_frontend: false
+
   pre_tasks:
+    - name: Injetar segredos do ambiente do GitHub Actions (quando presentes)
+      no_log: true
+      ansible.builtin.set_fact:
+        "{{ item.var }}": "{{ lookup('env', item.env) }}"
+      loop:
+        - { var: "vault_db_host", env: "PROD_DB_HOST" }
+        - { var: "vault_db_name", env: "PROD_DB_NAME" }
+        - { var: "vault_db_username", env: "PROD_DB_USERNAME" }
+        - { var: "vault_db_password", env: "PROD_DB_PASSWORD" }
+        - { var: "vault_app_key", env: "PROD_APP_KEY" }
+        - { var: "vault_jwt_secret", env: "PROD_JWT_SECRET" }
+      loop_control:
+        label: "{{ item.env }}"
+      when: (lookup('env', item.env) | default('', true)) | length > 0
+
     - name: Garantir diretórios base
       ansible.builtin.file:
         path: "{{ item }}"
@@ -23,22 +39,36 @@
         - "{{ app_root }}/shared"
         - "{{ app_root }}/shared/storage"
         - "{{ app_root }}/shared/bootstrap/cache"
+
+    - name: Template ENV de produção
+      ansible.builtin.template:
+        src: env_backend.j2
+        dest: "{{ app_root }}/shared/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0644"
+
   roles:
     - role: common
     - role: php
     - role: backend
     - role: nginx
     - role: schedule
+
   post_tasks:
     - name: Garantir aplicação de handlers pendentes
       ansible.builtin.meta: flush_handlers
 
+
+
 - hosts: frontend
   serial: 1
   become: true
+
   vars:
     release_path: "{{ app_root }}/frontend"
     repo_path: "{{ app_root }}/repo"
+
   pre_tasks:
     - name: Garantir diretórios base do frontend
       ansible.builtin.file:
@@ -52,8 +82,12 @@
         - "{{ repo_path | dirname }}"
         - "{{ release_path }}"
         - "{{ frontend_root }}"
+
   roles:
     - role: common
     - role: frontend
     - role: nginx
+
   post_tasks:
+    - ansible.builtin.debug:
+        msg: "Frontend deployment finalizado com sucesso."
