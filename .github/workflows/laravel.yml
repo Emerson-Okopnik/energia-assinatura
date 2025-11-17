@@ -114,16 +114,12 @@ jobs:
         with:
           python-version: '3.x'
 
-      # ------------------------
-      # SSH-AGENT (SEM SENHA)
-      # ------------------------
       - name: Load SSH keys
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: |
             ${{ secrets.BASTION_SSH_KEY }}
             ${{ secrets.PROD_DEPLOY_SSH_KEY }}
-      # ------------------------
 
       - name: Debug loaded keys
         run: ssh-add -l
