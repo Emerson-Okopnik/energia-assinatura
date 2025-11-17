@@ -9,18 +9,24 @@
     php_fpm_service: php8.2-fpm
     release_path: "{{ app_path }}"
     repo_path: "{{ app_root }}/repo"
-
-    # VARIÁVEIS INJETADAS PELO GITHUB ACTIONS
-    db_host: "{{ vault_db_host }}"
-    db_name: "{{ vault_db_name }}"
-    db_username: "{{ vault_db_username }}"
-    db_password: "{{ vault_db_password }}"
-    app_key: "{{ vault_app_key }}"
-    jwt_secret: "{{ vault_jwt_secret }}"
-
     nginx_configure_frontend: false
 
   pre_tasks:
+    - name: Injetar segredos do ambiente do GitHub Actions (quando presentes)
+      no_log: true
+      ansible.builtin.set_fact:
+        "{{ item.var }}": "{{ lookup('env', item.env) }}"
+      loop:
+        - { var: "vault_db_host", env: "PROD_DB_HOST" }
+        - { var: "vault_db_name", env: "PROD_DB_NAME" }
+        - { var: "vault_db_username", env: "PROD_DB_USERNAME" }
+        - { var: "vault_db_password", env: "PROD_DB_PASSWORD" }
+        - { var: "vault_app_key", env: "PROD_APP_KEY" }
+        - { var: "vault_jwt_secret", env: "PROD_JWT_SECRET" }
+      loop_control:
+        label: "{{ item.env }}"
+      when: (lookup('env', item.env) | default('', true)) | length > 0
+
     - name: Garantir diretórios base
       ansible.builtin.file:
         path: "{{ item }}"

@@ -142,11 +142,4 @@ jobs:
         env:
           ANSIBLE_FORCE_COLOR: 'true'
           ANSIBLE_HOST_KEY_CHECKING: 'False'
-        run: |
-          ansible-playbook deploy.yml \
-            -e "vault_db_host=$PROD_DB_HOST" \
-            -e "vault_db_name=$PROD_DB_NAME" \
-            -e "vault_db_username=$PROD_DB_USERNAME" \
-            -e "vault_db_password=$PROD_DB_PASSWORD" \
-            -e "vault_app_key=$PROD_APP_KEY" \
-            -e "vault_jwt_secret=$PROD_JWT_SECRET"
+        run: ansible-playbook deploy.yml
