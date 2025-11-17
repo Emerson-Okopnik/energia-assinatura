@@ -100,7 +100,13 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-
+    env:
+      PROD_DB_HOST: ${{ secrets.PROD_DB_HOST }}
+      PROD_DB_NAME: ${{ secrets.PROD_DB_NAME }}
+      PROD_DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
+      PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+      PROD_APP_KEY: ${{ secrets.PROD_APP_KEY }}
+      PROD_JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
     steps:
       - uses: actions/checkout@v4
 
@@ -131,27 +137,16 @@ jobs:
         working-directory: ansible
         run: ansible-galaxy collection install -r collections/requirements.yml
 
-      - name: Prepare Ansible vault password
-        working-directory: ansible
-        env:
-          VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: printf '%s' "$VAULT_PASSWORD" > .vault_pass
-
-      - name: Test Vault Password
-        working-directory: ansible
-        env:
-          ANSIBLE_VAULT_PASSWORD_FILE: ${{ github.workspace }}/ansible/.vault_pass
-        run: |
-          ansible-vault view group_vars/all/vault.yml || echo "VAULT FAILED"
-
       - name: Deploy to production
         working-directory: ansible
         env:
-          ANSIBLE_VAULT_PASSWORD_FILE: ${{ github.workspace }}/ansible/.vault_pass
           ANSIBLE_FORCE_COLOR: 'true'
           ANSIBLE_HOST_KEY_CHECKING: 'False'
-        run: ansible-playbook deploy.yml
-
-      - name: Cleanup sensitive files
-        if: always()
-        run: rm -f ansible/.vault_pass
+        run: |
+          ansible-playbook deploy.yml \
+            -e "vault_db_host=$PROD_DB_HOST" \
+            -e "vault_db_name=$PROD_DB_NAME" \
+            -e "vault_db_username=$PROD_DB_USERNAME" \
+            -e "vault_db_password=$PROD_DB_PASSWORD" \
+            -e "vault_app_key=$PROD_APP_KEY" \
+            -e "vault_jwt_secret=$PROD_JWT_SECRET"
