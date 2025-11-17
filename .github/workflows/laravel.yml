@@ -142,7 +142,7 @@ jobs:
         env:
           ANSIBLE_VAULT_PASSWORD_FILE: ${{ github.workspace }}/ansible/.vault_pass
         run: |
-          ansible-vault view group_vars/all/vars.yml || echo "VAULT FAILED"
+          ansible-vault view group_vars/all/vault.yml || echo "VAULT FAILED"
 
       - name: Deploy to production
         working-directory: ansible
