@@ -137,6 +137,13 @@ jobs:
           VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: printf '%s' "$VAULT_PASSWORD" > .vault_pass
 
+      - name: Test Vault Password
+        working-directory: ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD_FILE: ${{ github.workspace }}/ansible/.vault_pass
+        run: |
+          ansible-vault view group_vars/all/vars.yml || echo "VAULT FAILED"
+
       - name: Deploy to production
         working-directory: ansible
         env:
