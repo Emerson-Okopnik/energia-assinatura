@@ -30,6 +30,10 @@ jobs:
         with:
           php-version: '8.2'
           extensions: pdo_pgsql
+      - name: Debug SSH keys
+        run: |
+         ssh-add -l
+         ls -l /tmp
       - name: Copy .env
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
         working-directory: api-laravel
