@@ -26,26 +26,28 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@15c43e89cdef867065b0213be354c2841860869e
+
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           extensions: pdo_pgsql
-      - name: Debug SSH keys
-        run: |
-         ssh-add -l
-         ls -l /tmp
+
       - name: Copy .env
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
         working-directory: api-laravel
+
       - name: Install Dependencies
         run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
         working-directory: api-laravel
+
       - name: Generate key
         run: php artisan key:generate
         working-directory: api-laravel
+
       - name: Directory Permissions
         run: chmod -R 777 storage bootstrap/cache
         working-directory: api-laravel
+
       - name: Run database migrations
         env:
           DB_CONNECTION: pgsql
@@ -56,7 +58,8 @@ jobs:
           DB_PASSWORD: energia
         run: php artisan migrate --force
         working-directory: api-laravel
-      - name: Execute tests (Unit and Feature tests) via PHPUnit/Pest
+
+      - name: Execute tests
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -76,13 +79,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: front/package-lock.json
+
       - name: Install dependencies
         run: npm ci
+
       - name: Run unit tests
         run: npm run test
 
@@ -100,64 +106,41 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
+      # ------------------------
+      # START SSH-AGENT CORRETO
+      # ------------------------
+      - name: Load SSH keys
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.BASTION_SSH_KEY }}
+            ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+        env:
+          SSH_ASKPASS: /bin/echo
+          SSH_ASKPASS_REQUIRE: force
+      # ------------------------
+      # FIM SSH-AGENT
+      # ------------------------
+
+      - name: Debug loaded keys
+        run: ssh-add -l
+
       - name: Install Ansible
         run: |
           python -m pip install --upgrade pip
           pip install ansible-core==2.16 ansible
+
       - name: Install Ansible collections
         working-directory: ansible
         run: ansible-galaxy collection install -r collections/requirements.yml
-      - name: Start SSH agent
-        run: |
-          eval "$(ssh-agent -s)"
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
-          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
-      - name: Add deploy key to agent
-        env:
-          DEPLOY_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
-          DEPLOY_KEY_PASSPHRASE: ${{ secrets.PROD_DEPLOY_SSH_PASSPHRASE }}
-        run: |
-          install -m 600 /dev/null /tmp/deploy_key
-          printf '%s\n' "$DEPLOY_KEY" > /tmp/deploy_key
-          if [ -n "$DEPLOY_KEY_PASSPHRASE" ]; then
-            export SSH_KEY_PASSPHRASE="$DEPLOY_KEY_PASSPHRASE"
-            ASKPASS=$(mktemp)
-            printf '%s\n' '#!/usr/bin/env bash' 'echo "$SSH_KEY_PASSPHRASE"' > "$ASKPASS"
-            chmod +x "$ASKPASS"
-            export SSH_ASKPASS="$ASKPASS"
-            export DISPLAY=:0
-            setsid ssh-add /tmp/deploy_key < /dev/null
-            rm -f "$ASKPASS"
-            unset SSH_ASKPASS SSH_KEY_PASSPHRASE DISPLAY
-          else
-            ssh-add /tmp/deploy_key
-          fi
-      - name: Add bastion key to agent
-        env:
-          BASTION_KEY: ${{ secrets.BASTION_SSH_KEY }}
-          BASTION_KEY_PASSPHRASE: ${{ secrets.BASTION_SSH_PASSPHRASE }}
-        run: |
-          install -m 600 /dev/null /tmp/bastion_key
-          printf '%s\n' "$BASTION_KEY" > /tmp/bastion_key
-          if [ -n "$BASTION_KEY_PASSPHRASE" ]; then
-            export SSH_BASTION_PASSPHRASE="$BASTION_KEY_PASSPHRASE"
-            ASKPASS=$(mktemp)
-            printf '%s\n' '#!/usr/bin/env bash' 'echo "$SSH_BASTION_PASSPHRASE"' > "$ASKPASS"
-            chmod +x "$ASKPASS"
-            export SSH_ASKPASS="$ASKPASS"
-            export DISPLAY=:0
-            setsid ssh-add /tmp/bastion_key < /dev/null
-            rm -f "$ASKPASS"
-            unset SSH_ASKPASS SSH_BASTION_PASSPHRASE DISPLAY
-          else
-            ssh-add /tmp/bastion_key
-          fi
+
       - name: Prepare Ansible vault password
         working-directory: ansible
         env:
           VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: |
-          printf '%s' "$VAULT_PASSWORD" > .vault_pass
+        run: printf '%s' "$VAULT_PASSWORD" > .vault_pass
+
       - name: Deploy to production
         working-directory: ansible
         env:
@@ -165,7 +148,7 @@ jobs:
           ANSIBLE_FORCE_COLOR: 'true'
           ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: ansible-playbook deploy.yml
+
       - name: Cleanup sensitive files
         if: always()
-        run: |
-          rm -f ansible/.vault_pass /tmp/bastion_key /tmp/deploy_key
+        run: rm -f ansible/.vault_pass
