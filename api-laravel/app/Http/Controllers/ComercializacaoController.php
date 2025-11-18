@@ -26,6 +26,8 @@ class ComercializacaoController extends Controller
             'valor_final_media' => 'required|numeric',
             'previsao_conexao' => 'required|date',
             'data_conexao' => 'nullable|date',
+            'fio_b' => 'required|numeric',
+            'percentual_lei' => 'required|numeric',
         ]);
 
         $id = $this->comercializacaoService->create($data);
@@ -50,6 +52,8 @@ class ComercializacaoController extends Controller
             'valor_final_media' => 'numeric',
             'previsao_conexao' => 'date',
             'data_conexao' => 'date',
+            'fio_b' => 'numeric',
+            'percentual_lei' => 'numeric',
         ]);
     
         $updated = $this->comercializacaoService->update((int) $id, $data);

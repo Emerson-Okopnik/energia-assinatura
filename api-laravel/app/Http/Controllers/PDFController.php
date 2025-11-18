@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\View;
 use App\Models\Usina;
 use App\Models\UsinaConsumidor;
 use Spatie\Browsershot\Browsershot;
@@ -33,8 +34,17 @@ class PDFController extends Controller {
                     'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro', 'media', 'menor_geracao');
             },
             'comercializacao' => function ($query) {
-                $query->select('com_id', 'valor_kwh', 'valor_fixo', 'cia_energia', 
-                    'valor_final_media', 'previsao_conexao', 'data_conexao');
+                $query->select(
+                    'com_id',
+                    'valor_kwh',
+                    'valor_fixo',
+                    'cia_energia',
+                    'valor_final_media',
+                    'previsao_conexao',
+                    'data_conexao',
+                    'fio_b',
+                    'percentual_lei'
+                );
             }
         ])
         ->findOrFail($id);
@@ -62,6 +72,16 @@ class PDFController extends Controller {
 
         $geracaoRow = $usina->dadoGeracao;
         $valor_kwh  = (float) ($usina->comercializacao->valor_kwh ?? 0);
+        $fioB = (float) ($usina->comercializacao->fio_b ?? 0);
+        $percentualLei = (float) ($usina->comercializacao->percentual_lei ?? 0);
+
+        if ($fioB <= 0) {
+            $fioB = 0.13;
+        }
+
+        if ($percentualLei <= 0) {
+            $percentualLei = 45;
+        }
 
         // Valores de referência
         $media  = (float) ($geracaoRow?->media ?? 0);
@@ -70,8 +90,7 @@ class PDFController extends Controller {
 
         $valor_fixo = $menor * $valor_kwh;
         $faturaEnergia = 100;            // seu parâmetro fixo
-        $percentualLei = 45;             // idem
-        $valorFinalFioB = 0.13 * ($percentualLei / 100);
+        $valorFinalFioB = $fioB * ($percentualLei / 100);
 
         $fixoSelecionado = $valor_fixo;
         $injetadoSelecionado = ($geracaoMes > $media)
@@ -202,7 +221,7 @@ class PDFController extends Controller {
 
         $mesAnoSelecionado = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
 
-        $html = view('usina', [
+        $html = View::file(resource_path('views/usina.blade.php'), [
             'usina' => $usina,
             'dadosMensais' => $dadosMensais,
             'valoresGeracao' => $valoresGeracao,
@@ -251,7 +270,7 @@ class PDFController extends Controller {
             'mensagem' => $e->getMessage(),
             'trace'    => $e->getTraceAsString(),
         ]);
-        return response()->json(['message' => 'Erro ao gerar PDF da usina.'], 500);
+        return response()->json(['message' => 'Erro ao gerar PDF da usina. '.$e->getMessage()], 500);
     }
   }
 
@@ -287,10 +306,15 @@ class PDFController extends Controller {
 
   public function gerarConsumidoresPDF($id) {
   
-    $usina = Usina::select('usi_id', 'cli_id')
-        ->with(['cliente' => function ($query) {
-            $query->select('cli_id', 'nome');
-        }])
+    $usina = Usina::select('usi_id', 'cli_id', 'dger_id')
+        ->with([
+            'cliente' => function ($query) {
+                $query->select('cli_id', 'nome');
+            },
+            'dadoGeracao' => function ($query) {
+                $query->select('dger_id', 'media');
+            }
+        ])
         ->findOrFail($id);
         
     $consumidores = UsinaConsumidor::select('usic_id', 'usi_id', 'con_id', 'cli_id')
@@ -313,8 +337,8 @@ class PDFController extends Controller {
         ])
         ->get();
 
-    $html = view('listagem-consumidores', [
-        'usina' => $usina,
+    $html = View::file(resource_path('views/listagem-consumidores.blade.php'), [
+            'usina' => $usina,
         'consumidores' => $consumidores,
     ])->render();
 

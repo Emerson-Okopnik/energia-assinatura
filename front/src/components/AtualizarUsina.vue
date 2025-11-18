@@ -161,6 +161,16 @@
               </select>
             </div>
           </div>
+          <div class="row mb-2">
+            <div class="col-md-4">
+              <label for="fioB">Fio B (R$)</label>
+              <input id="fioB" type="number" step="0.0001" class="form-control" v-model.number="form.fio_b" />
+            </div>
+            <div class="col-md-4">
+              <label for="percentualLei">Percentual Lei 14300/23 (%)</label>
+              <input id="percentualLei" type="number" step="0.01" class="form-control" v-model.number="form.percentual_lei" />
+            </div>
+          </div>
           <div class="mb-3 col-md-4">
             <label for="valorfinalmedio">Valor Final Médio Projetado</label>
             <input id="valorfinalmedio" type="number" class="form-control" v-model="form.valor_final_medio" />
@@ -212,6 +222,8 @@ export default {
         valor_kwh: 0,
         valor_fixo: 0,
         valor_final_medio: 0,
+        fio_b: 0,
+        percentual_lei: 0,
         previsao_conexao: '',
         conexao_final: '',
         data_conexao: '',
@@ -331,6 +343,8 @@ export default {
             valor_fixo: data.comercializacao.valor_fixo,
             valor_final_medio: data.comercializacao.valor_final_media,
             previsao_conexao: this.formatarDataISOParaDate(data.comercializacao.previsao_conexao),
+            fio_b: data.comercializacao.fio_b,
+            percentual_lei: data.comercializacao.percentual_lei,
             data_conexao: this.formatarDataISOParaDate(data.comercializacao.data_conexao),
             cia_energia: data.comercializacao.cia_energia,
             usi_id: data.usi_id,
@@ -438,7 +452,9 @@ export default {
             cia_energia: this.form.cia_energia,
             valor_final_media: this.form.valor_final_medio,
             previsao_conexao: this.form.previsao_conexao,
-            data_conexao: this.form.conexao_final
+            data_conexao: this.form.conexao_final,
+            fio_b: this.form.fio_b,
+            percentual_lei: this.form.percentual_lei
           }, {
             headers: { Authorization: `Bearer ${token}` },
           });

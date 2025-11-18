@@ -111,7 +111,10 @@
   <tbody>
     @foreach($consumidores as $index => $item)
       @php
-        $percentual = ($item->consumidor->dado_consumo->media * 100) / ($usina->dadoGeracao->media ?: 1);
+        $mediaConsumo = (float) (optional($item->consumidor->dado_consumo)->media ?? 0);
+        $mediaGeracao = (float) (optional($usina->dadoGeracao)->media ?? 0);
+        $divisor = $mediaGeracao > 0 ? $mediaGeracao : 1;
+        $percentual = $mediaConsumo > 0 ? ($mediaConsumo * 100) / $divisor : 0;
         $porcentagemTotal += $percentual;
         $linha += 1;
       @endphp

@@ -274,6 +274,34 @@
               <div v-if="errors.cia_energia" class="invalid-feedback">{{ errors.cia_energia }}</div>
             </div>
           </div>
+          <div class="row mb-2">
+            <div class="col-md-4">
+              <label for="fioBComercializacao">Fio B (R$)</label>
+              <input
+                id="fioBComercializacao"
+                type="number"
+                step="0.0001"
+                class="form-control"
+                :class="{ 'is-invalid': errors.fio_b }"
+                v-model.number="form.fio_b"
+                @input="errors.fio_b = ''"
+              />
+              <div v-if="errors.fio_b" class="invalid-feedback">{{ errors.fio_b }}</div>
+            </div>
+            <div class="col-md-4">
+              <label for="percentualLei">Percentual Lei 14300/23 (%)</label>
+              <input
+                id="percentualLei"
+                type="number"
+                step="0.01"
+                class="form-control"
+                :class="{ 'is-invalid': errors.percentual_lei }"
+                v-model.number="form.percentual_lei"
+                @input="errors.percentual_lei = ''"
+              />
+              <div v-if="errors.percentual_lei" class="invalid-feedback">{{ errors.percentual_lei }}</div>
+            </div>
+          </div>
           <div class="mb-3 col-md-4">
             <label for="valorfinalmedio">Valor Final Médio Projetado</label>
             <input
@@ -336,6 +364,8 @@ export default {
         valor_kwh: 0,
         valor_fixo: 0,
         valor_final_medio: 0,
+        fio_b: 0.13,
+        percentual_lei: 45,
         previsao_conexao: '',
         conexao_final: '',
         data_conexao: '',
@@ -495,6 +525,8 @@ export default {
         'vendedor',
         'valor_kwh',
         'valor_final_medio',
+        'fio_b',
+        'percentual_lei',
         'cia_energia',
         'status'
       ];
@@ -525,6 +557,8 @@ export default {
         valor_kwh: 0,
         valor_fixo: 0,
         valor_final_medio: 0,
+        fio_b: 0.13,
+        percentual_lei: 45,
         previsao_conexao: '',
         conexao_final: '',
         data_conexao: '',
@@ -618,7 +652,9 @@ export default {
           cia_energia: this.form.cia_energia,
           valor_final_media: this.form.valor_final_medio,
           previsao_conexao: this.form.previsao_conexao,
-          data_conexao: this.form.conexao_final
+          data_conexao: this.form.conexao_final,
+          fio_b: this.form.fio_b,
+          percentual_lei: this.form.percentual_lei
         };
 
         const comercializacaoResponse = await axios.post(`${baseURL}/comercializacao`, comercializacaoPayload, {

@@ -6,7 +6,7 @@ use App\Models\FaturamentoUsina;
 use App\Services\Concerns\CachesFindAll;
 
 class FaturamentoUsinaService {
-
+    use CachesFindAll;
 
     private FaturamentoUsina $faturamentoUsina;
     private string $cacheKey = 'faturamento_usina.find_all';

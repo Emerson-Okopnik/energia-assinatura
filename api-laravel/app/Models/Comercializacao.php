@@ -17,6 +17,8 @@ class Comercializacao extends Model {
         'valor_final_media',
         'previsao_conexao',
         'data_conexao',
+        'fio_b',
+        'percentual_lei',
     ];
 
     protected $casts = [
@@ -26,6 +28,8 @@ class Comercializacao extends Model {
         'valor_final_media' => 'float',
         'previsao_conexao' => 'date',
         'data_conexao' => 'date',
+        'fio_b' => 'float',
+        'percentual_lei' => 'float',
     ];
 
     public function usinas() {

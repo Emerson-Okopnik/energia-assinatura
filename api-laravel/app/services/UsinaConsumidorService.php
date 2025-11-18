@@ -86,7 +86,17 @@ class UsinaConsumidorService {
                                 $q->select('dger_id', 'media', 'menor_geracao');
                             },
                             'comercializacao' => function ($q) {
-                                $q->select('com_id', 'valor_kwh', 'cia_energia', 'data_conexao');
+                                                                $q->select(
+                                    'com_id',
+                                    'valor_kwh',
+                                    'valor_fixo',
+                                    'valor_final_media',
+                                    'cia_energia',
+                                    'previsao_conexao',
+                                    'data_conexao',
+                                    'fio_b',
+                                    'percentual_lei'
+                                );
                             },
                             'cliente' => function ($q) {
                                 $q->select('cli_id', 'nome', 'cpf_cnpj', 'end_id')
@@ -127,7 +137,17 @@ class UsinaConsumidorService {
                                     $q->select('dger_id', 'media', 'menor_geracao');
                                 },
                                 'comercializacao' => function ($q) {
-                                    $q->select('com_id', 'valor_kwh', 'cia_energia', 'data_conexao');
+                                    $q->select(
+                                        'com_id',
+                                        'valor_kwh',
+                                        'valor_fixo',
+                                        'valor_final_media',
+                                        'cia_energia',
+                                        'previsao_conexao',
+                                        'data_conexao',
+                                        'fio_b',
+                                        'percentual_lei'
+                                    );
                                 },
                                 'cliente' => function ($q) {
                                     $q->select('cli_id', 'nome', 'cpf_cnpj', 'telefone', 'end_id')

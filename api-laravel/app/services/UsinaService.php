@@ -145,7 +145,17 @@ class UsinaService {
             }]);
         },
         'comercializacao' => function ($query) {
-          $query->select('com_id', 'valor_kwh', 'valor_fixo', 'cia_energia', 'valor_final_media', 'previsao_conexao', 'data_conexao');
+          $query->select(
+            'com_id',
+            'valor_kwh',
+            'valor_fixo',
+            'cia_energia',
+            'valor_final_media',
+            'previsao_conexao',
+            'data_conexao',
+            'fio_b',
+            'percentual_lei'
+          );
         },
         'vendedor' => function ($query) {
           $query->select('ven_id', 'nome', 'email', 'telefone');
@@ -178,7 +188,17 @@ class UsinaService {
             $query->select('ven_id', 'nome', 'email', 'telefone');
           },
           'comercializacao' => function ($query) {
-            $query->select('com_id', 'valor_kwh', 'valor_fixo', 'cia_energia', 'valor_final_media', 'previsao_conexao', 'data_conexao');
+            $query->select(
+              'com_id',
+              'valor_kwh',
+              'valor_fixo',
+              'cia_energia',
+              'valor_final_media',
+              'previsao_conexao',
+              'data_conexao',
+              'fio_b',
+              'percentual_lei'
+            );
           },
           'dadoGeracao' => function ($query) {
             $query->select('dger_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',

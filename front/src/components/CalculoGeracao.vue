@@ -14,16 +14,16 @@
     <h4 class="my-4">Cálculo de Geração da Usina - Expectativa</h4>
     <div class="row mb-3">
       <div class="col-md-4">
-        <label for="fioB">Fio B (R$)</label>
-        <input id="fioB" type="number" step="0.01" class="form-control" v-model.number="fioB" />
-      </div>
-      <div class="col-md-4">
         <label for="fatura">Fatura de Energia da Usina (R$)</label>
         <input id="fatura" type="number" step="0.01" class="form-control" v-model.number="faturaEnergia" />
       </div>
       <div class="col-md-4">
-        <label for="percentual">Percentual Lei 14300/23 (%)</label>
-        <input id="percentual" type="number" step="0.01" class="form-control" v-model.number="percentualLei" />
+        <label>Fio B (R$)</label>
+        <div class="campo-info">R$ {{ formatCurrency(fioB) }}</div>
+      </div>
+      <div class="col-md-4">
+        <label>Percentual Lei 14300/23 (%)</label>
+        <div class="campo-info">{{ formatPercent(percentualLei) }}%</div>
       </div>
     </div>
 
@@ -260,6 +260,14 @@ export default {
     },
   },
   methods: {
+    formatCurrency(value) {
+      const numero = Number(value) || 0;
+      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+    formatPercent(value) {
+      const numero = Number(value) || 0;
+      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
     async fetchUsinas() {
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
@@ -398,10 +406,18 @@ export default {
         });
 
         const usina = response.data;
-        const g = usina.dado_geracao;
+        const g = usina.dado_geracao || {};
+        const comercializacao = usina.comercializacao || {};
 
-        this.valor_kwh = usina.comercializacao.valor_kwh || 0;
-        this.valor_fixo = usina.comercializacao.valor_fixo || 0;
+        this.valor_kwh = parseFloat(comercializacao.valor_kwh) || 0;
+        this.valor_fixo = parseFloat(comercializacao.valor_fixo) || 0;
+
+        const fioB = parseFloat(comercializacao.fio_b);
+        const percentualLei = parseFloat(comercializacao.percentual_lei);
+
+        this.fioB = Number.isFinite(fioB) && fioB > 0 ? fioB : 0.13;
+        this.percentualLei = Number.isFinite(percentualLei) && percentualLei > 0 ? percentualLei : 45;
+
         this.mediaGeracao = g.media || 0;
         this.menorGeracao = g.menor_geracao || 0;
 
@@ -578,5 +594,16 @@ label {
 .btn-orange:hover{
   color: white;
   background-color: #d97706;
+}
+
+.campo-info {
+  background-color: #f8f9fa;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  min-height: calc(2.25rem + 2px);
+  padding: 0.375rem 0.75rem;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
 }
 </style>
