@@ -91,7 +91,16 @@
             </div>
             <div class="col-md-4">
               <label for="data_limite_troca">Data Limite Troca Titularidade</label>
-              <input id="data_limite_troca" type="date" class="form-control" v-model="form.data_limite_troca_titularidade" />
+              <input
+                id="data_limite_troca"
+                type="date"
+                class="form-control"
+                :class="{ 'is-invalid': dataLimiteErro }"
+                v-model="form.data_limite_troca_titularidade"
+              />
+              <div v-if="dataLimiteErro" class="invalid-feedback d-block">
+                {{ dataLimiteErro }}
+              </div>
             </div>
           </div>
           <div class="row mb-3">
@@ -224,7 +233,8 @@ export default {
         setembro: 'Set', outubro: 'Out', novembro: 'Nov', dezembro: 'Dez'
       },
       successMessage: '',
-      errorMessage: ''
+      errorMessage: '',
+      dataLimiteErro: ''
     };
   },
   computed: {
@@ -241,8 +251,25 @@ export default {
     
       return Math.min(...valores);
     }
+  },
+  watch: {
+    'form.data_ass_contrato'(novaData) {
+      if (!novaData) {
+        this.form.data_limite_troca_titularidade = '';
+        this.validarDataLimiteTroca();
+        return;
+      }
+      const dataCalculada = this.calcularDataLimiteTroca(novaData);
+      if (dataCalculada && this.form.data_limite_troca_titularidade !== dataCalculada) {
+        this.form.data_limite_troca_titularidade = dataCalculada;
+      }
+      this.validarDataLimiteTroca();
     },
-    methods: {
+    'form.data_limite_troca_titularidade'() {
+      this.validarDataLimiteTroca();
+    }
+  },
+  methods: {
       async fetchVendedores() {
         try {
           const baseURL = import.meta.env.VITE_API_URL;
@@ -320,7 +347,42 @@ export default {
       formatarDataISOParaDate(dataISO) {
         return dataISO ? dataISO.substring(0, 10) : '';
       },
+      calcularDataLimiteTroca(dataAssinatura) {
+        if (!dataAssinatura) {
+          return '';
+        }
+        const data = new Date(`${dataAssinatura}T00:00:00`);
+        if (Number.isNaN(data.getTime())) {
+          return '';
+        }
+        data.setDate(data.getDate() + 30);
+        const ano = data.getFullYear();
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const dia = String(data.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+      },
+      validarDataLimiteTroca() {
+        if (!this.form.data_ass_contrato) {
+          this.dataLimiteErro = '';
+          return true;
+        }
+        const dataCalculada = this.calcularDataLimiteTroca(this.form.data_ass_contrato);
+        if (!dataCalculada) {
+          this.dataLimiteErro = 'Data de assinatura inválida.';
+          return false;
+        }
+        if (this.form.data_limite_troca_titularidade !== dataCalculada) {
+          this.dataLimiteErro = 'A data limite deve ser 30 dias após a assinatura.';
+          return false;
+        }
+        this.dataLimiteErro = '';
+        return true;
+      },
       async submitForm() {
+        if (!this.validarDataLimiteTroca()) {
+          this.errorMessage = 'Corrija os campos destacados antes de salvar.';
+          return;
+        }
         try {
           const baseURL = import.meta.env.VITE_API_URL;
           const token = localStorage.getItem('token');
