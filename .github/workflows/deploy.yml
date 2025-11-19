@@ -72,6 +72,23 @@ jobs:
         working-directory: ansible
         run: ansible-galaxy collection install -r collections/requirements.yml --force
 
+      - name: Configure Ansible Vault (optional)
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ANSIBLE_VAULT_PASSWORD:-}" ]; then
+            mkdir -p ~/.ansible
+            printf '%s\n' "$ANSIBLE_VAULT_PASSWORD" > ~/.ansible/vault-pass.txt
+            chmod 600 ~/.ansible/vault-pass.txt
+            echo "ANSIBLE_VAULT_PASSWORD_FILE=$HOME/.ansible/vault-pass.txt" >> "$GITHUB_ENV"
+          else
+            echo "Variável ANSIBLE_VAULT_PASSWORD não configurada; utilizando variáveis de ambiente em vez do vault."
+            if [ -f ansible/group_vars/all/vault.yml ]; then
+              mv ansible/group_vars/all/vault.yml ansible/group_vars/all/vault.yml.disabled
+            fi
+          fi
+          
       - name: Configure SSH keys
         env:
           BASTION_SSH_KEY: ${{ secrets.BASTION_SSH_KEY }}
