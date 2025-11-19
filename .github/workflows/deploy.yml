@@ -49,6 +49,7 @@ jobs:
             echo "checkout_ref=$REF" >> "$GITHUB_OUTPUT"
           else
             echo "checkout_ref=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+            echo "deploy_branch=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout repository
@@ -56,78 +57,43 @@ jobs:
         with:
           ref: ${{ steps.resolve_ref.outputs.checkout_ref || github.ref }}
 
-      - name: Validar segredos obrigatórios
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core==2.16.5 ansible-lint==24.5.0 jmespath
+
+      - name: Install Ansible collections
+        working-directory: ansible
+        run: ansible-galaxy collection install -r collections/requirements.yml --force
+
+      - name: Configure Ansible Vault (optional)
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: |
           set -euo pipefail
-          missing=0
-          for var in DB_HOST DB_NAME DB_USERNAME DB_PASSWORD; do
-            if [ -z "${!var:-}" ]; then
-              echo "::error title=Secret ausente::Variável $var não foi configurada."
-              missing=1
+          if [ -n "${ANSIBLE_VAULT_PASSWORD:-}" ]; then
+            mkdir -p ~/.ansible
+            printf '%s\n' "$ANSIBLE_VAULT_PASSWORD" > ~/.ansible/vault-pass.txt
+            chmod 600 ~/.ansible/vault-pass.txt
+            echo "ANSIBLE_VAULT_PASSWORD_FILE=$HOME/.ansible/vault-pass.txt" >> "$GITHUB_ENV"
+          else
+            echo "Variável ANSIBLE_VAULT_PASSWORD não configurada; utilizando variáveis de ambiente em vez do vault."
+            if [ -f ansible/group_vars/all/vault.yml ]; then
+              mv ansible/group_vars/all/vault.yml ansible/group_vars/all/vault.yml.disabled
             fi
-          done
-          if [ "$missing" -eq 1 ]; then
-            exit 1
-          fi
-          if [ -z "${APP_KEY:-}" ]; then
-            echo "::notice title=APP_KEY não definido::Um novo APP_KEY será gerado durante o deploy."
-          fi
-          if [ -z "${JWT_SECRET:-}" ]; then
-            echo "::notice title=JWT_SECRET não definido::Um novo JWT_SECRET será gerado durante o deploy."
           fi
           
-      - name: Empacotar release Laravel
-        run: |
-          set -euo pipefail
-          tar -czf /tmp/api-release.tar.gz \
-            --exclude='.git' \
-            --exclude='node_modules' \
-            --exclude='vendor' \
-            --exclude='storage' \
-            --exclude='.env' \
-            -C api-laravel .
-
-      - name: Gerar arquivo .env para produção
-        run: |
-          set -euo pipefail
-          cat <<ENV >/tmp/backend.env
-          APP_NAME=EnergiaAssinatura
-          APP_ENV=production
-          APP_KEY=${APP_KEY}
-          APP_DEBUG=false
-          APP_URL=https://api.consorcioliderenergy.com.br
-
-          LOG_CHANNEL=stack
-          LOG_LEVEL=info
-
-          DB_CONNECTION=pgsql
-          DB_HOST=${DB_HOST}
-          DB_PORT=5432
-          DB_DATABASE=${DB_NAME}
-          DB_USERNAME=${DB_USERNAME}
-          DB_PASSWORD=${DB_PASSWORD}
-          DB_PREPARED_STATEMENTS=false
-
-          SESSION_DRIVER=database
-          SESSION_LIFETIME=120
-          QUEUE_CONNECTION=database
-          DB_QUEUE_CONNECTION=pgsql
-          DB_QUEUE_RETRY_AFTER=120
-          CACHE_STORE=database
-
-          JWT_SECRET=${JWT_SECRET}
-          BROWSERSHOT_CHROME_PATH=/usr/bin/google-chrome
-          BROWSERSHOT_NODE_PATH=/usr/bin/node
-          BROWSERSHOT_DISABLE_SANDBOX=true
-          ENV
-          chmod 600 /tmp/backend.env
-
-      - name: Configurar acesso SSH
+      - name: Configure SSH keys
         env:
           BASTION_SSH_KEY: ${{ secrets.BASTION_SSH_KEY }}
           PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
         run: |
-          set -euo pipefail
+          set -eo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
@@ -144,89 +110,20 @@ jobs:
           printf '%s\n' "$BASTION_SSH_KEY" > ~/.ssh/bastion.pem
           printf '%s\n' "$PROD_DEPLOY_SSH_KEY" > ~/.ssh/deploy.pem
           chmod 600 ~/.ssh/bastion.pem ~/.ssh/deploy.pem
-          cat <<'SSHCONF' > ~/.ssh/config
-          Host bastion
-            HostName 5.161.237.241
-            User ubuntu
-            IdentityFile ~/.ssh/bastion.pem
-            StrictHostKeyChecking no
-            UserKnownHostsFile=/dev/null
 
-          Host app-server
-            HostName 178.156.188.174
-            User ubuntu
-            IdentityFile ~/.ssh/deploy.pem
-            ProxyCommand ssh -i ~/.ssh/bastion.pem -W %h:%p -q ubuntu@5.161.237.241
-            IdentitiesOnly yes
-            StrictHostKeyChecking no
-            UserKnownHostsFile=/dev/null
-          SSHCONF
-          chmod 600 ~/.ssh/config
-
-      - name: Enviar artefatos para o servidor
-        run: |
-          set -euo pipefail
-          scp -F ~/.ssh/config /tmp/api-release.tar.gz app-server:/tmp/api-release.tar.gz
-          scp -F ~/.ssh/config /tmp/backend.env app-server:/tmp/backend.env
-
-      - name: Aplicar deploy remoto
-        run: |
-          set -euo pipefail
-          ssh -F ~/.ssh/config app-server <<'REMOTE'
-          set -euo pipefail
-          APP_ROOT=/var/www/energia-assinatura
-          RELEASE_PATH="$APP_ROOT/current"
-          SHARED="$APP_ROOT/shared"
-          PHP_USER=www-data
-          PHP_GROUP=www-data
-          PHP_FPM_SERVICE=php8.2-fpm
-          QUEUE_SERVICE=laravel-queue.service
-
-          cleanup() {
-            sudo rm -f /tmp/api-release.tar.gz /tmp/backend.env || true
-          }
-          trap cleanup EXIT
-
-          sudo rm -rf "$RELEASE_PATH"
-          sudo mkdir -p "$RELEASE_PATH"
-          sudo tar -xzf /tmp/api-release.tar.gz -C "$RELEASE_PATH"
-          sudo mkdir -p "$SHARED/storage" "$SHARED/storage/app" "$SHARED/storage/app/browsershot-tmp" "$SHARED/bootstrap/cache"
-          sudo ln -sfn "$SHARED/storage" "$RELEASE_PATH/storage"
-          sudo mkdir -p "$RELEASE_PATH/bootstrap/cache"
-          sudo chown -R "$PHP_USER":"$PHP_GROUP" "$RELEASE_PATH" "$SHARED"
-          sudo install -o "$PHP_USER" -g "$PHP_GROUP" -m 0640 /tmp/backend.env "$RELEASE_PATH/.env"
-
-          run_as_app() {
-            sudo -u "$PHP_USER" -H bash -c "$1"
-          }
-
-          run_as_app "cd '$RELEASE_PATH' && composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader"
-          run_as_app "cd '$RELEASE_PATH' && npm install"
-          run_as_app "cd '$RELEASE_PATH' && npm run build"
-
-          APP_KEY_VALUE=$(grep '^APP_KEY=' "$RELEASE_PATH/.env" | cut -d '=' -f2- || true)
-          if [ -z "$APP_KEY_VALUE" ]; then
-            run_as_app "cd '$RELEASE_PATH' && php artisan key:generate --force --ansi"
-          fi
-          JWT_VALUE=$(grep '^JWT_SECRET=' "$RELEASE_PATH/.env" | cut -d '=' -f2- || true)
-          if [ -z "$JWT_VALUE" ]; then
-            run_as_app "cd '$RELEASE_PATH' && php artisan jwt:secret --force"
-          fi
-
-          run_as_app "cd '$RELEASE_PATH' && php artisan storage:link || true"
-          run_as_app "cd '$RELEASE_PATH' && php artisan migrate --force"
-          run_as_app "cd '$RELEASE_PATH' && php artisan optimize"
-          run_as_app "cd '$RELEASE_PATH' && php artisan config:clear"
-          run_as_app "cd '$RELEASE_PATH' && php artisan cache:clear"
-          run_as_app "cd '$RELEASE_PATH' && php artisan queue:restart || true"
-
-          sudo systemctl daemon-reload || true
-          sudo systemctl reload "$PHP_FPM_SERVICE"
-          sudo systemctl restart "$QUEUE_SERVICE" || true
-          for svc in supervisor horizon laravel-horizon; do
-            if sudo systemctl list-unit-files "$svc.service" >/dev/null 2>&1; then
-              sudo systemctl restart "$svc.service" || true
-            fi
+          # ProxyCommand configurado no inventário ainda aponta para este caminho.
+          cp ~/.ssh/bastion.pem /tmp/key_nopass.pem
+          chmod 600 /tmp/key_nopass.pem
+  
+          for host in 5.161.237.241 178.156.188.174; do
+            ssh-keyscan -H "$host" >> ~/.ssh/known_hosts 2>/dev/null || true
           done
-          sudo systemctl reload nginx || true
-          REMOTE
+
+      - name: Run Ansible deploy
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
+          ANSIBLE_PRIVATE_KEY_FILE: ~/.ssh/deploy.pem
+        run: |
+          ansible-playbook ansible/deploy.yml \
+            --extra-vars "deploy_branch=${{ steps.resolve_ref.outputs.deploy_branch }}" \
+            --inventory ansible/inventory.ini
