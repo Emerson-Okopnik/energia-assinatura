@@ -72,8 +72,9 @@
       community.postgresql.postgresql_privs:
         db: "{{ db_name }}"
         type: table
+        schema: public
+        objs: ALL_IN_SCHEM
         privs: SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER
-        objs: "ALL TABLES IN SCHEMA public"
         roles: "{{ db_username }}"
 
     - name: Garantir privilégios em sequences existentes no schema public
@@ -82,8 +83,9 @@
       community.postgresql.postgresql_privs:
         db: "{{ db_name }}"
         type: sequence
+        schema: public
+        objs: ALL_IN_SCHEMA
         privs: USAGE,SELECT,UPDATE
-        objs: "ALL SEQUENCES IN SCHEMA public"
         roles: "{{ db_username }}"
 
     - name: Usar host/porta locais para conexões da aplicação
