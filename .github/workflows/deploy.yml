@@ -77,15 +77,31 @@ jobs:
           BASTION_SSH_KEY: ${{ secrets.BASTION_SSH_KEY }}
           PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
         run: |
-          set -euo pipefail
+          set -eo pipefail
           mkdir -p ~/.ssh
-          echo "$BASTION_SSH_KEY" > ~/.ssh/bastion.pem
-          echo "$PROD_DEPLOY_SSH_KEY" > ~/.ssh/deploy.pem
+          chmod 700 ~/.ssh
+
+          if [ -z "${BASTION_SSH_KEY:-}" ]; then
+            echo "Secret BASTION_SSH_KEY não está configurado" >&2
+            exit 1
+          fi
+
+          if [ -z "${PROD_DEPLOY_SSH_KEY:-}" ]; then
+            echo "Secret PROD_DEPLOY_SSH_KEY não está configurado" >&2
+            exit 1
+          fi
+
+          printf '%s\n' "$BASTION_SSH_KEY" > ~/.ssh/bastion.pem
+          printf '%s\n' "$PROD_DEPLOY_SSH_KEY" > ~/.ssh/deploy.pem
           chmod 600 ~/.ssh/bastion.pem ~/.ssh/deploy.pem
+
+          # ProxyCommand configurado no inventário ainda aponta para este caminho.
           cp ~/.ssh/bastion.pem /tmp/key_nopass.pem
           chmod 600 /tmp/key_nopass.pem
-          ssh-keyscan -H 5.161.237.241 >> ~/.ssh/known_hosts
-          ssh-keyscan -H 178.156.188.174 >> ~/.ssh/known_hosts
+  
+          for host in 5.161.237.241 178.156.188.174; do
+            ssh-keyscan -H "$host" >> ~/.ssh/known_hosts 2>/dev/null || true
+          done
 
       - name: Run Ansible deploy
         env:
