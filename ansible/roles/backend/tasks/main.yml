@@ -47,47 +47,6 @@
         encoding: UTF8
         state: present
 
-    - name: Garantir schema público pertencente ao usuário da aplicação
-      become: true
-      become_user: postgres
-      community.postgresql.postgresql_schema:
-        name: public
-        db: "{{ db_name }}"
-        owner: "{{ db_username }}"
-
-    - name: Garantir privilégios de uso no schema public
-      become: true
-      become_user: postgres
-      community.postgresql.postgresql_privs:
-        db: "{{ db_name }}"
-        type: schema
-        privs: usage
-        objs: public
-        roles: "{{ db_username }}"
-        grant_option: false
-
-    - name: Garantir privilégios em tabelas existentes no schema public
-      become: true
-      become_user: postgres
-      community.postgresql.postgresql_privs:
-        db: "{{ db_name }}"
-        type: table
-        schema: public
-        objs: ALL_IN_SCHEM
-        privs: SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER
-        roles: "{{ db_username }}"
-
-    - name: Garantir privilégios em sequences existentes no schema public
-      become: true
-      become_user: postgres
-      community.postgresql.postgresql_privs:
-        db: "{{ db_name }}"
-        type: sequence
-        schema: public
-        objs: ALL_IN_SCHEMA
-        privs: USAGE,SELECT,UPDATE
-        roles: "{{ db_username }}"
-
     - name: Usar host/porta locais para conexões da aplicação
       ansible.builtin.set_fact:
         db_host: "{{ local_postgresql_host | default('127.0.0.1') }}"
