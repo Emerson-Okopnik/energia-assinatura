@@ -1,0 +1,97 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Branch ou tag a ser implantada"
+        required: false
+        default: "main"
+  workflow_run:
+    workflows: ["CI"]
+    branches: ["main"]
+    types:
+      - completed
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    name: Deploy production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://app.consorcioliderenergy.com.br
+    permissions:
+      contents: read
+
+    env:
+      DB_HOST: ${{ secrets.PROD_DB_HOST }}
+      DB_NAME: ${{ secrets.PROD_DB_NAME }}
+      DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+      APP_KEY: ${{ secrets.PROD_APP_KEY }}
+      JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+
+    steps:
+      - name: Determinar ref para deploy
+        id: resolve_ref
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="${{ inputs.git_ref }}"
+            if [ -z "$REF" ]; then
+              REF="main"
+            fi
+            echo "checkout_ref=$REF" >> "$GITHUB_OUTPUT"
+            echo "deploy_branch=$REF" >> "$GITHUB_OUTPUT"
+          else
+            echo "checkout_ref=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+            echo "deploy_branch=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve_ref.outputs.checkout_ref || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core==2.16.5 ansible-lint==24.5.0 jmespath
+
+      - name: Install Ansible collections
+        working-directory: ansible
+        run: ansible-galaxy collection install -r collections/requirements.yml --force
+
+      - name: Configure SSH keys
+        env:
+          BASTION_SSH_KEY: ${{ secrets.BASTION_SSH_KEY }}
+          PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "$BASTION_SSH_KEY" > ~/.ssh/bastion.pem
+          echo "$PROD_DEPLOY_SSH_KEY" > ~/.ssh/deploy.pem
+          chmod 600 ~/.ssh/bastion.pem ~/.ssh/deploy.pem
+          cp ~/.ssh/bastion.pem /tmp/key_nopass.pem
+          chmod 600 /tmp/key_nopass.pem
+          ssh-keyscan -H 5.161.237.241 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 178.156.188.174 >> ~/.ssh/known_hosts
+
+      - name: Run Ansible deploy
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
+          ANSIBLE_PRIVATE_KEY_FILE: ~/.ssh/deploy.pem
+        run: |
+          ansible-playbook ansible/deploy.yml \
+            --extra-vars "deploy_branch=${{ steps.resolve_ref.outputs.deploy_branch }}" \
+            --inventory ansible/inventory.ini
