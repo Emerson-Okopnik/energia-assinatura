@@ -31,7 +31,7 @@ php_fpm_request_slowlog_timeout: 10s
 db_host: "{{ vault_db_host | default('127.0.0.1', true) }}"
 db_port: 5432
 db_name: "{{ vault_db_name | default('energia_assinatura', true) }}"
-db_username: "{{ vault_db_username | default('${{ secrets.PROD_DB_USERNAME }}', true) }}"
+db_username: "{{ vault_db_username | default(${{ secrets.PROD_DB_USERNAME }}, true) }}"
 db_password: "{{ vault_db_password | default(lookup('env', 'DB_PASSWORD'), true) }}"          # ansible-vault
 app_key: "{{ vault_app_key | default(lookup('env', 'APP_KEY'), true) }}"                  # Base64::32 chars
 jwt_secret: "{{ vault_jwt_secret | default(lookup('env', 'JWT_SECRET'), true) }}"            # 32+ chars
