@@ -4,7 +4,7 @@
       <!-- Ilustração -->
       <div class="login-illustration">
         <img src="/src/assets/logo-consorcio-lider-energy.png" alt="Logo" />
-        <p class="tip-text">Acesse sua conta para aproveitar todos os recursos com segurança e facilidade.</p>
+        <p class="tip-text">Acesse sua conta para aproveitar todos os recursos com segurança e facilidade. ERALDO</p>
       </div>
 
       <!-- Formulário -->
