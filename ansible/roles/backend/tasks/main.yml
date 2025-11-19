@@ -72,14 +72,7 @@
       community.postgresql.postgresql_privs:
         db: "{{ db_name }}"
         type: table
-        privs:
-          - SELECT
-          - INSERT
-          - UPDATE
-          - DELETE
-          - TRUNCATE
-          - REFERENCES
-          - TRIGGER
+        privs: SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER
         objs: "ALL TABLES IN SCHEMA public"
         roles: "{{ db_username }}"
 
@@ -89,13 +82,10 @@
       community.postgresql.postgresql_privs:
         db: "{{ db_name }}"
         type: sequence
-        privs:
-          - USAGE
-          - SELECT
-          - UPDATE
+        privs: USAGE,SELECT,UPDATE
         objs: "ALL SEQUENCES IN SCHEMA public"
         roles: "{{ db_username }}"
-        
+
     - name: Usar host/porta locais para conexões da aplicação
       ansible.builtin.set_fact:
         db_host: "{{ local_postgresql_host | default('127.0.0.1') }}"
