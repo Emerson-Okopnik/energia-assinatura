@@ -60,7 +60,10 @@ class PDFController extends Controller {
         // Mês/Ano válidos (1..12)
         $mes = (int) $request->query('mes', now()->month);
         if ($mes < 1 || $mes > 12) { $mes = now()->month; }
-        $ano = (int) $request->query('ano', now()->year);
+        $anoInformado = $request->query('ano');
+        $ano = is_numeric($anoInformado)
+            ? (int) $anoInformado
+            : (int) (DadosGeracaoRealUsina::where('usi_id', $id)->max('ano') ?? now()->year);
         $observacoes = (string) $request->query('observacoes', '');
 
         // Mapa de colunas no banco
@@ -85,7 +88,7 @@ class PDFController extends Controller {
 
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
 
-        // Meses: atual + últimos 12 (12 no total), mais antigos primeiro
+        // Meses: atual + últimos 11 (12 no total), mais antigos primeiro
         $datasRange = collect();
         for ($i = 11; $i >= 0; $i--) {
             $datasRange->push($anchorData->copy()->subMonths($i));
@@ -100,10 +103,19 @@ class PDFController extends Controller {
                 $query->select('dgr_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
                     'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
             }])
-            ->get()
-            ->keyBy('ano');
+            ->get();
 
-        $geracaoRealAnoSelecionado = $geracoesReais->get($ano);
+        $janelaMeses = $datasRange->mapWithKeys(function ($dataMes) use ($nomesMeses) {
+            return [
+                $dataMes->format('Y-m') => [
+                    'ano' => (int) $dataMes->year,
+                    'coluna' => $nomesMeses[$dataMes->month],
+                    'label' => Str::ucfirst($nomesMeses[$dataMes->month]) . '/' . substr((string) $dataMes->year, -2),
+                ],
+            ];
+        });
+
+        $geracaoRealAnoSelecionado = $geracoesReais->firstWhere('ano', $ano);
 
         // Valores de referência
         $media  = (float) ($geracaoRow?->media ?? 0);
@@ -149,22 +161,17 @@ class PDFController extends Controller {
         $geracaoMensalReal = [];
         $meses = [];
         
-        foreach ($datasRange as $dataMes) {
-            $anoMes = $dataMes->year;
-            $numMes = $dataMes->month;
-            $coluna = $nomesMeses[$numMes];
+        foreach ($janelaMeses as $chave => $infoMes) {
+            $registroAno = $geracoesReais->firstWhere('ano', $infoMes['ano']);
+            $valor = optional($registroAno?->DadosGeracaoReal)->{$infoMes['coluna']};
 
-            $valor = optional($geracoesReais->get($anoMes)?->DadosGeracaoReal)->$coluna;
-
-            if ($valor === null) {
-                continue; // Só traz meses com geração informada
+            if ($valor === null || (float) $valor === 0.0) {
+                continue;
             }
 
             $valorFloat = (float) $valor;
-            $mesLabel = Str::ucfirst($coluna) . '/' . substr((string) $anoMes, -2);
-
-            $geracaoMensalReal[$mesLabel] = $valorFloat;
-            $meses[$mesLabel] = $valorFloat;
+            $geracaoMensalReal[$infoMes['label']] = $valorFloat;
+            $meses[$infoMes['label']] = $valorFloat;
         }
 
         $valoresGeracao = array_values($meses);

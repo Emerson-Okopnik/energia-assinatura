@@ -512,7 +512,7 @@ export default {
         'maio', 'junho', 'julho', 'agosto',
         'setembro', 'outubro', 'novembro', 'dezembro'
       ].indexOf(this.mesSelecionado) + 1;
-      const anoGeracao = this.anoGeracao || anoAtual;
+      const anoGeracao = this.anoFaturamento || anoAtual;
 
       try {
         Swal.fire({
