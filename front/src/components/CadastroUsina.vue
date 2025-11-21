@@ -110,14 +110,18 @@
             </div>
             <div class="col-md-4">
               <label for="estado">Estado</label>
-              <input
+              <select
                 id="estado"
-                type="text"
                 class="form-control"
                 :class="{ 'is-invalid': errors.estado }"
                 v-model="form.estado"
-                @input="errors.estado = ''"
-              />
+                @change="errors.estado = ''"
+              >
+                <option disabled value="">Selecione o estado</option>
+                <option v-for="sigla in estadosBrasil" :key="sigla" :value="sigla">
+                  {{ sigla }}
+                </option>
+              </select>
               <div v-if="errors.estado" class="invalid-feedback">{{ errors.estado }}</div>
             </div>
             <div class="col-md-4">
@@ -330,7 +334,14 @@
 
           <!-- Ações -->
           <div class="mt-4 d-flex align-items-center">
-            <button type="button" class="btn btn-submit" @click="submitForm">Salvar</button>
+            <button
+              type="button"
+              class="btn btn-submit"
+              :disabled="isSubmitting"
+              @click="submitForm"
+            >
+              Salvar
+            </button>
             <button type="button" class="btn btn-secondary ms-2" @click="goBack">Cancelar</button>
           </div>
 
@@ -346,6 +357,12 @@ import axios from "axios";
 export default {
   data() {
     return {
+      estadosBrasil: [
+        'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
+        'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC',
+        'SP', 'SE', 'TO'
+      ],
+      isSubmitting: false,
       form: {
         nome: '',
         cpf_cnpj: '',
@@ -516,7 +533,6 @@ export default {
         'rua',
         'numero',
         'bairro',
-        'complemento',
         'cidade',
         'estado',
         'cep',
@@ -531,6 +547,12 @@ export default {
         'status'
       ];
       required.forEach((field) => {
+        if (field === 'numero') {
+          if (this.form.numero === null || this.form.numero === '') {
+            this.errors.numero = 'Campo obrigatório';
+          }
+          return;
+        }
         if (!this.form[field]) {
           this.errors[field] = 'Campo obrigatório';
         }
@@ -582,9 +604,12 @@ export default {
       };
     },
     async submitForm() {
-      if (!this.validateForm()) {
+      if (this.isSubmitting || !this.validateForm()) {
         return;
       }
+      
+      this.isSubmitting = true;
+
       try {
         const baseURL = import.meta.env.VITE_API_URL;
         const token = localStorage.getItem('token');
@@ -746,6 +771,8 @@ export default {
         setTimeout(() => {
           this.errorMessage = '';
         }, 3000);
+      } finally {
+        this.isSubmitting = false;
       }
     },
     goBack() {

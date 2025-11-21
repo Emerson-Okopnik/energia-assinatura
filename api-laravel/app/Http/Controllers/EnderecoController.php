@@ -24,7 +24,7 @@ class EnderecoController extends Controller
             'cidade' => 'string',
             'bairro' => 'string',
             'estado' => 'string|max:2',
-            'complemento' => 'string',
+            'complemento' => 'nullable|string',
             'cep' => 'string|max:10',
             'numero' => 'integer',
         ]);
@@ -49,7 +49,7 @@ class EnderecoController extends Controller
             'cidade' => 'string',
             'bairro' => 'string',
             'estado' => 'string|max:2',
-            'complemento' => 'string',
+            'complemento' => 'nullable|string',
             'cep' => 'string|max:10',
             'numero' => 'integer',
         ]);
