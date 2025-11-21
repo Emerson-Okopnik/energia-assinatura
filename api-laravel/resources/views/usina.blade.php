@@ -473,7 +473,7 @@
         <div class="highlight-bar">
           <p><strong>UC:</strong> {{ $uc }}</p>
           <p><strong>Fonte de Geração:</strong> UFV</p>
-          <p><strong>Valor Kwh:</strong> R$ {{$usina->comercializacao->valor_fixo}}</p>
+          <p><strong>Valor Kwh:</strong> R$ {{$usina->comercializacao->valor_kwh}}</p>
           <p><strong>Valor a receber:</strong> R$ {{ number_format($valorReceber, 2, ',', '.') }}</p>
         </div>
       
@@ -533,7 +533,7 @@
               @foreach($dadosMensais as $mes => $dados)
                 <tr>
                   <td>{{ $mes }}</td>
-                  <td>{{ number_format($usina->dadoGeracao->{strtolower($mes)}, 2, ',', '.') }}</td>
+                  <td>{{ number_format($geracaoMensalReal[$mes] ?? 0, 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['fixo'], 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['injetado'], 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
@@ -568,7 +568,7 @@
                       <tr>
                           <td>{{ $mes }}</td>
                           <td>{{ number_format($dados['geracao'], 2, ',', '.') }} Kwh</td>
-                          <td>{{ number_format($dados['guardado'], 2, ',', '.') }}</td>
+                          <td>{{ number_format($dados['guardado'], 2, ',', '.') }} Kwh</td>
                           <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
                           <td>{{ number_format($dados['pago'], 2, ',', '.') }}</td>
                       </tr>

@@ -83,10 +83,33 @@ class PDFController extends Controller {
             $percentualLei = 45;
         }
 
+        $anchorData = Carbon::createFromDate($ano, $mes, 1);
+
+        // Meses: atual + últimos 12 (12 no total), mais antigos primeiro
+        $datasRange = collect();
+        for ($i = 11; $i >= 0; $i--) {
+            $datasRange->push($anchorData->copy()->subMonths($i));
+        }
+
+        $anosBusca = $datasRange->map->year->unique()->values();
+
+        $geracoesReais = DadosGeracaoRealUsina::select(['dgru_id', 'dgr_id', 'usi_id', 'cli_id', 'ano'])
+            ->where('usi_id', $id)
+            ->whereIn('ano', $anosBusca->toArray())
+            ->with(['DadosGeracaoReal' => function ($query) {
+                $query->select('dgr_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
+            }])
+            ->get()
+            ->keyBy('ano');
+
+        $geracaoRealAnoSelecionado = $geracoesReais->get($ano);
+
         // Valores de referência
         $media  = (float) ($geracaoRow?->media ?? 0);
         $menor  = (float) ($geracaoRow?->menor_geracao ?? 0);
-        $geracaoMes = (float) ($geracaoRow?->$colunaMes ?? 0);
+        $geracaoMesReal = optional($geracaoRealAnoSelecionado?->DadosGeracaoReal)->$colunaMes;
+        $geracaoMes = (float) ($geracaoMesReal ?? $geracaoRow?->$colunaMes ?? 0);
 
         $valor_fixo = $menor * $valor_kwh;
         $faturaEnergia = 100;            // seu parâmetro fixo
@@ -101,40 +124,6 @@ class PDFController extends Controller {
             : 0;
         $cuoSelecionado = -1 * ($faturaEnergia + ($geracaoMes * $valorFinalFioB));
         $valorReceber = $fixoSelecionado + $injetadoSelecionado + $creditadoSelecionado + $cuoSelecionado;
-
-        // Série mensal (safe)
-        $meses = [
-            'Janeiro'  => (float) ($geracaoRow?->janeiro  ?? 0),
-            'Fevereiro'=> (float) ($geracaoRow?->fevereiro?? 0),
-            'Marco'    => (float) ($geracaoRow?->marco    ?? 0),
-            'Abril'    => (float) ($geracaoRow?->abril    ?? 0),
-            'Maio'     => (float) ($geracaoRow?->maio     ?? 0),
-            'Junho'    => (float) ($geracaoRow?->junho    ?? 0),
-            'Julho'    => (float) ($geracaoRow?->julho    ?? 0),
-            'Agosto'   => (float) ($geracaoRow?->agosto   ?? 0),
-            'Setembro' => (float) ($geracaoRow?->setembro ?? 0),
-            'Outubro'  => (float) ($geracaoRow?->outubro  ?? 0),
-            'Novembro' => (float) ($geracaoRow?->novembro ?? 0),
-            'Dezembro' => (float) ($geracaoRow?->dezembro ?? 0),
-        ];
-        $valoresGeracao = array_values($meses);
-        $maxGeracao = count($valoresGeracao) ? max($valoresGeracao) : 0;
-
-        // Tabela mensal de valores
-        $dadosMensais = [];
-        foreach ($meses as $mesNome => $valor) {
-            $fixo      = $valor_fixo;
-            $injetado  = ($valor > $media) ? ($media - $menor) * $valor_kwh : ($valor - $menor) * $valor_kwh;
-            $creditado = ($valor < $media) ? ($media - $valor) * $valor_kwh : 0;
-            $cuo       = -1 * ($faturaEnergia + ($valor * $valorFinalFioB));
-            $dadosMensais[$mesNome] = [
-                'fixo' => $fixo,
-                'injetado' => $injetado,
-                'creditado' => $creditado,
-                'cuo' => $cuo,
-                'valor_final' => $fixo + $injetado + $creditado + $cuo,
-            ];
-        }
 
         $faturamento = CreditosDistribuidosUsina::select([
             'cdu_id', 'cd_id', 'usi_id', 'cli_id', 'fa_id', 'var_id', 'ano'
@@ -157,33 +146,64 @@ class PDFController extends Controller {
         ])
         ->first();
 
-        $geracaoReal = DadosGeracaoRealUsina::select(['dgru_id', 'dgr_id', 'usi_id', 'cli_id', 'ano'])
-            ->where('usi_id', $id)
-            ->where('ano', $ano)
-            ->with(['dadosGeracaoReal' => function ($query) {
-                $query->select('dgr_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
-                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
-            }])
-            ->first();
+        $geracaoMensalReal = [];
+        $meses = [];
+        
+        foreach ($datasRange as $dataMes) {
+            $anoMes = $dataMes->year;
+            $numMes = $dataMes->month;
+            $coluna = $nomesMeses[$numMes];
+
+            $valor = optional($geracoesReais->get($anoMes)?->DadosGeracaoReal)->$coluna;
+
+            if ($valor === null) {
+                continue; // Só traz meses com geração informada
+            }
+
+            $valorFloat = (float) $valor;
+            $mesLabel = Str::ucfirst($coluna) . '/' . substr((string) $anoMes, -2);
+
+            $geracaoMensalReal[$mesLabel] = $valorFloat;
+            $meses[$mesLabel] = $valorFloat;
+        }
+
+        $valoresGeracao = array_values($meses);
+        $maxGeracao = count($valoresGeracao) ? max($valoresGeracao) : 0;
+
+        // Tabela mensal de valores (apenas meses com geração informada)
+        $dadosMensais = [];
+        foreach ($meses as $mesNome => $valor) {
+            $fixo      = $valor_fixo;
+            $injetado  = ($valor > $media) ? ($media - $menor) * $valor_kwh : ($valor - $menor) * $valor_kwh;
+            $creditado = ($valor < $media) ? ($media - $valor) * $valor_kwh : 0;
+            $cuo       = -1 * ($faturaEnergia + ($valor * $valorFinalFioB));
+            $dadosMensais[$mesNome] = [
+                'fixo' => $fixo,
+                'injetado' => $injetado,
+                'creditado' => $creditado,
+                'cuo' => $cuo,
+                'valor_final' => $fixo + $injetado + $creditado + $cuo,
+            ];
+        }
 
         $dadosFaturamento = [];
         if (
-            $faturamento && $geracaoReal &&
+            $faturamento && $geracaoRealAnoSelecionado &&
             $faturamento->creditosDistribuidos &&
             $faturamento->valorAcumuladoReserva &&
             $faturamento->faturamentoUsina &&
-            $geracaoReal->dadosGeracaoReal
+            $geracaoRealAnoSelecionado->DadosGeracaoReal
         ) {
             $creditos = $faturamento->creditosDistribuidos;
             $reserva  = $faturamento->valorAcumuladoReserva;
             $pago     = $faturamento->faturamentoUsina;
-            $geracaoMensalReal = $geracaoReal->dadosGeracaoReal;
+            $geracaoMensalRealObj = $geracaoRealAnoSelecionado->DadosGeracaoReal;
 
             foreach (array_values($nomesMeses) as $chave) {
                 $pagoVal = (float) ($pago?->$chave ?? 0);
                 if ($pagoVal > 0) {
                     $dadosFaturamento[\Illuminate\Support\Str::ucfirst($chave)] = [
-                        'geracao'   => (float) ($geracaoMensalReal?->$chave ?? 0),
+                        'geracao'   => (float) ($geracaoMensalRealObj?->$chave ?? 0),
                         'guardado'  => (float) ($reserva?->$chave ?? 0),
                         'creditado' => (float) ($creditos?->$chave ?? 0),
                         'pago'      => $pagoVal,
@@ -201,8 +221,10 @@ class PDFController extends Controller {
         $totalFaturasEmitidas     = $totalPago;
         $saldo                    = $totalEnergiaReceber - $totalFaturaConcessionaria - $totalFaturasEmitidas;
 
-        // UC: pega a primeira do cliente se existir
-        $uc = optional(optional(optional($usina->cliente)->consumidores)->first())->uc ?? 'N/A';
+        // UC: prioriza a UC da própria usina, depois a primeira do cliente (se houver)
+        $uc = $usina->uc
+            ?: optional(optional(optional($usina->cliente)->consumidores)->first())->uc
+            ?: 'N/A';
 
         // Imagens inline (sem depender de fileinfo/mime_content_type)
         $logoDataUri          = $this->inlinePublicImage('img/logo-consorcio-lider-energy.png');
@@ -250,6 +272,7 @@ class PDFController extends Controller {
             'totalFaturasEmitidas' => $totalFaturasEmitidas,
             'saldo' => $saldo,
             'uc' => $uc,
+            'geracaoMensalReal' => $geracaoMensalReal,
         ])->render();
 
         $pdf = $this->configureBrowsershot(Browsershot::html($html))
