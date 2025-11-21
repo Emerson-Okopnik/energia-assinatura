@@ -45,4 +45,8 @@ class DadoConsumo extends Model {
     public function consumidor() {
         return $this->hasOne(Consumidor::class, 'dcon_id', 'dcon_id');
     }
+
+    public function dadoConsumoUsina() {
+        return $this->hasOne(DadoConsumoUsina::class, 'dcon_id', 'dcon_id');
+    }
 }

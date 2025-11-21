@@ -41,4 +41,8 @@ class Cliente extends Model {
     public function dadosGeracaoRealUsina() {
       return $this->hasMany(DadosGeracaoRealUsina::class, 'cli_id', 'cli_id');
     }
+
+    public function dadosConsumoUsina() {
+      return $this->hasMany(DadoConsumoUsina::class, 'cli_id', 'cli_id');
+    }
 }

@@ -19,6 +19,7 @@ use App\Http\Controllers\FaturamentoUsinaController;
 use App\Http\Controllers\VendedorController;
 use App\Http\Controllers\DadosGeracaoRealController;
 use App\Http\Controllers\DadosGeracaoRealUsinaController;
+use App\Http\Controllers\DadoConsumoUsinaController;
 use App\Http\Controllers\CalculoGeracaoController;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -130,6 +131,13 @@ Route::middleware('auth:api')->group(function () {
   Route::put('/dados-geracao-real-usina/{id}', [DadosGeracaoRealUsinaController::class, 'update']);
   Route::delete('/dados-geracao-real-usina/{id}', [DadosGeracaoRealUsinaController::class, 'destroy']);
   Route::get('/dados-geracao-real-usina/usina/{usi_id}', [DadosGeracaoRealUsinaController::class, 'byUsinaId']);
+
+  Route::post('/dados-consumo-usina', [DadoConsumoUsinaController::class, response()->json(['id' => 'Deu boa'], 201)]);
+  Route::get('/dados-consumo-usina', [DadoConsumoUsinaController::class, 'index']);
+  Route::get('/dados-consumo-usina/{id}', [DadoConsumoUsinaController::class, 'show']);
+  Route::put('/dados-consumo-usina/{id}', [DadoConsumoUsinaController::class, 'update']);
+  Route::delete('/dados-consumo-usina/{id}', [DadoConsumoUsinaController::class, 'destroy']);
+  Route::get('/dados-consumo-usina/usina/{usi_id}', [DadoConsumoUsinaController::class, 'byUsinaId']);
 
   Route::get('/gerar-pdf-usina/{usi_id}', [PDFController::class, 'gerarUsinaPDF']);
   Route::get('/gerar-pdf-consumidores/{usi_id}', [PDFController::class, 'gerarConsumidoresPDF']);

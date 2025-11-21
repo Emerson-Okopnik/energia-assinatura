@@ -57,4 +57,8 @@ class Usina extends Model {
   public function dadosGeracaoRealUsina() {
     return $this->hasMany(DadosGeracaoRealUsina::class, 'usi_id', 'usi_id');
   }
+
+  public function dadosConsumoUsina() {
+    return $this->hasMany(DadoConsumoUsina::class, 'usi_id', 'usi_id');
+  }
 }
