@@ -82,6 +82,29 @@
       </div>
     </div>
 
+    <div class="row mb-4 align-items-end">
+      <div class="col-md-4">
+        <label for="consumoUsinaMes">Consumo da usina em {{ meses[mesSelecionado] || 'Mês' }} (kWh)</label>
+        <input
+          id="consumoUsinaMes"
+          type="number"
+          step="0.01"
+          class="form-control"
+          v-model.number="consumoUsinaMes"
+          :disabled="!mesSelecionado || !usina"
+        />
+      </div>
+      <div class="col-md-3">
+        <button
+          class="btn btn-primary w-100"
+          @click="salvarConsumoUsina"
+          :disabled="!mesSelecionado || !usina || isSalvandoConsumoUsina"
+        >
+          {{ isSalvandoConsumoUsina ? 'Salvando...' : 'Salvar Consumo da Usina' }}
+        </button>
+      </div>
+    </div>
+
     <div class="row mb-5">
       <div class="col-md-4">
         <label for="credito">Valor em Créditos (R$):</label>
@@ -222,6 +245,8 @@ export default {
       dadosFaturamentoAnual: null,
       dadosGeracaoRealMensal: {},
       observacoes: '',
+      consumoUsinaMes: 0,
+      isSalvandoConsumoUsina: false,
     };
   },
   watch: {
@@ -435,6 +460,70 @@ export default {
         console.error('Erro ao carregar dados da usina:', error);
       }
     },
+
+        async salvarConsumoUsina() {
+      const baseURL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem('token');
+
+      if (!this.usina?.usi_id || !this.mesSelecionado || !this.anoFaturamento) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Dados insuficientes',
+          text: 'Selecione a usina, mês e ano antes de salvar o consumo.',
+        });
+        return;
+      }
+
+      const cliId = this.usina?.cli_id || this.usina?.cliente?.cli_id;
+      if (!cliId) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Cliente não encontrado',
+          text: 'Não foi possível identificar o cliente da usina para salvar o consumo.',
+        });
+        return;
+      }
+
+      this.isSalvandoConsumoUsina = true;
+
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        const mesesKeys = Object.keys(this.meses);
+        const consumoPayload = mesesKeys.reduce((acc, key) => {
+          acc[key] = 0;
+          return acc;
+        }, {});
+
+        consumoPayload[this.mesSelecionado] = parseFloat(this.consumoUsinaMes || 0);
+        consumoPayload.media = consumoPayload[this.mesSelecionado];
+
+        const consumoResponse = await axios.post(`${baseURL}/consumo`, consumoPayload, { headers });
+        const dcon_id = consumoResponse.data?.id;
+
+        await axios.post(`${baseURL}/dados-consumo-usina`, {
+          usi_id: this.usina.usi_id,
+          cli_id: cliId,
+          dcon_id,
+          ano: this.anoFaturamento,
+        }, { headers });
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Consumo salvo!',
+          text: 'O consumo da usina foi registrado para o mês selecionado.',
+        });
+      } catch (error) {
+        console.error('Erro ao salvar consumo da usina:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Falha ao salvar',
+          text: 'Não foi possível registrar o consumo da usina. Tente novamente.',
+        });
+      } finally {
+        this.isSalvandoConsumoUsina = false;
+      }
+    },
+    
     async salvarValoresMensais() {
       const token = localStorage.getItem('token');
       const baseURL = import.meta.env.VITE_API_URL;

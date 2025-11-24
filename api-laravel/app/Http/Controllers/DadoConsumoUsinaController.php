@@ -26,7 +26,6 @@ class DadoConsumoUsinaController extends Controller
             'ano' => 'required|integer',
         ]);
 
-
         $id = $this->dadoConsumoUsinaService->create($data);
         return response()->json(['id' => $id], 201);
     }

@@ -23,10 +23,10 @@ use App\Http\Controllers\DadoConsumoUsinaController;
 use App\Http\Controllers\CalculoGeracaoController;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
 Route::get('/hello', function () {
     return response('Hello World', 200);
 });
-Route::post('/register', [AuthController::class, 'register']);
 
 Route::middleware('auth:api')->group(function () {
   Route::get('/home', [AuthController::class, 'user']);
@@ -132,7 +132,7 @@ Route::middleware('auth:api')->group(function () {
   Route::delete('/dados-geracao-real-usina/{id}', [DadosGeracaoRealUsinaController::class, 'destroy']);
   Route::get('/dados-geracao-real-usina/usina/{usi_id}', [DadosGeracaoRealUsinaController::class, 'byUsinaId']);
 
-  Route::post('/dados-consumo-usina', [DadoConsumoUsinaController::class, response()->json(['id' => 'Deu boa'], 201)]);
+  Route::post('/dados-consumo-usina', [DadoConsumoUsinaController::class, 'store']);
   Route::get('/dados-consumo-usina', [DadoConsumoUsinaController::class, 'index']);
   Route::get('/dados-consumo-usina/{id}', [DadoConsumoUsinaController::class, 'show']);
   Route::put('/dados-consumo-usina/{id}', [DadoConsumoUsinaController::class, 'update']);
