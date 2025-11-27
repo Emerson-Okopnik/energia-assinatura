@@ -10,6 +10,7 @@ use App\Models\{
     FaturamentoUsina,
     DadosGeracaoReal,
     DadosGeracaoRealUsina,
+    DadoConsumoUsina
 };
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
@@ -57,7 +58,14 @@ class CalculoGeracaoService
             $geracao = DadosGeracaoReal::findOrFail($dgrVinculo->dgr_id);
 
             $tarifa = (float) $payload['tarifa_kwh'];
-            $geracaoMes = (float) $payload['mesGeracao_kwh'];
+            $consumoUsina = DadoConsumoUsina::where('usi_id', $usina->usi_id)
+                ->where('ano', $ano)
+                ->with('dadoConsumo')
+                ->first();
+
+            $consumoMes = (float) ($consumoUsina?->dadoConsumo?->$mesNome ?? 0);
+            $geracaoBrutaMes = (float) $payload['mesGeracao_kwh'];
+            $geracaoMes = max(0.0, $geracaoBrutaMes - $consumoMes);
             $media = (float) $payload['mediaGeracao_kwh'];
             $valorPago = (float) $payload['valorPago_mes'];
 

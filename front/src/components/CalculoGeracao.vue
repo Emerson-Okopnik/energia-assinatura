@@ -82,8 +82,8 @@
       </div>
     </div>
 
-    <div class="row mb-4 align-items-end">
-      <div class="col-md-4">
+    <div class="row mb-4">
+      <div class="col-md-6">
         <label for="consumoUsinaMes">Consumo da usina em {{ meses[mesSelecionado] || 'Mês' }} (kWh)</label>
         <input
           id="consumoUsinaMes"
@@ -92,16 +92,8 @@
           class="form-control"
           v-model.number="consumoUsinaMes"
           :disabled="!mesSelecionado || !usina"
+          required
         />
-      </div>
-      <div class="col-md-3">
-        <button
-          class="btn btn-primary w-100"
-          @click="salvarConsumoUsina"
-          :disabled="!mesSelecionado || !usina || isSalvandoConsumoUsina"
-        >
-          {{ isSalvandoConsumoUsina ? 'Salvando...' : 'Salvar Consumo da Usina' }}
-        </button>
       </div>
     </div>
 
@@ -131,7 +123,6 @@
         <input id="arvoresPlantadas" type="number" step="0.01" class="form-control" v-model.number="arvoresPlantadas" readonly />
       </div>
     </div>
-
     <table class="table table-bordered mt-4">
       <thead class="table-dark">
         <tr>
@@ -161,12 +152,15 @@
             <button class="btn btn-secondary ms-2" @click="avancarAno">Próximo Ano →</button>
           </td>
         </tr>
+        <p>Geração já descontado o consumo</p>
       </tfoot>
     </table>
 
 
     <div class="d-flex justify-content-end mb-5">
-      <button class="btn btn-success" @click="salvarValoresMensais">Salvar Valores</button>
+      <button class="btn btn-success" @click="salvarValoresMensais" :disabled="isSalvandoConsumoUsina">
+        {{ isSalvandoConsumoUsina ? 'Salvando consumo...' : 'Salvar Valores' }}
+      </button>
     </div>
 
     <div class="mb-4">
@@ -245,7 +239,7 @@ export default {
       dadosFaturamentoAnual: null,
       dadosGeracaoRealMensal: {},
       observacoes: '',
-      consumoUsinaMes: 0,
+      consumoUsinaMes: null,
       isSalvandoConsumoUsina: false,
     };
   },
@@ -258,6 +252,7 @@ export default {
       this.valorTotal = 0;
       this.co2Evitado = 0;
       this.arvoresPlantadas = 0;
+      this.consumoUsinaMes = null;
     }
   },
   computed: {
@@ -425,6 +420,7 @@ export default {
 
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
+      this.consumoUsinaMes = null;
       try {
         const response = await axios.get(`${baseURL}/usina/${this.selectedUsinaId}`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -461,7 +457,7 @@ export default {
       }
     },
 
-        async salvarConsumoUsina() {
+    async salvarConsumoUsina({ silencioso = false } = {}) {
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
 
@@ -471,7 +467,16 @@ export default {
           title: 'Dados insuficientes',
           text: 'Selecione a usina, mês e ano antes de salvar o consumo.',
         });
-        return;
+        return false;
+      }
+
+      if (this.consumoUsinaMes === null || Number.isNaN(this.consumoUsinaMes)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Consumo obrigatório',
+          text: 'Informe o consumo da usina para o mês selecionado.',
+        });
+        return false;
       }
 
       const cliId = this.usina?.cli_id || this.usina?.cliente?.cli_id;
@@ -481,7 +486,7 @@ export default {
           title: 'Cliente não encontrado',
           text: 'Não foi possível identificar o cliente da usina para salvar o consumo.',
         });
-        return;
+        return false;
       }
 
       this.isSalvandoConsumoUsina = true;
@@ -507,11 +512,15 @@ export default {
           ano: this.anoFaturamento,
         }, { headers });
 
-        Swal.fire({
-          icon: 'success',
-          title: 'Consumo salvo!',
-          text: 'O consumo da usina foi registrado para o mês selecionado.',
-        });
+        if (!silencioso) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Consumo salvo!',
+            text: 'O consumo da usina foi registrado para o mês selecionado.',
+          });
+        }
+
+        return true;
       } catch (error) {
         console.error('Erro ao salvar consumo da usina:', error);
         Swal.fire({
@@ -519,6 +528,7 @@ export default {
           title: 'Falha ao salvar',
           text: 'Não foi possível registrar o consumo da usina. Tente novamente.',
         });
+        return false;
       } finally {
         this.isSalvandoConsumoUsina = false;
       }
@@ -538,7 +548,21 @@ export default {
           throw new Error('Usina, mês ou ano não definido');
         }
 
-          const mesIndex = Object.keys(this.meses).indexOf(this.mesSelecionado) + 1;
+        if (this.consumoUsinaMes === null || Number.isNaN(this.consumoUsinaMes)) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Consumo obrigatório',
+            text: 'Informe o consumo da usina antes de salvar os valores.',
+          });
+          return;
+        }
+
+        const consumoSalvo = await this.salvarConsumoUsina({ silencioso: true });
+        if (!consumoSalvo) {
+          throw new Error('Falha ao salvar consumo da usina');
+        }
+
+        const mesIndex = Object.keys(this.meses).indexOf(this.mesSelecionado) + 1;
 
         const payload = {
           mesGeracao_kwh: parseFloat(this.mesGeracao || 0),
