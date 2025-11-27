@@ -253,6 +253,11 @@ export default {
       this.co2Evitado = 0;
       this.arvoresPlantadas = 0;
       this.consumoUsinaMes = null;
+    },
+    consumoUsinaMes() {
+      if (this.mesGeracao !== null && this.mesGeracao !== undefined) {
+        this.atualizarValores();
+      }
     }
   },
   computed: {
@@ -333,7 +338,7 @@ export default {
       }
     },
     atualizarValores() {
-      const geracao = Number(this.mesGeracao);
+      const geracao = this.calcularGeracaoLiquida(this.mesGeracao);
       const media = Number(this.mediaGeracao);
       const kwh = Number(this.valor_kwh);
       const reservaTotal = parseFloat(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total || 0);
@@ -399,6 +404,22 @@ export default {
     },
     valorFinalTabela(valor) {
       return this.fixo + this.injetado(valor) + this.creditadoTabela(valor) + this.cuo(valor);
+    },
+    calcularGeracaoLiquida(geracaoBruta) {
+      const consumoMes = Number(this.consumoUsinaMes) || 0;
+      const geracaoInformada = Number(geracaoBruta) || 0;
+      const descontoRede = this.getDescontoRede();
+
+      const geracaoLiquida = geracaoInformada - (consumoMes + descontoRede);
+      return Math.max(geracaoLiquida, 0);
+    },
+    getDescontoRede() {
+      const rede = (this.usina?.rede || '').toLowerCase();
+
+      if (rede.startsWith('tri')) return 100;
+      if (rede.startsWith('bi')) return 50;
+      if (rede.startsWith('mono')) return 30;
+      return 0;
     },
     gerarGrafico() {
       const meses = Object.keys(this.mesesGeracao);
@@ -564,8 +585,10 @@ export default {
 
         const mesIndex = Object.keys(this.meses).indexOf(this.mesSelecionado) + 1;
 
+        const geracaoLiquida = this.calcularGeracaoLiquida(this.mesGeracao);
+
         const payload = {
-          mesGeracao_kwh: parseFloat(this.mesGeracao || 0),
+          mesGeracao_kwh: parseFloat(geracaoLiquida || 0),
           mediaGeracao_kwh: parseFloat(this.mediaGeracao || 0),
           reservaTotalAnterior_kwh: parseFloat(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total || 0),
           tarifa_kwh: parseFloat(this.valor_kwh || 0),
