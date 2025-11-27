@@ -19,7 +19,7 @@ class PDFController extends Controller {
   {
     try {
         $usina = Usina::select([
-            'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 
+            'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 'rede',
             'data_limite_troca_titularidade', 'data_ass_contrato', 'status', 'andamento_processo'
         ])
         ->with([

@@ -133,7 +133,7 @@ class UsinaService {
   public function findById(int $id): array|null {
     $usina = $this->usina
       ->select([
-        'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc',
+        'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 'rede',
         'data_limite_troca_titularidade', 'data_ass_contrato', 'status', 'andamento_processo',
         'created_at', 'updated_at'
       ])
@@ -173,7 +173,7 @@ class UsinaService {
     return $this->rememberFindAll($this->cacheKey, function () {
       return $this->usina
         ->select([
-          'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc',
+          'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 'rede',
           'data_limite_troca_titularidade', 'data_ass_contrato', 'status', 'andamento_processo',
           'created_at', 'updated_at'
         ])
@@ -212,7 +212,7 @@ class UsinaService {
   public function buscarNaoVinculados() {
     return $this->usina
     ->select([
-      'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc',
+      'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 'rede',
       'data_limite_troca_titularidade', 'data_ass_contrato', 'status', 'andamento_processo'
     ])
     ->whereNotIn('usi_id', function ($query) {

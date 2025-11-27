@@ -104,11 +104,11 @@
             </div>
           </div>
           <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="andamento_processo">Status de Consumo</label>
               <input id="andamento_processo" type="text" class="form-control" v-model="form.andamento_processo" />
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="status_usina">Status da Usina</label>
               <select id="status_usina" class="form-control" v-model="form.status">
                 <option disabled value="">Selecione o status</option>
@@ -117,7 +117,16 @@
                 </option>
               </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+              <label for="rede_usina">Rede</label>
+              <select id="rede_usina" class="form-control" v-model="form.rede">
+                <option disabled value="">Selecione o tipo de rede</option>
+                <option v-for="valorRede in opcoesRede" :key="valorRede" :value="valorRede">
+                  {{ valorRede }}
+                </option>
+              </select>
+            </div>
+            <div class="col-md-3">
               <label for="uc">Unidade Consumidora</label>
               <input id="uc" type="text" class="form-control" v-model="form.uc" />
             </div>
@@ -218,6 +227,7 @@ export default {
         email: '',
         cia_energia: '',
         uc: '',
+        rede: '',
         vendedor: '',
         valor_kwh: 0,
         valor_fixo: 0,
@@ -238,6 +248,7 @@ export default {
       },
       vendedor: [],
       ciasEnergia: ['CELESC', 'COPEL', 'RGE'],
+      opcoesRede: ['Tri', 'Bi', 'Mono'],
       statusUsina: ["Aguardando troca de titularidade", "Troca solicitada", "Concluído"],
       meses: {
         janeiro: 'Jan', fevereiro: 'Fev', marco: 'Mar', abril: 'Abr',
@@ -321,6 +332,7 @@ export default {
             email: data.cliente.email,
             cia_energia: data.cia_energia,
             uc: data.uc,
+            rede: data.rede,
             vendedor: data.vendedor.ven_id,
             andamento_processo: data.andamento_processo,
             data_ass_contrato: this.formatarDataISOParaDate(data.data_ass_contrato),
@@ -466,6 +478,7 @@ export default {
             com_id: this.form.com_id,
             ven_id: this.form.vendedor,
             uc: this.form.uc,
+            rede: this.form.rede,
             andamento_processo: this.form.andamento_processo,
             data_ass_contrato: this.form.data_ass_contrato,
             data_limite_troca_titularidade: this.form.data_limite_troca_titularidade,

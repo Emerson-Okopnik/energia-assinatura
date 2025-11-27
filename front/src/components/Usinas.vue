@@ -11,6 +11,7 @@
             <th>CPF/CNPJ</th>
             <th>Endereço Completo</th>
             <th>Status</th>
+            <th>Rede</th>
             <th>Média Geração (kWh)</th>
             <th>Unidade Consumidor</th>
             <th>CIA Energia</th>
@@ -35,6 +36,7 @@
               <span v-else-if="usina.status === 'Troca solicitada'" class="badge bg-warning text-dark">Em processo</span>
               <span v-else class="badge bg-secondary">Indefinido</span>
             </td>
+            <td>{{ usina.rede || '-' }}</td>
             <td>{{ usina.dado_geracao.media }} Kwh</td>
             <td>{{ usina.uc }}</td>
             <td>{{ usina.comercializacao.cia_energia }}</td>

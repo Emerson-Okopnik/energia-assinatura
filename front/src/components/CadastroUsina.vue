@@ -188,7 +188,7 @@
             </div>
           </div>
           <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="data_limite_troca">Data Limite Troca Titularidade</label>
               <input
                 id="data_limite_troca"
@@ -201,7 +201,7 @@
                 {{ errors.data_limite_troca_titularidade }}
               </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="status_usina">Status da Usina</label>
               <select
                 id="status_usina"
@@ -217,7 +217,23 @@
               </select>
               <div v-if="errors.status" class="invalid-feedback">{{ errors.status }}</div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+              <label for="rede_usina">Rede</label>
+              <select
+                id="rede_usina"
+                class="form-control"
+                :class="{ 'is-invalid': errors.rede }"
+                v-model="form.rede"
+                @change="errors.rede = ''"
+              >
+                <option disabled value="">Selecione o tipo de rede</option>
+                <option v-for="valorRede in opcoesRede" :key="valorRede" :value="valorRede">
+                  {{ valorRede }}
+                </option>
+              </select>
+              <div v-if="errors.rede" class="invalid-feedback">{{ errors.rede }}</div>
+            </div>
+            <div class="col-md-3">
               <label for="uc">Unidade Consumidora</label>
               <input id="uc" type="text" class="form-control" v-model="form.uc" />
             </div>
@@ -376,8 +392,9 @@ export default {
         telefone: '',
         email: '',
         cia_energia: '',
-        vendedor: '', 
+        vendedor: '',
         uc: '',
+        rede: '',
         valor_kwh: 0,
         valor_fixo: 0,
         valor_final_medio: 0,
@@ -397,6 +414,7 @@ export default {
       },
       vendedor: [],
       ciasEnergia: ['CELESC', 'COPEL', 'RGE'],
+      opcoesRede: ['Tri', 'Bi', 'Mono'],
       statusUsina: ["Aguardando troca de titularidade", "Troca solicitada", "Concluído"],
       meses: {
         janeiro: 'Jan', fevereiro: 'Fev', marco: 'Mar', abril: 'Abr',
@@ -544,6 +562,7 @@ export default {
         'fio_b',
         'percentual_lei',
         'cia_energia',
+        'rede',
         'status'
       ];
       required.forEach((field) => {
@@ -576,6 +595,7 @@ export default {
         cia_energia: '',
         vendedor: '',
         uc: '',
+        rede: '',
         valor_kwh: 0,
         valor_fixo: 0,
         valor_final_medio: 0,
@@ -716,6 +736,7 @@ export default {
           com_id: com_id,
           ven_id: this.form.vendedor,
           uc: this.form.uc,
+          rede: this.form.rede,
           andamento_processo: this.form.andamento_processo,
           data_ass_contrato: this.form.data_ass_contrato,
           data_limite_troca_titularidade: this.form.data_limite_troca_titularidade,
