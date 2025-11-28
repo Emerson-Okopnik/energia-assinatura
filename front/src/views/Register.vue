@@ -1,7 +1,7 @@
 <template>
   <div class="auth-wrapper">
     <div class="auth-box">
-      <h2 class="auth-title">Criar Conta</h2>
+      <h2 class="auth-title">Cadastro</h2>
       <form @submit.prevent="register" class="auth-form">
         <label for="name">Nome</label>
         <input type="text" v-model="name" id="name" placeholder="Digite seu nome" required />
