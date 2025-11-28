@@ -329,8 +329,8 @@
               type="number"
               class="form-control"
               :class="{ 'is-invalid': errors.valor_final_medio }"
-              v-model="form.valor_final_medio"
-              @input="errors.valor_final_medio = ''"
+              :value="valorFinalMedioCalculado"
+              readonly
             />
             <div v-if="errors.valor_final_medio" class="invalid-feedback">{{ errors.valor_final_medio }}</div>
           </div>
@@ -439,6 +439,18 @@ export default {
     },
     valorFixoCalculado() {
       return parseFloat((this.menorGeracao * this.form.valor_kwh).toFixed(2)) || 0;
+    },
+    valorFinalMedioCalculado() {
+      //Valor Final Projetado = (Média Geração * (Valor do kWh - ( FIO B * Percentual LEI)))
+      const mediaGeracao = parseFloat(this.form.media) || 0;
+      const valorKwh = parseFloat(this.form.valor_kwh) || 0;
+      const fioB = parseFloat(this.form.fio_b) || 0;
+      const percentualLei = parseFloat(this.form.percentual_lei) || 0;
+
+      const descontoLei = fioB * percentualLei;
+      const valorFinalMedio = mediaGeracao * (valorKwh - descontoLei);
+
+      return parseFloat(valorFinalMedio.toFixed(2)) || 0;
     }
   },
   mounted() {
@@ -695,7 +707,7 @@ export default {
           valor_kwh: this.form.valor_kwh,
           valor_fixo: this.valorFixoCalculado,
           cia_energia: this.form.cia_energia,
-          valor_final_media: this.form.valor_final_medio,
+          valor_final_media: this.valorFinalMedioCalculado,
           previsao_conexao: this.form.previsao_conexao,
           data_conexao: this.form.conexao_final,
           fio_b: this.form.fio_b,
