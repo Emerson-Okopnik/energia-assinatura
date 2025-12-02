@@ -10,7 +10,7 @@
       <!-- Formulário -->
       <div class="login-form">
         <div class="greeting">
-          <h2>Entrar CARLOS</h2>
+          <h2>Entrar</h2>
         </div>
 
         <form @submit.prevent="login" class="auth-form">
