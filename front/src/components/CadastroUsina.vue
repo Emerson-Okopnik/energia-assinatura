@@ -569,7 +569,6 @@ export default {
         'email',
         'vendedor',
         'valor_kwh',
-        'valor_final_medio',
         'fio_b',
         'percentual_lei',
         'cia_energia',
