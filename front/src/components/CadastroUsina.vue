@@ -447,7 +447,7 @@ export default {
       const fioB = parseFloat(this.form.fio_b) || 0;
       const percentualLei = parseFloat(this.form.percentual_lei) || 0;
 
-      const descontoLei = fioB * percentualLei;
+      const descontoLei = fioB * (percentualLei/100);
       const valorFinalMedio = mediaGeracao * (valorKwh - descontoLei);
 
       return parseFloat(valorFinalMedio.toFixed(2)) || 0;
