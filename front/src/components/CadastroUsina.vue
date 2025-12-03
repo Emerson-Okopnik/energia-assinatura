@@ -330,7 +330,6 @@
               class="form-control"
               :class="{ 'is-invalid': errors.valor_final_medio }"
               :value="valorFinalMedioCalculado"
-              readonly
             />
             <div v-if="errors.valor_final_medio" class="invalid-feedback">{{ errors.valor_final_medio }}</div>
           </div>
