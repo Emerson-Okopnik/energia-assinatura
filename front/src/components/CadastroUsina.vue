@@ -413,7 +413,7 @@ export default {
       },
       vendedor: [],
       ciasEnergia: ['CELESC', 'COPEL', 'RGE'],
-      opcoesRede: ['Tri', 'Bi', 'Mono'],
+      opcoesRede: ['Trifásico', 'Bifásico', 'Monofásico'],
       statusUsina: ["Aguardando troca de titularidade", "Troca solicitada", "Concluído"],
       meses: {
         janeiro: 'Jan', fevereiro: 'Fev', marco: 'Mar', abril: 'Abr',
