@@ -132,12 +132,14 @@ Route::middleware('auth:api')->group(function () {
   Route::delete('/dados-geracao-real-usina/{id}', [DadosGeracaoRealUsinaController::class, 'destroy']);
   Route::get('/dados-geracao-real-usina/usina/{usi_id}', [DadosGeracaoRealUsinaController::class, 'byUsinaId']);
 
-  Route::post('/dados-consumo-usina', [DadoConsumoUsinaController::class, 'store']);
-  Route::get('/dados-consumo-usina', [DadoConsumoUsinaController::class, 'index']);
-  Route::get('/dados-consumo-usina/{id}', [DadoConsumoUsinaController::class, 'show']);
-  Route::put('/dados-consumo-usina/{id}', [DadoConsumoUsinaController::class, 'update']);
-  Route::delete('/dados-consumo-usina/{id}', [DadoConsumoUsinaController::class, 'destroy']);
-  Route::get('/dados-consumo-usina/usina/{usi_id}', [DadoConsumoUsinaController::class, 'byUsinaId']);
+  Route::prefix('/dados-consumo-usina')->controller(DadoConsumoUsinaController::class)->group(function () {
+      Route::post('/', 'store')->name('api/dados-consumo-usina');
+      Route::get('/', 'index')->name('api/dados-consumo-usina.index');
+      Route::get('/{id}', 'show')->name('api/dados-consumo-usina.show');
+      Route::put('/{id}', 'update')->name('api/dados-consumo-usina.update');
+      Route::delete('/{id}', 'destroy')->name('api/dados-consumo-usina.destroy');
+      Route::get('/usina/{usi_id}', 'byUsinaId')->name('api/dados-consumo-usina.by-usina');
+  });
 
   Route::get('/gerar-pdf-usina/{usi_id}', [PDFController::class, 'gerarUsinaPDF']);
   Route::get('/gerar-pdf-consumidores/{usi_id}', [PDFController::class, 'gerarConsumidoresPDF']);
