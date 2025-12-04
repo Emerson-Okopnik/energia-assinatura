@@ -416,9 +416,9 @@ export default {
     getDescontoRede() {
       const rede = (this.usina?.rede || '').toLowerCase();
 
-      if (rede.startsWith('tri')) return 100;
-      if (rede.startsWith('bi')) return 50;
-      if (rede.startsWith('mono')) return 30;
+      if (rede.startsWith('Trifásico')) return 100;
+      if (rede.startsWith('Bifásico')) return 50;
+      if (rede.startsWith('Monofásico')) return 30;
       return 0;
     },
     gerarGrafico() {
