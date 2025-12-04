@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('consumidor', function (Blueprint $table) {
-            $table->string('rede')->default('monofasico')->after('uc');
+            $table->string('rede')->default('Monofásico')->after('uc');
         });
     }
 

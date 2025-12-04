@@ -126,13 +126,13 @@
               <label>Rede</label>
               <div>
                 <label class="me-2">
-                  <input type="radio" value="monofasico" v-model="form.rede" /> Monofásico
+                  <input type="radio" value="Monofásico" v-model="form.rede" /> Monofásico
                 </label>
                 <label class="me-2">
-                  <input type="radio" value="bifasico" v-model="form.rede" /> Bifásico
+                  <input type="radio" value="Bifásico" v-model="form.rede" /> Bifásico
                 </label>
                 <label>
-                  <input type="radio" value="trifasico" v-model="form.rede" /> Trifásico
+                  <input type="radio" value="Trifásico" v-model="form.rede" /> Trifásico
                 </label>
               </div>
             </div>
@@ -211,13 +211,13 @@ export default {
       const soma = valores.reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
       let media = soma / 12;
       switch (this.form.rede) {
-        case 'trifasico':
+        case 'Trifásico':
           media += 100;
           break;
-        case 'bifasico':
+        case 'Bifásico':
           media += 50;
           break;
-        case 'monofasico':
+        case 'Monofásico':
           media += 30;
           break;
       }

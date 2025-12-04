@@ -25,7 +25,7 @@ class ConsumidorController extends Controller {
             'ven_id' => 'required|integer|exists:vendedor,ven_id',
             'cia_energia' => 'required|string',
             'uc' => 'nullable|string',
-            'rede' => 'required|string|in:monofasico,bifasico,trifasico',
+            'rede' => 'required|string|in:Monofásico,Bifásico,Trifásico',
             'data_entrega' => 'nullable|date',
             'status' => 'nullable|string|max:255',
             'alocacao' => 'nullable|string|max:255',

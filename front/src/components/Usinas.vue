@@ -139,7 +139,7 @@ export default {
       return data.toLocaleDateString('pt-BR');
     },
     formatRede(rede) {
-      const map = { monofasico: 'Monofásico', bifasico: 'Bifásico', trifasico: 'Trifásico' };
+      const map = { Monofásico: 'Monofásico', Bifásico: 'Bifásico', Trifásico: 'Trifásico' };
       return map[rede] || '-';
     }
   },
