@@ -78,14 +78,6 @@ class PDFController extends Controller {
         $fioB = (float) ($usina->comercializacao->fio_b ?? 0);
         $percentualLei = (float) ($usina->comercializacao->percentual_lei ?? 0);
 
-        if ($fioB <= 0) {
-            $fioB = 0.13;
-        }
-
-        if ($percentualLei <= 0) {
-            $percentualLei = 45;
-        }
-
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
 
         // Meses: atual + últimos 11 (12 no total), mais antigos primeiro
@@ -124,16 +116,15 @@ class PDFController extends Controller {
         $geracaoMes = (float) ($geracaoMesReal ?? $geracaoRow?->$colunaMes ?? 0);
 
         $valor_fixo = $menor * $valor_kwh;
-        $faturaEnergia = 100;            // seu parâmetro fixo
+        $faturaEnergia = (float) $request->query('faturaEnergia', 100);
+        if ($faturaEnergia <= 0) {
+            $faturaEnergia = 100;
+        }
         $valorFinalFioB = $fioB * ($percentualLei / 100);
 
         $fixoSelecionado = $valor_fixo;
-        $injetadoSelecionado = ($geracaoMes > $media)
-            ? ($media - $menor) * $valor_kwh
-            : ($geracaoMes - $menor) * $valor_kwh;
-        $creditadoSelecionado = ($geracaoMes < $media)
-            ? ($media - $geracaoMes) * $valor_kwh
-            : 0;
+        $injetadoSelecionado = ($geracaoMes > $media) ? ($geracaoMes - $media) * $valor_kwh : 0;
+        $creditadoSelecionado = ($geracaoMes < $media) ? ($media - $geracaoMes) * $valor_kwh : 0;
         $cuoSelecionado = -1 * ($faturaEnergia + ($geracaoMes * $valorFinalFioB));
         $valorReceber = $fixoSelecionado + $injetadoSelecionado + $creditadoSelecionado + $cuoSelecionado;
 
@@ -178,10 +169,11 @@ class PDFController extends Controller {
         $maxGeracao = count($valoresGeracao) ? max($valoresGeracao) : 0;
 
         // Tabela mensal de valores (apenas meses com geração informada)
+        $mesSelecionadoLabel = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
         $dadosMensais = [];
         foreach ($meses as $mesNome => $valor) {
             $fixo      = $valor_fixo;
-            $injetado  = ($valor > $media) ? ($media - $menor) * $valor_kwh : ($valor - $menor) * $valor_kwh;
+            $injetado  = ($valor > $media) ? ($valor - $media) * $valor_kwh : 0;
             $creditado = ($valor < $media) ? ($media - $valor) * $valor_kwh : 0;
             $cuo       = -1 * ($faturaEnergia + ($valor * $valorFinalFioB));
             $dadosMensais[$mesNome] = [
@@ -241,7 +233,7 @@ class PDFController extends Controller {
         $iconeWppDataUri      = $this->inlinePublicImage('img/whatsapp.png');
         $iconeEmailDataUri    = $this->inlinePublicImage('img/email.png');
         $iconeCo2DataUri      = $this->inlinePublicImage('img/icone-co2.png');
-        $iconeArvoreDataUri   = $this->inlinePublicImage('img/icone-Arvore.png');
+        $iconeArvoreDataUri   = $this->inlinePublicImage('img/icone-arvore.png');
         $iconeInfoDataUri     = $this->inlinePublicImage('img/icone-info.png');
         $iconeDinheiroDataUri = $this->inlinePublicImage('img/dinheiro.png');
         $iconeLampadaDataUri  = $this->inlinePublicImage('img/lampada.png');

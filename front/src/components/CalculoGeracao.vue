@@ -206,7 +206,7 @@ export default {
       usinas: [],
       selectedUsinaId: '',
       fioB: 0.13,
-      faturaEnergia: 100,
+      faturaEnergia: 0,
       percentualLei: 45,
       valor_kwh: 0,
       valor_fixo: 0,
@@ -416,9 +416,9 @@ export default {
     getDescontoRede() {
       const rede = (this.usina?.rede || '').toLowerCase();
 
-      if (rede.startsWith('Trifásico')) return 100;
-      if (rede.startsWith('Bifásico')) return 50;
-      if (rede.startsWith('Monofásico')) return 30;
+      if (rede.startsWith('trifásico')) return 100;
+      if (rede.startsWith('bifásico')) return 50;
+      if (rede.startsWith('monofásico')) return 30;
       return 0;
     },
     gerarGrafico() {
