@@ -196,14 +196,14 @@ class PDFController extends Controller {
             }
         }
 
-        $totalGuardado = array_sum(array_column($dadosFaturamento, 'guardado'));
-        $totalCreditado = array_sum(array_column($dadosFaturamento, 'creditado'));
+        $totalGuardado = (array_sum(array_column($dadosFaturamento, 'guardado')) * $valorKwh);
         $totalPago      = array_sum(array_column($dadosFaturamento, 'pago'));
+        $totalCuos      = array_sum(array_column($dadosMensais, 'cuo'));
 
-        $totalEnergiaReceber      = $totalGuardado;
-        $totalFaturaConcessionaria= $totalCreditado;
-        $totalFaturasEmitidas     = $totalPago;
-        $saldo                    = $totalPago;
+        $totalEnergiaReceber       = (float) ($faturamento?->valorAcumuladoReserva?->total ?? 0);
+        $totalFaturaConcessionaria = $totalCuos;
+        $totalFaturasEmitidas      = $totalPago;
+        $saldo                     = $totalFaturasEmitidas;
 
         $chaveMesSelecionado = Str::ucfirst($nomesMeses[$mes]);
         $valorReceber = $dadosFaturamento[$chaveMesSelecionado]['pago'] ?? 0;

@@ -436,7 +436,8 @@ export default {
       const geracaoInformada = Number(geracaoBruta) || 0;
       const descontoRede = this.getDescontoRede();
 
-      const geracaoLiquida = geracaoInformada - (consumoMes - descontoRede);
+      const consumoDescontavel = Math.max(consumoMes - descontoRede, 0);
+      const geracaoLiquida = geracaoInformada - consumoDescontavel;
       return Math.max(geracaoLiquida, 0);
     },
     getDescontoRede() {

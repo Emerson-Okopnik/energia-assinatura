@@ -583,13 +583,13 @@
             <thead>
               <tr>
                 <th>Descrição</th>
-                <th>Valor (R$)</th>
+                <th>Valor</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td>Total acum de energia a receber</td>
-                <td>{{ number_format($totalEnergiaReceber, 2, ',', '.') }}</td>
+                <td>{{ number_format($totalEnergiaReceber, 2, ',', '.') }} kWh</td>
               </tr>
               <tr>
                 <td>Total acum de fatura concessionária</td>
