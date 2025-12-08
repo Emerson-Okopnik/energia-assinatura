@@ -287,7 +287,7 @@ export default {
   methods: {
     formatCurrency(value) {
       const numero = Number(value) || 0;
-      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
     },
     formatPercent(value) {
       const numero = Number(value) || 0;
@@ -410,7 +410,7 @@ export default {
       const geracaoInformada = Number(geracaoBruta) || 0;
       const descontoRede = this.getDescontoRede();
 
-      const geracaoLiquida = geracaoInformada - (consumoMes + descontoRede);
+      const geracaoLiquida = geracaoInformada - (consumoMes - descontoRede);
       return Math.max(geracaoLiquida, 0);
     },
     getDescontoRede() {
@@ -579,6 +579,7 @@ export default {
         }
 
         const consumoSalvo = await this.salvarConsumoUsina({ silencioso: true });
+        
         if (!consumoSalvo) {
           throw new Error('Falha ao salvar consumo da usina');
         }
@@ -668,6 +669,7 @@ export default {
             observacoes: this.observacoes,
             mes: mesGeracao,
             ano: anoGeracao,
+            fatura: this.faturaEnergia,
           },
           responseType: 'blob'
         });

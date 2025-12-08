@@ -65,7 +65,8 @@ class CalculoGeracaoService
 
             $consumoMes = (float) ($consumoUsina?->dadoConsumo?->$mesNome ?? 0);
             $geracaoBrutaMes = (float) $payload['mesGeracao_kwh'];
-            $geracaoMes = max(0.0, $geracaoBrutaMes - $consumoMes);
+            //$geracaoMes = max(0.0, $geracaoBrutaMes - $consumoMes);
+            $geracaoMes = $geracaoBrutaMes;
             $media = (float) $payload['mediaGeracao_kwh'];
             $valorPago = (float) $payload['valorPago_mes'];
 
@@ -90,6 +91,8 @@ class CalculoGeracaoService
                     ];
                 }
             }
+
+            
 
             $valorPago += $custoExpirado;
             $reservaAnterior = max(0.0, (float) ($reserva->total ?? 0));

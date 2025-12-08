@@ -28,7 +28,7 @@ class Comercializacao extends Model {
         'valor_final_media' => 'float',
         'previsao_conexao' => 'date',
         'data_conexao' => 'date',
-        'fio_b' => 'float',
+        'fio_b' => 'decimal:5',
         'percentual_lei' => 'float',
     ];
 

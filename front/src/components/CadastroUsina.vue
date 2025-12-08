@@ -300,7 +300,7 @@
               <input
                 id="fioBComercializacao"
                 type="number"
-                step="0.0001"
+                step="0.00001"
                 class="form-control"
                 :class="{ 'is-invalid': errors.fio_b }"
                 v-model.number="form.fio_b"

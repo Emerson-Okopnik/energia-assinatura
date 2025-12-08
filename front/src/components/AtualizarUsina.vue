@@ -173,7 +173,7 @@
           <div class="row mb-2">
             <div class="col-md-4">
               <label for="fioB">Fio B (R$)</label>
-              <input id="fioB" type="number" step="0.0001" class="form-control" v-model.number="form.fio_b" />
+              <input id="fioB" type="number" step="0.00001" class="form-control" v-model.number="form.fio_b" />
             </div>
             <div class="col-md-4">
               <label for="percentualLei">Percentual Lei 14300/23 (%)</label>

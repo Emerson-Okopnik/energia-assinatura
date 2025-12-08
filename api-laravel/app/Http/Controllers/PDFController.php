@@ -73,11 +73,6 @@ class PDFController extends Controller {
         ];
         $colunaMes = $nomesMeses[$mes];
 
-        $geracaoRow = $usina->dadoGeracao;
-        $valor_kwh  = (float) ($usina->comercializacao->valor_kwh ?? 0);
-        $fioB = (float) ($usina->comercializacao->fio_b ?? 0);
-        $percentualLei = (float) ($usina->comercializacao->percentual_lei ?? 0);
-
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
 
         // Meses: atual + últimos 11 (12 no total), mais antigos primeiro
@@ -109,25 +104,6 @@ class PDFController extends Controller {
 
         $geracaoRealAnoSelecionado = $geracoesReais->firstWhere('ano', $ano);
 
-        // Valores de referência
-        $media  = (float) ($geracaoRow?->media ?? 0);
-        $menor  = (float) ($geracaoRow?->menor_geracao ?? 0);
-        $geracaoMesReal = optional($geracaoRealAnoSelecionado?->DadosGeracaoReal)->$colunaMes;
-        $geracaoMes = (float) ($geracaoMesReal ?? $geracaoRow?->$colunaMes ?? 0);
-
-        $valor_fixo = $menor * $valor_kwh;
-        $faturaEnergia = (float) $request->query('faturaEnergia', 100);
-        if ($faturaEnergia <= 0) {
-            $faturaEnergia = 100;
-        }
-        $valorFinalFioB = $fioB * ($percentualLei / 100);
-
-        $fixoSelecionado = $valor_fixo;
-        $injetadoSelecionado = ($geracaoMes > $media) ? ($geracaoMes - $media) * $valor_kwh : 0;
-        $creditadoSelecionado = ($geracaoMes < $media) ? ($media - $geracaoMes) * $valor_kwh : 0;
-        $cuoSelecionado = -1 * ($faturaEnergia + ($geracaoMes * $valorFinalFioB));
-        $valorReceber = $fixoSelecionado + $injetadoSelecionado + $creditadoSelecionado + $cuoSelecionado;
-
         $faturamento = CreditosDistribuidosUsina::select([
             'cdu_id', 'cd_id', 'usi_id', 'cli_id', 'fa_id', 'var_id', 'ano'
         ])
@@ -151,10 +127,13 @@ class PDFController extends Controller {
 
         $geracaoMensalReal = [];
         $meses = [];
+        $labelParaColuna = [];
         
         foreach ($janelaMeses as $chave => $infoMes) {
             $registroAno = $geracoesReais->firstWhere('ano', $infoMes['ano']);
             $valor = optional($registroAno?->DadosGeracaoReal)->{$infoMes['coluna']};
+
+            $labelParaColuna[$infoMes['label']] = $infoMes['coluna'];
 
             if ($valor === null || (float) $valor === 0.0) {
                 continue;
@@ -168,20 +147,27 @@ class PDFController extends Controller {
         $valoresGeracao = array_values($meses);
         $maxGeracao = count($valoresGeracao) ? max($valoresGeracao) : 0;
 
+        $fioB = (float) ($usina->comercializacao->fio_b ?? 0);
+        $percentualLei = (float) ($usina->comercializacao->percentual_lei ?? 0);
+        $faturaEnergia = (float) $request->query('fatura', 0);
+        $valorFinalFioB = $fioB * ($percentualLei / 100);
+
         // Tabela mensal de valores (apenas meses com geração informada)
         $mesSelecionadoLabel = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
         $dadosMensais = [];
         foreach ($meses as $mesNome => $valor) {
-            $fixo      = $valor_fixo;
-            $injetado  = ($valor > $media) ? ($valor - $media) * $valor_kwh : 0;
-            $creditado = ($valor < $media) ? ($media - $valor) * $valor_kwh : 0;
-            $cuo       = -1 * ($faturaEnergia + ($valor * $valorFinalFioB));
+            $coluna = $labelParaColuna[$mesNome] ?? null;
+            $fixo      = $coluna ? (float) ($faturamento?->valorAcumuladoReserva?->$coluna ?? 0) : 0;
+            $injetado  = $coluna ? (float) ($faturamento?->creditosDistribuidos?->$coluna ?? 0) : 0;
+            $creditado = $coluna ? (float) ($faturamento?->creditosDistribuidos?->$coluna ?? 0) : 0;
+            $cuo       =  ($faturaEnergia + ($valor * $valorFinalFioB));
+            //$cuo       =  ($faturaEnergia + ($fioB * $valor * ($percentualLei / 100)));
             $dadosMensais[$mesNome] = [
                 'fixo' => $fixo,
                 'injetado' => $injetado,
                 'creditado' => $creditado,
                 'cuo' => $cuo,
-                'valor_final' => $fixo + $injetado + $creditado + $cuo,
+                'valor_final' => ($fixo + $injetado + $creditado) - $cuo,
             ];
         }
 
@@ -215,10 +201,13 @@ class PDFController extends Controller {
         $totalCreditado = array_sum(array_column($dadosFaturamento, 'creditado'));
         $totalPago      = array_sum(array_column($dadosFaturamento, 'pago'));
 
-        $totalEnergiaReceber      = $totalGuardado * $valor_kwh;
+        $totalEnergiaReceber      = $totalGuardado;
         $totalFaturaConcessionaria= $totalCreditado;
         $totalFaturasEmitidas     = $totalPago;
-        $saldo                    = $totalEnergiaReceber - $totalFaturaConcessionaria - $totalFaturasEmitidas;
+        $saldo                    = $totalPago;
+
+        $valorReceber = $dadosFaturamento[$mesSelecionadoLabel]['pago'] ?? 0;
+        $geracaoMes = $geracaoMensalReal[$mesSelecionadoLabel] ?? 0;
 
         // UC: prioriza a UC da própria usina, depois a primeira do cliente (se houver)
         $uc = $usina->uc
