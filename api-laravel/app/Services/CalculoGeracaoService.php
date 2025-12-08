@@ -128,7 +128,8 @@ class CalculoGeracaoService
 
             $creditoGerado = $energiaCompensada * $tarifa;
 
-            $reserva->$mesNome = $valorGuardado;
+            $saldoMesAtual = max(0.0, (float) ($reserva->$mesNome ?? 0));
+            $reserva->$mesNome = $saldoMesAtual + $valorGuardado;
             $reserva->total = max(0.0, ($reserva->total ?? 0) + $valorGuardado - $energiaCompensada);
             $reserva->save();
 

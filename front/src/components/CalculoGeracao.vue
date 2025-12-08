@@ -133,16 +133,21 @@
           <th>Valor Pago</th>
         </tr>
       </thead>
-      <tbody v-if="dadosFaturamentoAnual && dadosFaturamentoAnual.faturamento_usina">
+      <tbody v-if="temDadosGeracaoTabela">
         <template v-for="([chaveMes, labelMes]) in Object.entries(meses)" :key="chaveMes">
-          <tr v-if="dadosFaturamentoAnual.faturamento_usina[chaveMes] > 0">
+          <tr v-if="temDadosMes(chaveMes)">
             <td>{{ labelMes }}</td>
-            <td>{{ dadosGeracaoRealMensal[chaveMes]?.toFixed(2) || 0 }} kWh</td>
-            <td>{{ dadosFaturamentoAnual.valor_acumulado_reserva[chaveMes]?.toFixed(2) }} kWh</td>
-            <td>R$ {{ dadosFaturamentoAnual.creditos_distribuidos[chaveMes]?.toFixed(2) }}</td>
-            <td>R$ {{ dadosFaturamentoAnual.faturamento_usina[chaveMes]?.toFixed(2) }}</td>
+            <td>{{ formatKwh(dadosGeracaoRealMensal[chaveMes]) }}</td>
+            <td>{{ formatKwh(dadosFaturamentoAnual?.valor_acumulado_reserva?.[chaveMes]) }}</td>
+            <td>R$ {{ formatMoeda(dadosFaturamentoAnual?.creditos_distribuidos?.[chaveMes]) }}</td>
+            <td>R$ {{ formatMoeda(dadosFaturamentoAnual?.faturamento_usina?.[chaveMes]) }}</td>
           </tr>
         </template>
+      </tbody>
+      <tbody v-else>
+        <tr>
+          <td colspan="5" class="text-center">Nenhum dado de geração real disponível para o ano selecionado.</td>
+        </tr>
       </tbody>
       <tfoot>
         <tr>
@@ -283,8 +288,27 @@ export default {
     reservaClasse() {
       return this.reservaTotal >= 0 ? 'text-success' : 'text-danger';
     },
+    temDadosGeracaoTabela() {
+      return Object.keys(this.meses).some((mes) => this.temDadosMes(mes));
+    },
   },
   methods: {
+    formatKwh(value) {
+      const numero = Number(value) || 0;
+      return `${numero.toFixed(2)} kWh`;
+    },
+    formatMoeda(value) {
+      const numero = Number(value) || 0;
+      return numero.toFixed(2);
+    },
+    temDadosMes(chaveMes) {
+      const geracao = Number(this.dadosGeracaoRealMensal?.[chaveMes] || 0);
+      const faturamento = Number(this.dadosFaturamentoAnual?.faturamento_usina?.[chaveMes] || 0);
+      const reserva = Number(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.[chaveMes] || 0);
+      const creditado = Number(this.dadosFaturamentoAnual?.creditos_distribuidos?.[chaveMes] || 0);
+
+      return geracao > 0 || faturamento > 0 || reserva > 0 || creditado > 0;
+    },
     formatCurrency(value) {
       const numero = Number(value) || 0;
       return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
@@ -319,7 +343,9 @@ export default {
         ]);
 
         this.dadosFaturamentoAnual = faturamentoResp.data[0];
-        this.dadosGeracaoRealMensal = geracaoResp.data[0]?.dados_geracao_real || {};
+        const geracaoDados = Array.isArray(geracaoResp.data) ? geracaoResp.data : [];
+        const geracaoAnoSelecionado = geracaoDados.find(item => Number(item.ano) === Number(this.anoFaturamento));
+        this.dadosGeracaoRealMensal = geracaoAnoSelecionado?.dados_geracao_real || {};
 
       } catch (error) {
         console.error('Erro ao carregar dados de faturamento ou geração:', error);

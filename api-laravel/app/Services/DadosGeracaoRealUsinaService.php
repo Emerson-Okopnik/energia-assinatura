@@ -58,8 +58,6 @@ class DadosGeracaoRealUsinaService {
 
   public function findById(int $id): array|null {
     $dados = $this->dadosGeracaoRealUsina->with([
-      'cliente.endereco',
-      'usina',
       'dadosGeracaoReal',
     ])->find($id);
     return $dados ? $dados : null;
@@ -68,8 +66,6 @@ class DadosGeracaoRealUsinaService {
   public function findAll(): array {
     return $this->rememberFindAll($this->cacheKey, function () {
       return $this->dadosGeracaoRealUsina->with([
-        'usina',
-        'cliente.endereco',
         'dadosGeracaoReal',
       ])->get();
     });
@@ -78,8 +74,6 @@ class DadosGeracaoRealUsinaService {
   public function findByUsinaId(int $usi_id): array {
     return $this->dadosGeracaoRealUsina->where('usi_id', $usi_id)
     ->with([
-      'usina',
-      'cliente.endereco',
       'dadosGeracaoReal'
     ])
     ->get()
