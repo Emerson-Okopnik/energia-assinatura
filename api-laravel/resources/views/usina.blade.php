@@ -599,10 +599,6 @@
                 <td>Total acum de faturas emitidas</td>
                 <td>{{ number_format($totalFaturasEmitidas, 2, ',', '.') }}</td>
               </tr>
-              <tr class="saldo">
-                <td>SALDO</td>
-                <td>{{ number_format($saldo, 2, ',', '.') }}</td>
-              </tr>
             </tbody>
           </table>
           <div class="bloco bloco-observacoes">

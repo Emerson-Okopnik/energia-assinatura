@@ -71,31 +71,40 @@ class CalculoGeracaoService
             $adicionalCuo = (float) ($payload['adicional_cuo'] ?? 0);
             $valorPago = (float) $payload['valorPago_mes'] + $adicionalCuo;
 
-            $reservasExpiradas = [];
-            $custoExpirado = 0.0;
             $referencia = Carbon::create($ano, $mes, 1)->endOfMonth();
-            foreach ($this->meses as $num => $nome) {
-                $valor = (float) ($reserva->$nome ?? 0);
-                if ($valor <= 0) {
-                    continue;
-                }
-                $dataMes = Carbon::create($ano, $num, 1)->endOfMonth();
-               if ($dataMes->lessThan($referencia) && $dataMes->diffInDays($referencia) > 180) {
-                    $reserva->$nome = 0;
-                    $reserva->total = max(0, ($reserva->total ?? 0) - $valor);
-                    $custoExpirado += $valor * $tarifa;
-                    $reservasExpiradas[] = [
-                        'ano' => $ano,
-                        'mes' => $num,
-                        'expirado_kwh' => $valor,
-                        'adicionado_ao_pagamento_reais' => $valor * $tarifa,
-                    ];
+            $reservasExpiradas = [];
+            $expiracaoAtual = $this->expirarReservas(
+                $reserva,
+                $ano,
+                $tarifa,
+                $referencia,
+                $reservasExpiradas
+            );
+
+            $creditoExpirado = $expiracaoAtual['expirado_valor'];
+
+            $vinculoAnoAnterior = CreditosDistribuidosUsina::where('usi_id', $usina->usi_id)
+                ->where('ano', $ano - 1)
+                ->first();
+            if ($vinculoAnoAnterior) {
+                $reservaAnoAnterior = ValorAcumuladoReserva::find($vinculoAnoAnterior->var_id);
+                if ($reservaAnoAnterior) {
+                    $expiracaoAnterior = $this->expirarReservas(
+                        $reservaAnoAnterior,
+                        $ano - 1,
+                        $tarifa,
+                        $referencia,
+                        $reservasExpiradas
+                    );
+
+                    $creditoExpirado += $expiracaoAnterior['expirado_valor'];
+
+                    $reserva->total = max(0.0, ($reserva->total ?? 0) - $expiracaoAnterior['expirado_kwh']);
+                    $reservaAnoAnterior->save();
                 }
             }
 
-            
-
-            $valorPago += $custoExpirado;
+            $valorPago += $creditoExpirado;
             $reservaAnterior = max(0.0, (float) ($reserva->total ?? 0));
             $valorGuardado = 0.0;
             $energiaCompensada = 0.0;
@@ -197,5 +206,42 @@ class CalculoGeracaoService
         }
 
         return [$vinculo, $dgrVinculo];
+    }
+
+        private function expirarReservas(
+        ValorAcumuladoReserva $reserva,
+        int $ano,
+        float $tarifa,
+        Carbon $referencia,
+        array &$reservasExpiradas
+    ): array {
+        $expiradoKwh = 0.0;
+        foreach ($this->meses as $num => $nome) {
+            $valor = (float) ($reserva->$nome ?? 0);
+            if ($valor <= 0) {
+                continue;
+            }
+
+            $dataMes = Carbon::create($ano, $num, 1)->endOfMonth();
+            if ($dataMes->lessThan($referencia) && $dataMes->diffInDays($referencia) > 180) {
+                $reserva->$nome = 0;
+                $expiradoKwh += $valor;
+                $reservasExpiradas[] = [
+                    'ano' => $ano,
+                    'mes' => $num,
+                    'expirado_kwh' => $valor,
+                    'creditado_na_fatura_reais' => $valor * $tarifa,
+                ];
+            }
+        }
+
+        if ($expiradoKwh > 0) {
+            $reserva->total = max(0, ($reserva->total ?? 0) - $expiradoKwh);
+        }
+
+        return [
+            'expirado_kwh' => $expiradoKwh,
+            'expirado_valor' => $expiradoKwh * $tarifa,
+        ];
     }
 }

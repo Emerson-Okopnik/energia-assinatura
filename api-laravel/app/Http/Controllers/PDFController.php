@@ -129,6 +129,7 @@ class PDFController extends Controller {
 
         $geracaoMensalReal = [];
         $meses = [];
+        $mesesInfo = [];
         
         foreach ($janelaMeses as $chave => $infoMes) {
             $registroAno = $geracoesReais->firstWhere('ano', $infoMes['ano']);
@@ -141,6 +142,7 @@ class PDFController extends Controller {
             $valorFloat = (float) $valor;
             $geracaoMensalReal[$infoMes['label']] = $valorFloat;
             $meses[$infoMes['label']] = $valorFloat;
+            $mesesInfo[$infoMes['label']] = $infoMes;
         }
 
         $valoresGeracao = array_values($meses);
@@ -149,6 +151,7 @@ class PDFController extends Controller {
         $fioB = (float) ($usina->comercializacao->fio_b ?? 0);
         $percentualLei = (float) ($usina->comercializacao->percentual_lei ?? 0);
         $faturaEnergia = (float) $request->query('fatura', 0);
+        $adicionalCuo = (float) $request->query('adicional_cuo', 0);
         $valorFinalFioB = $fioB * ($percentualLei / 100);
         $valorKwh = (float) ($usina->comercializacao->valor_kwh ?? 0);
         $mediaGeracao = (float) ($usina->dadoGeracao->media ?? 0);
@@ -161,7 +164,13 @@ class PDFController extends Controller {
             $fixo      = (float) ($usina->comercializacao->valor_fixo ?? 0);
             $injetado  = ($valor >= $mediaGeracao) ? ($mediaGeracao - $menorGeracao) * $valorKwh : ($valor - $menorGeracao) * $valorKwh;
             $creditado = ($valor < $mediaGeracao && ($faturamento?->valorAcumuladoReserva?->total ?? 0) > 0) ? ($mediaGeracao - $valor) * $valorKwh : 0;
-            $cuo       =  ($faturaEnergia + ($valor * $valorFinalFioB));
+            $cuoBase   =  ($faturaEnergia + ($valor * $valorFinalFioB));
+
+            // Aplica o adicional apenas no mês selecionado
+            $cuo = $cuoBase;
+            if (($mesesInfo[$mesNome]['coluna'] ?? null) === $colunaMes) {
+                $cuo += $adicionalCuo;
+            }
             //$cuo       =  ($faturaEnergia + ($fioB * $valor * ($percentualLei / 100)));
             $dadosMensais[$mesNome] = [
                 'fixo' => $fixo,

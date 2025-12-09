@@ -726,6 +726,7 @@ export default {
             mes: mesGeracao,
             ano: anoGeracao,
             fatura: this.faturaEnergia,
+            adicional_cuo: this.adicionalCuoNumero,
           },
           responseType: 'blob'
         });
