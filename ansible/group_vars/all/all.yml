@@ -37,7 +37,9 @@ app_key: "{{ vault_app_key | default(lookup('env', 'APP_KEY'), true) }}"        
 jwt_secret: "{{ vault_jwt_secret | default(lookup('env', 'JWT_SECRET'), true) }}"            # 32+ chars
 queue_connection: database
 
-manage_local_postgresql: true
+# Evita reinstalar/atualizar o PostgreSQL local a cada deploy. Ajuste para true
+# somente se o host de aplicação também for responsável por gerenciar o banco.
+manage_local_postgresql: false
 
 vite_api_url: "https://{{ app_domain }}"
 browsershot_chrome_candidates:
