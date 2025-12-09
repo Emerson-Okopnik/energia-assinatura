@@ -15,10 +15,9 @@ use Carbon\Carbon;
 
 class PDFController extends Controller {
 
-  public function gerarUsinaPDF(Request $request, $id)
-  
-  
-  {
+  private const TRANSPARENT_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+
+  public function gerarUsinaPDF(Request $request, $id) {
     try {
         $usina = Usina::select([
             'usi_id', 'cli_id', 'dger_id', 'com_id', 'ven_id', 'uc', 'rede',
@@ -92,7 +91,8 @@ class PDFController extends Controller {
                 $query->select('dgr_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
                     'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
             }])
-            ->get();
+            ->get()
+            ->keyBy('ano');
 
         $janelaMeses = $datasRange->mapWithKeys(function ($dataMes) use ($nomesMeses) {
             return [
@@ -104,7 +104,7 @@ class PDFController extends Controller {
             ];
         });
 
-        $geracaoRealAnoSelecionado = $geracoesReais->firstWhere('ano', $ano);
+        $geracaoRealAnoSelecionado = $geracoesReais->get($ano);
 
         $faturamento = CreditosDistribuidosUsina::select([
             'cdu_id', 'cd_id', 'usi_id', 'cli_id', 'fa_id', 'var_id', 'ano'
@@ -132,7 +132,7 @@ class PDFController extends Controller {
         $mesesInfo = [];
         
         foreach ($janelaMeses as $chave => $infoMes) {
-            $registroAno = $geracoesReais->firstWhere('ano', $infoMes['ano']);
+            $registroAno = $geracoesReais->get($infoMes['ano']);
             $valor = optional($registroAno?->DadosGeracaoReal)->{$infoMes['coluna']};
 
             if ($valor === null || (float) $valor === 0.0) {
@@ -161,15 +161,17 @@ class PDFController extends Controller {
         $mesSelecionadoLabel = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
         $dadosMensais = [];
         foreach ($meses as $mesNome => $valor) {
-            $fixo      = (float) ($usina->comercializacao->valor_fixo ?? 0);
-            $injetado  = ($valor >= $mediaGeracao) ? ($mediaGeracao - $menorGeracao) * $valorKwh : ($valor - $menorGeracao) * $valorKwh;
-            $creditado = ($valor < $mediaGeracao && ($faturamento?->valorAcumuladoReserva?->total ?? 0) > 0) ? ($mediaGeracao - $valor) * $valorKwh : 0;
-            $cuoBase   =  ($faturaEnergia + ($valor * $valorFinalFioB));
+            $fixo           = (float) ($usina->comercializacao->valor_fixo ?? 0);
+            $injetado       = ($valor >= $mediaGeracao) ? ($mediaGeracao - $menorGeracao) * $valorKwh : ($valor - $menorGeracao) * $valorKwh;
+            $valorBaseCuo   = $faturaEnergia + ($valor * $valorFinalFioB);
+            $cuo            = ($mesesInfo[$mesNome]['coluna'] ?? null) === $colunaMes ? $valorBaseCuo + $adicionalCuo : $valorBaseCuo;
 
-            // Aplica o adicional apenas no mês selecionado
-            $cuo = $cuoBase;
-            if (($mesesInfo[$mesNome]['coluna'] ?? null) === $colunaMes) {
-                $cuo += $adicionalCuo;
+            $creditado = 0;
+            if ($valor < $mediaGeracao) {
+                $reservaTotal = (float) ($faturamento?->valorAcumuladoReserva?->total ?? 0);
+                if ($reservaTotal > 0) {
+                    $creditado = ($mediaGeracao - $valor) * $valorKwh;
+                }
             }
             //$cuo       =  ($faturaEnergia + ($fioB * $valor * ($percentualLei / 100)));
             $dadosMensais[$mesNome] = [
@@ -226,19 +228,25 @@ class PDFController extends Controller {
             ?: 'N/A';
 
         // Imagens inline (sem depender de fileinfo/mime_content_type)
-        $logoDataUri          = $this->inlinePublicImage('img/logo-consorcio-lider-energy.png');
-        $iconeSolDataUri      = $this->inlinePublicImage('img/sol.png');
-        $iconeRelogioDataUri  = $this->inlinePublicImage('img/relogio.png');
-        $iconeWebDataUri      = $this->inlinePublicImage('img/web.png');
-        $iconeWppDataUri      = $this->inlinePublicImage('img/whatsapp.png');
-        $iconeEmailDataUri    = $this->inlinePublicImage('img/email.png');
-        $iconeCo2DataUri      = $this->inlinePublicImage('img/icone-co2.png');
-        $iconeArvoreDataUri   = $this->inlinePublicImage('img/icone-arvore.png');
-        $iconeInfoDataUri     = $this->inlinePublicImage('img/icone-info.png');
-        $iconeDinheiroDataUri = $this->inlinePublicImage('img/dinheiro.png');
-        $iconeLampadaDataUri  = $this->inlinePublicImage('img/lampada.png');
-        $iconeInstagramDataUri= $this->inlinePublicImage('img/instagram.png');
-        $iconeLinkedinDataUri = $this->inlinePublicImage('img/linkedin.png');
+        $imagensInline = [
+            'logo' => 'img/logo-consorcio-lider-energy.png',
+            'iconeSol' => 'img/sol.png',
+            'iconeRelogio' => 'img/relogio.png',
+            'iconeWeb' => 'img/web.png',
+            'iconeWpp' => 'img/whatsapp.png',
+            'iconeEmail' => 'img/email.png',
+            'iconeCo2' => 'img/icone-co2.png',
+            'iconeArvore' => 'img/icone-arvore.png',
+            'iconeInfo' => 'img/icone-info.png',
+            'iconeDinheiro' => 'img/dinheiro.png',
+            'iconeLampada' => 'img/lampada.png',
+            'iconeInstagram' => 'img/instagram.png',
+            'iconeLinkedin' => 'img/linkedin.png',
+        ];
+
+        $imagensInline = collect($imagensInline)->mapWithKeys(function ($path, $chave) {
+            return [$chave => $this->inlinePublicImage($path)];
+        });
 
         $mesAnoSelecionado = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
 
@@ -248,19 +256,19 @@ class PDFController extends Controller {
             'valoresGeracao' => $valoresGeracao,
             'nomesMeses' => array_keys($meses),
             'maxGeracao' => $maxGeracao,
-            'logo' => $logoDataUri,
-            'iconeSol' => $iconeSolDataUri,
-            'iconeRelogio' => $iconeRelogioDataUri,
-            'iconeWeb' => $iconeWebDataUri,
-            'iconeWpp' => $iconeWppDataUri,
-            'iconeEmail' => $iconeEmailDataUri,
-            'iconeCo2' => $iconeCo2DataUri,
-            'iconeArvore' => $iconeArvoreDataUri,
-            'iconeInfo' => $iconeInfoDataUri,
-            'iconeDinheiro' => $iconeDinheiroDataUri,
-            'iconeLampada' => $iconeLampadaDataUri,
-            'iconeInstagram' => $iconeInstagramDataUri,
-            'iconeLinkedin' => $iconeLinkedinDataUri,
+            'logo' => $imagensInline['logo'],
+            'iconeSol' => $imagensInline['iconeSol'],
+            'iconeRelogio' => $imagensInline['iconeRelogio'],
+            'iconeWeb' => $imagensInline['iconeWeb'],
+            'iconeWpp' => $imagensInline['iconeWpp'],
+            'iconeEmail' => $imagensInline['iconeEmail'],
+            'iconeCo2' => $imagensInline['iconeCo2'],
+            'iconeArvore' => $imagensInline['iconeArvore'],
+            'iconeInfo' => $imagensInline['iconeInfo'],
+            'iconeDinheiro' => $imagensInline['iconeDinheiro'],
+            'iconeLampada' => $imagensInline['iconeLampada'],
+            'iconeInstagram' => $imagensInline['iconeInstagram'],
+            'iconeLinkedin' => $imagensInline['iconeLinkedin'],
             'valorReceber' => $valorReceber,
             'mesAnoSelecionado' => $mesAnoSelecionado,
             'geracaoMes' => $geracaoMes,
@@ -298,32 +306,19 @@ class PDFController extends Controller {
 
   //Gera um Data URI de uma imagem no public/ sem depender do fileinfo.
 
-  private function inlinePublicImage(string $relativePath, string $defaultMime = 'image/png'): string
-  {
+  private function inlinePublicImage(string $relativePath): string {
     $path = public_path($relativePath);
-    if (!is_file($path)) {
-        // Retorna um pixel PNG transparente se o arquivo não existir (evita quebrar o PDF)
-        $transparentPng1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
-        return "data:image/png;base64,{$transparentPng1x1}";
-    }
+    if (is_file($path)) {
+        $mime = mime_content_type($path) ?: 'image/png';
+        $contents = file_get_contents($path);
 
-    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-    $mimeMap = [
-        'png'  => 'image/png',
-        'jpg'  => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'webp' => 'image/webp',
-        'gif'  => 'image/gif',
-        'svg'  => 'image/svg+xml',
-    ];
-    $mime = $mimeMap[$ext] ?? $defaultMime;
+        if ($contents === false) {
+            return self::TRANSPARENT_PIXEL;
+        }
 
-    $data = @file_get_contents($path);
-    if ($data === false) {
-        $transparentPng1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
-        return "data:image/png;base64,{$transparentPng1x1}";
+        return 'data:' . $mime . ';base64,' . base64_encode($contents);
     }
-    return "data:{$mime};base64," . base64_encode($data);
+    return self::TRANSPARENT_PIXEL;
   }
 
   public function gerarConsumidoresPDF($id) {

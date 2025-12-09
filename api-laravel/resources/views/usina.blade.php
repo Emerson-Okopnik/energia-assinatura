@@ -593,11 +593,11 @@
               </tr>
               <tr>
                 <td>Total acum de fatura concessionária</td>
-                <td>{{ number_format($totalFaturaConcessionaria, 2, ',', '.') }}</td>
+                <td>R$ {{ number_format($totalFaturaConcessionaria, 2, ',', '.') }}</td>
               </tr>
               <tr>
                 <td>Total acum de faturas emitidas</td>
-                <td>{{ number_format($totalFaturasEmitidas, 2, ',', '.') }}</td>
+                <td>R$ {{ number_format($totalFaturasEmitidas, 2, ',', '.') }}</td>
               </tr>
             </tbody>
           </table>
