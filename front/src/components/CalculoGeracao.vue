@@ -83,7 +83,7 @@
     </div>
 
     <div class="row mb-4">
-      <div class="col-md-6">
+      <div class="col-md-5">
         <label for="consumoUsinaMes">Consumo da usina em {{ meses[mesSelecionado] || 'Mês' }} (kWh)</label>
         <input
           id="consumoUsinaMes"
@@ -93,6 +93,18 @@
           v-model.number="consumoUsinaMes"
           :disabled="!mesSelecionado || !usina"
           required
+        />
+      </div>
+      <div class="col-md-4">
+        <label for="adicionalCuo">Adicional (R$)</label>
+        <input
+          id="adicionalCuo"
+          type="number"
+          step="0.01"
+          class="form-control"
+          v-model.number="adicionalCuo"
+          placeholder="Ex: 15,00 ou -10,00"
+          :disabled="!mesSelecionado || !usina"
         />
       </div>
     </div>
@@ -212,6 +224,7 @@ export default {
       selectedUsinaId: '',
       fioB: 0.13,
       faturaEnergia: 0,
+      adicionalCuo: 0,
       percentualLei: 45,
       valor_kwh: 0,
       valor_fixo: 0,
@@ -258,8 +271,14 @@ export default {
       this.co2Evitado = 0;
       this.arvoresPlantadas = 0;
       this.consumoUsinaMes = null;
+      this.adicionalCuo = 0;
     },
     consumoUsinaMes() {
+      if (this.mesGeracao !== null && this.mesGeracao !== undefined) {
+        this.atualizarValores();
+      }
+    },
+    adicionalCuo() {
       if (this.mesGeracao !== null && this.mesGeracao !== undefined) {
         this.atualizarValores();
       }
@@ -271,6 +290,9 @@ export default {
     },
     fixo() {
       return this.menorGeracao * this.valor_kwh;
+    },
+    adicionalCuoNumero() {
+      return Number(this.adicionalCuo) || 0;
     },
     mesesComValorPago() {
       if (!this.usina || !this.usina.creditos_distribuidos_usina) return [];
@@ -422,11 +444,17 @@ export default {
         return 0;
       }
     },
-    cuo(valor) {
+    cuoBase(valor) {
       return -1 * (this.faturaEnergia + (valor * this.valorFinalFioB));
     },
+    cuo(valor) {
+      return this.cuoBase(valor) + this.adicionalCuoNumero;
+    },
     valorFinal(valor) {
-      return this.fixo + this.injetado(valor) + this.creditado(valor) + this.cuo(valor);
+      return this.valorFinalBase(valor) + this.adicionalCuoNumero;
+    },
+    valorFinalBase(valor) {
+      return this.fixo + this.injetado(valor) + this.creditado(valor) + this.cuoBase(valor);
     },
     valorFinalTabela(valor) {
       return this.fixo + this.injetado(valor) + this.creditadoTabela(valor) + this.cuo(valor);
@@ -620,7 +648,8 @@ export default {
           mediaGeracao_kwh: parseFloat(this.mediaGeracao || 0),
           reservaTotalAnterior_kwh: parseFloat(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total || 0),
           tarifa_kwh: parseFloat(this.valor_kwh || 0),
-          valorPago_mes: parseFloat(this.valorTotal || 0)
+          valorPago_mes: parseFloat(this.valorFinalBase(geracaoLiquida) || 0),
+          adicional_cuo: parseFloat(this.adicionalCuo || 0)
         };
 
         const resp = await axios.post(

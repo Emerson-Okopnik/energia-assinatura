@@ -21,6 +21,7 @@ class CalculoGeracaoRequest extends FormRequest
             'reservaTotalAnterior_kwh' => 'required|numeric|min:0',
             'tarifa_kwh' => 'required|numeric|min:0',
             'valorPago_mes' => 'required|numeric|min:0',
+            'adicional_cuo' => 'nullable|numeric',
         ];
     }
 

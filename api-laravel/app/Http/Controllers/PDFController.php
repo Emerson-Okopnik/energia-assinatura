@@ -16,6 +16,8 @@ use Carbon\Carbon;
 class PDFController extends Controller {
 
   public function gerarUsinaPDF(Request $request, $id)
+  
+  
   {
     try {
         $usina = Usina::select([

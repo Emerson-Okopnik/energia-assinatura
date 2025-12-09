@@ -68,7 +68,8 @@ class CalculoGeracaoService
             //$geracaoMes = max(0.0, $geracaoBrutaMes - $consumoMes);
             $geracaoMes = $geracaoBrutaMes;
             $media = (float) $payload['mediaGeracao_kwh'];
-            $valorPago = (float) $payload['valorPago_mes'];
+            $adicionalCuo = (float) ($payload['adicional_cuo'] ?? 0);
+            $valorPago = (float) $payload['valorPago_mes'] + $adicionalCuo;
 
             $reservasExpiradas = [];
             $custoExpirado = 0.0;
@@ -155,6 +156,7 @@ class CalculoGeracaoService
                 'geracao_real_kwh' => round($geracaoMes, 2),
                 'co2_evitado_kg' => round($co2Evitado, 2),
                 'arvores_equivalentes' => round($arvores, 2),
+                'adicional_cuo_aplicado' => round($adicionalCuo, 2),
                 'reservas_expiradas' => $reservasExpiradas,
             ];
         });
