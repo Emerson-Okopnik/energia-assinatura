@@ -285,8 +285,8 @@ class PDFController extends Controller {
         $pdf = $this->configureBrowsershot(Browsershot::html($html))
             ->format('A4')
             ->showBackground()
-            ->deviceScaleFactor(2)
-            ->waitUntilNetworkIdle()
+            ->deviceScaleFactor(1)
+            //->waitUntilNetworkIdle()
             ->timeout(60)
             ->pdf();
 
@@ -363,8 +363,8 @@ class PDFController extends Controller {
         ->format('A4')
         ->margins(10, 10, 10, 10)
         ->showBackground()
-        ->deviceScaleFactor(2)
-        ->waitUntilNetworkIdle()
+        ->deviceScaleFactor(1)
+        //->waitUntilNetworkIdle()
         ->timeout(60)
         ->landscape()
         ->pdf();
