@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use App\Models\Consumidor;
+use App\Models\Cliente;
 use App\Services\Concerns\CachesFindAll;
 
 class ConsumidorService {
@@ -43,7 +44,11 @@ class ConsumidorService {
 
   public function delete(int $id): int {
     $deleted = DB::transaction(function () use ($id) {
-      $consumidor = Consumidor::with(['dado_consumo', 'cliente.endereco'])->find($id);
+      $consumidor = Consumidor::with([
+        'dado_consumo',
+        'cliente.endereco',
+        'cliente.usinas',
+      ])->find($id);
     
       if (!$consumidor) {
         return 0;
@@ -58,10 +63,22 @@ class ConsumidorService {
       }
 
       if ($consumidor->cliente) {
-        if ($consumidor->cliente->endereco) {
-          $consumidor->cliente->endereco->delete();
+        $cliente = $consumidor->cliente;
+        $endereco = $cliente?->endereco;
+
+        $clienteTemOutrosConsumidores = Consumidor::where('cli_id', $cliente->cli_id)
+          ->where('con_id', '!=', $id)
+          ->exists();
+
+        $clientePossuiUsina = $cliente->usinas()->exists();
+
+        if (!$clienteTemOutrosConsumidores && !$clientePossuiUsina) {
+          $cliente->delete();
+
+          if ($endereco && !Cliente::where('end_id', $endereco->end_id)->exists()) {
+            $endereco->delete();
+          }
         }
-        $consumidor->cliente->delete();
       }
     
       return 1;
