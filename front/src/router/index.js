@@ -26,11 +26,11 @@ const routes = [
     name: 'Login',
     component: Login,
   },
-  {
+  /*{
     path: '/register',
     name: 'Register',
     component: Register,
-  },
+  },*/
   {
     path: '/cadastro-consumidor',
     name: 'cadastro-consumidor',

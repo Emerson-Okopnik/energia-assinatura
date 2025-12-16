@@ -30,10 +30,10 @@
           <button type="submit" class="auth-button">Entrar</button>
         </form>
 
-        <p class="auth-footer">
+        <!--<p class="auth-footer">
           Ainda não tem uma conta?
           <a @click.prevent="goToRegister" href="#">Crie agora</a>
-        </p>
+        </p>-->
       </div>
     </div>
   </div>
