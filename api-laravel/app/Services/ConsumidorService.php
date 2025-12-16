@@ -54,6 +54,7 @@ class ConsumidorService {
         return 0;
       }
       
+      
       // Primeiro apaga o consumidor
       $consumidor->delete();
             
