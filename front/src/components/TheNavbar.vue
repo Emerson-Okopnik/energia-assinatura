@@ -67,9 +67,9 @@
           <li class="nav-item" v-if="!isAuthenticated">
             <router-link class="nav-link text-white route-principal" to="/Login">Login</router-link>
           </li>
-          <li class="nav-item" v-if="!isAuthenticated">
+          <!--<li class="nav-item" v-if="!isAuthenticated">
             <router-link class="nav-link text-white route-principal" to="/Register">Register</router-link>
-          </li>
+          </li>-->
         </ul>
 
       </div>
