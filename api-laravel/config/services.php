@@ -40,4 +40,15 @@ return [
         'node_path' => env('BROWSERSHOT_NODE_PATH'),
         'disable_sandbox' => env('BROWSERSHOT_DISABLE_SANDBOX', true),
     ],
+
+    'celesc' => [
+        'base_url' => env('CELESC_BASE_URL', 'https://conecte.celesc.com.br/graphql'),
+        'auth_url' => env('CELESC_AUTH_URL', 'https://conecte.celesc.com.br/auth/login'),
+        'token' => env('CELESC_TOKEN'),
+        'refresh_token' => env('CELESC_REFRESH_TOKEN'),
+        'channel' => env('CELESC_CHANNEL', 'ZAW'),
+        'username' => env('CELESC_USERNAME'),
+        'password' => env('CELESC_PASSWORD'),
+        'cookies' => env('CELESC_COOKIES'),
+    ],
 ];
