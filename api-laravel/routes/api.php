@@ -23,10 +23,7 @@ use App\Http\Controllers\DadoConsumoUsinaController;
 use App\Http\Controllers\CalculoGeracaoController;
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
-Route::get('/hello', function () {
-    return response('Hello World', 200);
-});
+//Route::post('/register', [AuthController::class, 'register']);
 
 Route::middleware('auth:api')->group(function () {
   Route::get('/home', [AuthController::class, 'user']);
