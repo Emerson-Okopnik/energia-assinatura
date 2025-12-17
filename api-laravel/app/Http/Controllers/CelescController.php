@@ -13,21 +13,19 @@ class CelescController extends Controller
     {
     }
 
+    public function teste(): JsonResponse
+    {
+        $resultado = $this->celescApiService->login([
+            'username' => null,
+            'password' => null
+        ]);
+        return $resultado;
+    }
+
     public function emitirFatura(Request $request): JsonResponse
     {
         $dados = $request->validate([
-            'username' => ['nullable', 'string'],
-            'password' => ['nullable', 'string'],
-            'contract_account' => ['nullable', 'string'],
-            'access_id' => ['nullable', 'string'],
-            'partner' => ['nullable', 'string'],
-            'invoice_id' => ['nullable', 'string'],
-            'bill' => ['nullable', 'string'],
-            'channel' => ['nullable', 'string'],
-            'profile_type' => ['nullable', 'string'],
-            'installation' => ['nullable', 'string'],
-            'owner' => ['nullable', 'string'],
-            'zip_code' => ['nullable', 'string'],
+            'installation' => ['nullable', 'string']
         ]);
 
         try {

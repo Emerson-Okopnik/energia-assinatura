@@ -21,6 +21,7 @@ use App\Http\Controllers\DadosGeracaoRealController;
 use App\Http\Controllers\DadosGeracaoRealUsinaController;
 use App\Http\Controllers\DadoConsumoUsinaController;
 use App\Http\Controllers\CalculoGeracaoController;
+use App\Http\Controllers\CelescController;
 
 Route::post('/login', [AuthController::class, 'login']);
 //Route::post('/register', [AuthController::class, 'register']);
@@ -138,4 +139,6 @@ Route::middleware('auth:api')->group(function () {
 
   Route::get('/gerar-pdf-usina/{usi_id}', [PDFController::class, 'gerarUsinaPDF']);
   Route::get('/gerar-pdf-consumidores/{usi_id}', [PDFController::class, 'gerarConsumidoresPDF']);
+
+  Route::post('/celesc/fatura', [CelescController::class, 'teste']);
 });
