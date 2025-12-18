@@ -67,89 +67,89 @@ class CelescApiService
      * @param  array<string, string|null>  $payload
      * @return array<string, mixed>
      */
-    public function login(array $payload): array
-{
-    $this->accessToken = $this->accessToken ?? config('services.celesc.token');
-    $this->refreshToken = $this->refreshToken ?? config('services.celesc.refresh_token');
+    private function login(array $payload): array
+    {
+        $this->accessToken = $this->accessToken ?? config('services.celesc.token');
+        $this->refreshToken = $this->refreshToken ?? config('services.celesc.refresh_token');
 
-    if ($this->accessToken && !($payload['username'] ?? null) && !($payload['password'] ?? null)) {
+        if ($this->accessToken && !($payload['username'] ?? null) && !($payload['password'] ?? null)) {
+            return [
+                'token' => $this->accessToken,
+                'refresh_token' => $this->refreshToken,
+                'sap_access' => null,
+                'profile' => null,
+            ];
+        }
+
+        $username = $payload['username'] ?? config('services.celesc.username');
+        $password = $payload['password'] ?? config('services.celesc.password');
+        $channel = $payload['channel'] ?? config('services.celesc.channel', $this->defaultChannel);
+
+        if (!$username || !$password) {
+            throw new RuntimeException('Credenciais de login da Celesc não configuradas.');
+        }
+
+        $body = [
+            'username' => $username,
+            'password' => $password,
+            'socialCode' => '',
+            'socialRedirectUri' => '',
+            'channel' => $channel,
+            'accessIp' => $payload['access_ip'] ?? '',
+            'deviceId' => $payload['device_id'] ?? 'Windows Chrome Unknown',
+            'firebaseToken' => $payload['firebase_token'] ?? '',
+        ];
+
+        $request = $this->baseRequest('https://conecte.celesc.com.br/autenticacao/login')
+            ->withHeaders([
+                'Referer' => 'https://conecte.celesc.com.br/autenticacao/login',
+            ]);
+
+        // Ajuste para ambiente local (ex: Windows com CA/SSL desconfigurado)
+        // - services.celesc.ssl_verify = false  -> desativa verificação SSL
+        // - services.celesc.ca_bundle = "C:\path\cacert.pem" -> usa CA bundle específico
+        $sslVerify = config('services.celesc.ssl_verify');
+        $caBundle = config('services.celesc.ca_bundle');
+
+        if ($sslVerify === false || ($sslVerify === null && app()->environment('local'))) {
+            $request = $request->withoutVerifying();
+        } elseif ($caBundle) {
+            $request = $request->withOptions(['verify' => $caBundle]);
+        }
+
+        $response = $request->post($this->authEndpoint, $body);
+
+        if ($response->failed()) {
+            throw new RuntimeException('Falha ao autenticar na Celesc: ' . $response->reason());
+        }
+
+        $token = $response->json('data.authenticate.login.accessToken')
+            ?? $response->json('token')
+            ?? $response->json('accessToken')
+            ?? $response->json('access_token');
+
+        if (!$token) {
+            throw new RuntimeException('Token de acesso não encontrado na resposta de login.');
+        }
+
+        $refreshToken = $response->json('data.authenticate.login.refreshToken')
+            ?? $response->json('refreshToken')
+            ?? $response->json('refresh_token')
+            ?? $this->refreshToken;
+
+        $sapAccess = $response->json('data.authenticate.sapAccess');
+        $profile = $response->json('data.authenticate.profile');
+
+        $this->accessToken = $token;
+        $this->refreshToken = $refreshToken;
+
         return [
-            'token' => $this->accessToken,
-            'refresh_token' => $this->refreshToken,
-            'sap_access' => null,
-            'profile' => null,
+            'token' => $token,
+            'refresh_token' => $refreshToken,
+            'sap_access' => is_array($sapAccess) ? $sapAccess : null,
+            'profile' => is_array($profile) ? $profile : null,
         ];
     }
-
-    $username = $payload['username'] ?? config('services.celesc.username');
-    $password = $payload['password'] ?? config('services.celesc.password');
-    $channel = $payload['channel'] ?? config('services.celesc.channel', $this->defaultChannel);
-
-    if (!$username || !$password) {
-        throw new RuntimeException('Credenciais de login da Celesc não configuradas.');
-    }
-
-    $body = [
-        'username' => $username,
-        'password' => $password,
-        'socialCode' => '',
-        'socialRedirectUri' => '',
-        'channel' => $channel,
-        'accessIp' => $payload['access_ip'] ?? '',
-        'deviceId' => $payload['device_id'] ?? 'Windows Chrome Unknown',
-        'firebaseToken' => $payload['firebase_token'] ?? '',
-    ];
-
-    $request = $this->baseRequest('https://conecte.celesc.com.br/autenticacao/login')
-        ->withHeaders([
-            'Referer' => 'https://conecte.celesc.com.br/autenticacao/login',
-        ]);
-
-    // Ajuste para ambiente local (ex: Windows com CA/SSL desconfigurado)
-    // - services.celesc.ssl_verify = false  -> desativa verificação SSL
-    // - services.celesc.ca_bundle = "C:\path\cacert.pem" -> usa CA bundle específico
-    $sslVerify = config('services.celesc.ssl_verify');
-    $caBundle = config('services.celesc.ca_bundle');
-
-    if ($sslVerify === false || ($sslVerify === null && app()->environment('local'))) {
-        $request = $request->withoutVerifying();
-    } elseif ($caBundle) {
-        $request = $request->withOptions(['verify' => $caBundle]);
-    }
-
-    $response = $request->post($this->authEndpoint, $body);
-
-    if ($response->failed()) {
-        throw new RuntimeException('Falha ao autenticar na Celesc: ' . $response->reason());
-    }
-
-    $token = $response->json('data.authenticate.login.accessToken')
-        ?? $response->json('token')
-        ?? $response->json('accessToken')
-        ?? $response->json('access_token');
-
-    if (!$token) {
-        throw new RuntimeException('Token de acesso não encontrado na resposta de login.');
-    }
-
-    $refreshToken = $response->json('data.authenticate.login.refreshToken')
-        ?? $response->json('refreshToken')
-        ?? $response->json('refresh_token')
-        ?? $this->refreshToken;
-
-    $sapAccess = $response->json('data.authenticate.sapAccess');
-    $profile = $response->json('data.authenticate.profile');
-
-    $this->accessToken = $token;
-    $this->refreshToken = $refreshToken;
-
-    return [
-        'token' => $token,
-        'refresh_token' => $refreshToken,
-        'sap_access' => is_array($sapAccess) ? $sapAccess : null,
-        'profile' => is_array($profile) ? $profile : null,
-    ];
-}
 
     /**
      * Lista contratos disponíveis antes de solicitar a fatura.
