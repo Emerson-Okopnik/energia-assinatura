@@ -67,7 +67,7 @@ class CelescApiService
      * @param  array<string, string|null>  $payload
      * @return array<string, mixed>
      */
-    private function login(array $payload): array
+    public function login(array $payload): array
     {
         $this->accessToken = $this->accessToken ?? config('services.celesc.token');
         $this->refreshToken = $this->refreshToken ?? config('services.celesc.refresh_token');
