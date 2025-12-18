@@ -16,10 +16,16 @@ class CelescController extends Controller
     public function loginLocal(): JsonResponse
     {
         try {
-            $resultado = $this->celescApiService->login([
+            $auth = $this->celescApiService->login([
                 'username' => config('services.celesc.username'),
                 'password' => config('services.celesc.password'),
             ]);
+
+            $contratos = $this->celescApiService->listarContratos($auth, [
+                'channel' => $auth['channel'] ?? config('services.celesc.channel'),
+                'profile_type' => 'GRPA',
+            ]);
+
         } catch (Throwable $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),

@@ -157,7 +157,7 @@ class CelescApiService
      * @param  array<string, string|null>  $payload
      * @return array<string, mixed>
      */
-    private function listarContratos(array $auth, array $payload): array
+    public function listarContratos(array $auth, array $payload): array
     {
         $token = $auth['token'] ?? null;
 
@@ -165,9 +165,7 @@ class CelescApiService
             throw new RuntimeException('Token de acesso da Celesc não informado para listar contratos.');
         }
 
-        $partner = $payload['partner']
-            ?? $auth['sap_access']['partner']
-            ?? null;
+        $partner = $payload['partner'] ?? $auth['sap_access']['partner'] ?? null;
 
         if (!$partner) {
             throw new RuntimeException('Parceiro (partner) não encontrado na resposta de login.');
@@ -175,17 +173,10 @@ class CelescApiService
 
         $body = [
             'variables' => [
-                'channelCode' => $payload['channel']
-                    ?? $auth['sap_access']['channel']
-                    ?? $this->defaultChannel,
+                'channelCode' => $payload['channel'] ?? $auth['sap_access']['channel'] ?? $this->defaultChannel,
                 'target' => 'sap',
                 'partner' => $partner,
-                'profileType' => $payload['profile_type']
-                    ?? $auth['sap_access']['profileType']
-                    ?? 'GRPA',
-                'installation' => $payload['installation'] ?? null,
-                'owner' => $payload['owner'] ?? null,
-                'zipCode' => $payload['zip_code'] ?? null,
+                'profileType' => $payload['profile_type'] ?? $auth['sap_access']['profileType'] ?? 'GRPA',
             ],
             'query' => <<<'GQL'
 query ($partner: String!, $profileType: String, $installation: String, $owner: String, $zipCode: String) {
