@@ -21,10 +21,12 @@ class CelescController extends Controller
                 'password' => config('services.celesc.password'),
             ]);
 
-            $contratos = $this->celescApiService->listarContratos($auth, [
+            /*$contratos = $this->celescApiService->listarContratos($auth, [
                 'channel' => $auth['channel'] ?? config('services.celesc.channel'),
                 'profile_type' => 'GRPA',
-            ]);
+            ]);*/
+
+
 
         } catch (Throwable $exception) {
             return response()->json([
@@ -32,7 +34,7 @@ class CelescController extends Controller
             ], 422);
         }
 
-        return response()->json($resultado);
+        return response()->json($auth);
     }
 
     public function emitirFatura(Request $request): JsonResponse

@@ -105,18 +105,6 @@ class CelescApiService
                 'Referer' => 'https://conecte.celesc.com.br/autenticacao/login',
             ]);
 
-        // Ajuste para ambiente local (ex: Windows com CA/SSL desconfigurado)
-        // - services.celesc.ssl_verify = false  -> desativa verificação SSL
-        // - services.celesc.ca_bundle = "C:\path\cacert.pem" -> usa CA bundle específico
-        $sslVerify = config('services.celesc.ssl_verify');
-        $caBundle = config('services.celesc.ca_bundle');
-
-        if ($sslVerify === false || ($sslVerify === null && app()->environment('local'))) {
-            $request = $request->withoutVerifying();
-        } elseif ($caBundle) {
-            $request = $request->withOptions(['verify' => $caBundle]);
-        }
-
         $response = $request->post($this->authEndpoint, $body);
 
         if ($response->failed()) {
@@ -395,6 +383,130 @@ GQL,
             ->post($this->graphQlEndpoint, $body);
     }
 
+    /**
+     * Consulta a análise de faturas (variação de consumo) para uma instalação.
+     *
+     * @param  array<string, mixed>  $auth
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function buscarAnaliseFaturas(array $auth, array $payload): array
+    {
+        $token = $auth['token'] ?? $this->accessToken;
+
+        if (!$token) {
+            throw new RuntimeException('Token de acesso da Celesc não informado para analisar faturas.');
+        }
+
+        $partner = $payload['partner'] ?? $auth['sap_access']['partner'] ?? null;
+        $installation = $payload['installation'] ?? null;
+        $contractAccount = $payload['contract_account'] ?? null;
+        $invoice1 = $payload['invoice1'] ?? null;
+        $invoice2 = $payload['invoice2'] ?? null;
+
+        if (!$partner || !$installation || !$contractAccount || !$invoice1 || !$invoice2) {
+            throw new RuntimeException('Dados obrigatórios para análise de faturas ausentes (partner, installation, contract_account, invoice1, invoice2).');
+        }
+
+        $body = [
+            'variables' => [
+                'channelCode' => $payload['channel'] ?? $auth['sap_access']['channel'] ?? $this->defaultChannel,
+                'target' => 'sap',
+                'billsAnalysisInput' => [
+                    'installation' => $installation,
+                    'partner' => $partner,
+                    'contractAccount' => $contractAccount,
+                    'invoice1' => $invoice1,
+                    'invoice2' => $invoice2,
+                ],
+            ],
+            'query' => <<<'GQL'
+query ($billsAnalysisInput: BillsAnalysisInput!) {
+  getBillsAnalysis(billsAnalysisInput: $billsAnalysisInput) {
+    billsAnalysis {
+      channel
+      showCard
+      serviceCode
+      accessId
+      serviceId
+      partner
+      installation
+      contractAccount
+      contract
+      invoice1
+      invoice2
+      group
+      item
+      descCard
+      descMsg
+      valueInvoice1
+      valueInvoice2
+      variation
+      protocol
+      __typename
+    }
+    error
+    message
+    __typename
+  }
+}
+GQL,
+        ];
+
+        $response = $this->performGraphQlRequest($token, $body, 'https://conecte.celesc.com.br/pagina-inicial/area-privada');
+
+        if ($response->failed()) {
+            $message = $response->json('errors.0.message') ?? $response->reason();
+
+            throw new RuntimeException('Falha ao consultar análise de faturas na Celesc: ' . $message);
+        }
+
+        $data = $response->json('data.getBillsAnalysis');
+
+        if (!is_array($data)) {
+            throw new RuntimeException('Resposta inesperada da Celesc ao consultar análise de faturas.');
+        }
+
+        $billsAnalysis = array_map(
+            fn ($item) => $this->normalizarAnaliseFatura($item),
+            $data['billsAnalysis'] ?? []
+        );
+
+        $invoiceIds = [];
+
+        foreach ($billsAnalysis as $bill) {
+            foreach (['invoice1', 'invoice2'] as $invoiceKey) {
+                if (!empty($bill[$invoiceKey])) {
+                    $invoiceIds[] = $bill[$invoiceKey];
+                }
+            }
+        }
+
+        return [
+            'bills_analysis' => $billsAnalysis,
+            'invoice_ids' => array_values(array_unique($invoiceIds)),
+            'message' => $data['message'] ?? null,
+            'error' => $data['error'] ?? null,
+        ];
+    }
+
+    /**
+     * Normaliza campos textuais da análise de faturas.
+     *
+     * @param  array<string, mixed>  $bill
+     * @return array<string, mixed>
+     */
+    private function normalizarAnaliseFatura(array $bill): array
+    {
+        foreach (['invoice1', 'invoice2', 'valueInvoice1', 'valueInvoice2', 'variation'] as $field) {
+            if (isset($bill[$field]) && is_string($bill[$field])) {
+                $bill[$field] = trim($bill[$field]);
+            }
+        }
+
+        return $bill;
+    }
+
     private function baseRequest(string $referer)
     {
         $headers = [
@@ -410,6 +522,20 @@ GQL,
             $headers['Cookie'] = $this->cookiesHeader;
         }
 
-        return Http::withHeaders($headers);
+        $request = Http::withHeaders($headers);
+
+        // Ajuste para ambiente local (ex: Windows com CA/SSL desconfigurado)
+        // - services.celesc.ssl_verify = false  -> desativa verificação SSL
+        // - services.celesc.ca_bundle = "C:\path\cacert.pem" -> usa CA bundle específico
+        $sslVerify = config('services.celesc.ssl_verify');
+        $caBundle = config('services.celesc.ca_bundle');
+
+        if ($sslVerify === false || ($sslVerify === null && app()->environment('local'))) {
+            $request = $request->withoutVerifying();
+        } elseif ($caBundle) {
+            $request = $request->withOptions(['verify' => $caBundle]);
+        }
+
+        return $request;
     }
 }
