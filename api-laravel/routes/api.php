@@ -25,7 +25,6 @@ use App\Http\Controllers\CelescController;
 
 Route::post('/login', [AuthController::class, 'login']);
 //Route::post('/register', [AuthController::class, 'register']);
-Route::get('/celesc/login-local', [CelescController::class, 'loginLocal']);
 
 Route::middleware('auth:api')->group(function () {
   Route::get('/home', [AuthController::class, 'user']);

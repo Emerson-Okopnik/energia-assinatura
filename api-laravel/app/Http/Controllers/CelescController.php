@@ -17,27 +17,6 @@ class CelescController extends Controller
     {
     }
 
-    public function loginLocal(): JsonResponse
-    {
-        try {
-            $auth = $this->celescApiService->login([
-                'username' => config('services.celesc.username'),
-                'password' => config('services.celesc.password'),
-            ]);
-
-            $contratos = $this->celescApiService->listarContratos($auth['token'], $auth['sap_access']['channel'], $auth['sap_access']['partner']);
-
-
-
-        } catch (Throwable $exception) {
-            return response()->json([
-                'message' => $exception->getMessage(),
-            ], 422);
-        }
-
-        return response()->json($contratos);
-    }
-
     public function emitirFatura(Request $request): JsonResponse
     {
         $dados = $request->validate([
@@ -46,6 +25,8 @@ class CelescController extends Controller
             'installation' => ['required', 'string'],
             'contract_account' => ['nullable', 'string'],
             'invoiceId' => ['nullable', 'string'],
+            'billingPeriod' => ['nullable', 'string'],
+            'billing_period' => ['nullable', 'string'],
             'channelCode' => ['nullable', 'string'],
             'target' => ['nullable', 'string'],
         ]);

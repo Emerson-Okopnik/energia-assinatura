@@ -44,6 +44,7 @@ class CelescApiService
         $installation = $payload['installation'] ?? null;
         $contractAccount = $payload['contract_account'] ?? null;
         $invoiceId = $payload['invoiceId'] ?? $payload['invoice_id'] ?? null;
+        $billingPeriod = $payload['billingPeriod'] ?? $payload['billing_period'] ?? null;
         $channel = $payload['channelCode'] ?? $payload['channel'] ?? $this->defaultChannel;
         $target = $payload['target'] ?? 'sap';
 
@@ -51,6 +52,7 @@ class CelescApiService
             'installation' => $installation,
             'contract_account' => $contractAccount,
             'invoice_id' => $invoiceId,
+            'billing_period' => $billingPeriod,
             'channel' => $channel,
             'target' => $target,
         ]);
@@ -78,7 +80,7 @@ class CelescApiService
 
         $bills = $this->listarFaturas($auth['token'], $sapChannel, $target, $partner, $installation, $selectedContractAccount);
 
-        $selectedBill = $this->selecionarFatura($bills, $invoiceId);
+        $selectedBill = $this->selecionarFatura($bills, $invoiceId, $billingPeriod);
 
         $duplicate = $this->duplicarFatura([
             'contractAccount' => $selectedContract['contractAccount'] ?? null,
@@ -104,7 +106,7 @@ class CelescApiService
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    public function login(array $payload): array
+    private function login(array $payload): array
     {
         $this->accessToken = $this->accessToken ?? config('services.celesc.token');
         $this->refreshToken = $this->refreshToken ?? config('services.celesc.refresh_token');
@@ -170,7 +172,7 @@ class CelescApiService
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function listarContratos(string $token, string $channel, string $partner): array {
+    private function listarContratos(string $token, string $channel, string $partner): array {
 
     $body = [
         'variables' => [
@@ -207,27 +209,11 @@ class CelescApiService
         'variables' => [
           'channelCode' => $channel,
           'target' => $target,
-          'allBillsInput' => [
-            'installation' => $installation,
-            'partner' => $partner,
-            'contractAccount' => $contractAccount,
-          ],
+          'partner' => $partner,
+          'installation' => $installation,
+          'contractAccount' => $contractAccount,
         ],
-            'query' => <<<'GQL'
-query ($allBillsInput: AllBillsInput!, $channelCode: String, $target: String) {
-  getAllBills(allBillsInput: $allBillsInput, channelCode: $channelCode, target: $target) {
-    bills {
-      code
-      installation
-      contractAccount
-      __typename
-    }
-    message
-    error
-    __typename
-  }
-}
-GQL,
+          'query' => "query (\$partner: String!, \$installation: String!, \$contractAccount: String) {\n  getAllBills(\n    partner: \$partner\n    installation: \$installation\n    contractAccount: \$contractAccount\n  ) {\n    bills {\n      protocol\n      installation\n      code\n      dueDate\n      totalAmount\n      currency\n      usage\n      previousUsage\n      consumption\n      compensation\n      compensationDate\n      compensationBloqued\n      launchBloqued\n      hasActiveInstallment\n      channel\n      serviceCode\n      accessId\n      serviceId\n      partner\n      billingPeriod\n      totalDays\n      flag\n      readType\n      availability\n      demandaContr\n      demandaNp\n      demandaFp\n      consumoFatNp\n      consumoFatFp\n      mediaConsFatNp\n      mediaConsFatFp\n      consumoRegNp\n      consumoRegFp\n      mediaConsRegNp\n      mediaConsRegFp\n      mediaValor\n      flagId\n      status\n      readTypeId\n      avalabilityId\n      codigoDeBarras\n      qrCode\n      positionRead\n      averageConsumption\n      intermediateConsumptionBilled\n      intermediateConsumptionReg\n      intermediateAverageConsBilled\n      intermediateAverageConsReg\n      reservedConsumption\n      averageReservedConsumption\n      intermediateGeneratedConsumption\n      generatedConsumptionNP\n      generatedConsumption\n      reservedGeneratedConsumption\n      generatedConsumptionFP\n      averageGeneratedCons\n      averageGeneratedConsNP\n      averageGeneratedConsFP\n      averageIntermediateGeneratedCons\n      averageReservedGeneratedCons\n      __typename\n    }\n    message\n    error\n    retained\n    retainedMessage\n    retainedMainMessage\n    __typename\n  }\n}",
         ];
 
         $response = $this->performGraphQlRequest($token, $body, 'https://conecte.celesc.com.br/fatura/historico');
@@ -285,7 +271,7 @@ GQL,
      * @param  array<int, array<string, mixed>>  $bills
      * @return array<string, mixed>
      */
-    private function selecionarFatura(array $bills, ?string $invoiceId): array
+    private function selecionarFatura(array $bills, ?string $invoiceId, ?string $billingPeriod): array
     {
         if ($invoiceId) {
             foreach ($bills as $bill) {
@@ -295,6 +281,16 @@ GQL,
             }
 
             throw new BillNotFoundException('Fatura não encontrada para o invoiceId informado.');
+        }
+
+        if ($billingPeriod) {
+            foreach ($bills as $bill) {
+                if (($bill['billingPeriod'] ?? null) === $billingPeriod) {
+                    return $bill;
+                }
+            }
+
+            throw new BillNotFoundException('Fatura não encontrada para o período de faturamento informado.');
         }
 
         return $bills[0];
