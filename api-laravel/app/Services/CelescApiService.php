@@ -2,9 +2,13 @@
 
 namespace App\Services;
 
+use App\Exceptions\BillNotFoundException;
+use App\Exceptions\CelescApiException;
+use App\Exceptions\ContractNotFoundException;
+use App\Exceptions\LoginFailedException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
+use Illuminate\Support\Facades\Log;
 
 class CelescApiService
 {
@@ -32,39 +36,72 @@ class CelescApiService
     /**
      * Faz login, lista contratos disponíveis e solicita a 2ª via da fatura.
      *
-     * @param  array<string, string|null>  $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    public function executarFluxoFatura(array $payload): array
+    public function gerarSegundaVia(array $payload): array
     {
-        $payload['channel'] = $payload['channel'] ?? $this->defaultChannel;
-        $payload['profile_type'] = $payload['profile_type'] ?? 'GRPA';
+        $installation = $payload['installation'] ?? null;
+        $contractAccount = $payload['contract_account'] ?? null;
+        $invoiceId = $payload['invoiceId'] ?? $payload['invoice_id'] ?? null;
+        $channel = $payload['channelCode'] ?? $payload['channel'] ?? $this->defaultChannel;
+        $target = $payload['target'] ?? 'sap';
 
-        $auth = $this->login([
-            'username' => $payload['username'] ?? null,
-            'password' => $payload['password'] ?? null,
-            'channel' => $payload['channel'] ?? $this->defaultChannel,
+        Log::info('Celesc - início do fluxo de segunda via', [
+            'installation' => $installation,
+            'contract_account' => $contractAccount,
+            'invoice_id' => $invoiceId,
+            'channel' => $channel,
+            'target' => $target,
         ]);
 
-        $contracts = $this->listarContratos($auth, [
-            'channel' => $payload['channel'],
-            'profile_type' => $payload['profile_type'],
-            'installation' => $payload['installation'] ?? null,
-            'owner' => $payload['owner'] ?? null,
-            'zip_code' => $payload['zip_code'] ?? null,
+        $auth = $this->login(['username' => $payload['username'] ?? null, 'password' => $payload['password'] ?? null, 'channel' => $channel]);
+
+        $sapAccess = $auth['sap_access'] ?? [];
+        $partner = $this->normalizarPartner($sapAccess['partner'] ?? null);
+        $sapChannel = $sapAccess['channel'] ?? $channel;
+
+        if (!$partner) {
+            throw new LoginFailedException('Parceiro não retornado no login.');
+        }
+
+        $contracts = $this->listarContratos($auth['token'], $sapChannel, $partner);
+
+        $selectedContract = $this->selecionarContrato($contracts, $installation, $contractAccount);
+
+        $selectedContractAccount = $selectedContract['contractAccount'] ?? null;
+        $accessId = $sapAccess['accessId'] ?? null;
+
+        if (!$selectedContractAccount || !$accessId) {
+            throw new CelescApiException('Dados obrigatórios (contractAccount ou accessId) ausentes no retorno da Celesc.');
+        }
+
+        $bills = $this->listarFaturas($auth['token'], $sapChannel, $target, $partner, $installation, $selectedContractAccount);
+
+        $selectedBill = $this->selecionarFatura($bills, $invoiceId);
+
+        $duplicate = $this->duplicarFatura([
+            'contractAccount' => $selectedContract['contractAccount'] ?? null,
+            'accessId' => $accessId,
+            'partner' => $partner,
+            'invoiceId' => $selectedBill['code'],
+            'bill' => '',
+            'channel' => $sapChannel,
+            'target' => $target,
+            'token' => $auth['token'],
         ]);
 
-        $invoice = $this->emitirFatura($auth, $contracts, $payload);
+        Log::info('Celesc - fluxo concluído com sucesso', [
+            'installation' => $installation,
+            'contract_account' => $selectedContract['contractAccount'] ?? null,
+            'invoice_id' => $duplicate['invoiceId'] ?? null,
+        ]);
 
-        return [
-            'auth' => $auth,
-            'contracts' => $contracts,
-            'invoice' => $invoice,
-        ];
+        return $duplicate;
     }
 
     /**
-     * @param  array<string, string|null>  $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     public function login(array $payload): array
@@ -72,21 +109,12 @@ class CelescApiService
         $this->accessToken = $this->accessToken ?? config('services.celesc.token');
         $this->refreshToken = $this->refreshToken ?? config('services.celesc.refresh_token');
 
-        if ($this->accessToken && !($payload['username'] ?? null) && !($payload['password'] ?? null)) {
-            return [
-                'token' => $this->accessToken,
-                'refresh_token' => $this->refreshToken,
-                'sap_access' => null,
-                'profile' => null,
-            ];
-        }
-
-        $username = $payload['username'] ?? config('services.celesc.username');
-        $password = $payload['password'] ?? config('services.celesc.password');
-        $channel = $payload['channel'] ?? config('services.celesc.channel', $this->defaultChannel);
+        $username = $payload['username'] ?? $this->username;
+        $password = $payload['password'] ?? $this->password;
+        $channel = $payload['channel'] ?? $this->defaultChannel;
 
         if (!$username || !$password) {
-            throw new RuntimeException('Credenciais de login da Celesc não configuradas.');
+            throw new LoginFailedException('Credenciais de login da Celesc não configuradas.');
         }
 
         $body = [
@@ -96,19 +124,19 @@ class CelescApiService
             'socialRedirectUri' => '',
             'channel' => $channel,
             'accessIp' => $payload['access_ip'] ?? '',
-            'deviceId' => $payload['device_id'] ?? 'Windows Chrome Unknown',
+            'deviceId' => $payload['device_id'] ?? 'energia-assinatura',
             'firebaseToken' => $payload['firebase_token'] ?? '',
         ];
 
-        $request = $this->baseRequest('https://conecte.celesc.com.br/autenticacao/login')
+        $response = $this->baseRequest('https://conecte.celesc.com.br/autenticacao/login')
             ->withHeaders([
                 'Referer' => 'https://conecte.celesc.com.br/autenticacao/login',
-            ]);
-
-        $response = $request->post($this->authEndpoint, $body);
+            ])
+            ->post($this->authEndpoint, $body);
 
         if ($response->failed()) {
-            throw new RuntimeException('Falha ao autenticar na Celesc: ' . $response->reason());
+            $message = $response->json('errors.0.message') ?? $response->reason();
+            throw new LoginFailedException('Falha ao autenticar na Celesc: ' . $message);
         }
 
         $token = $response->json('data.authenticate.login.accessToken')
@@ -117,7 +145,7 @@ class CelescApiService
             ?? $response->json('access_token');
 
         if (!$token) {
-            throw new RuntimeException('Token de acesso não encontrado na resposta de login.');
+            throw new LoginFailedException('Token de acesso não encontrado na resposta de login.');
         }
 
         $refreshToken = $response->json('data.authenticate.login.refreshToken')
@@ -134,75 +162,64 @@ class CelescApiService
         return [
             'token' => $token,
             'refresh_token' => $refreshToken,
-            'sap_access' => is_array($sapAccess) ? $sapAccess : null,
+            'sap_access' => is_array($sapAccess) ? $sapAccess : [],
             'profile' => is_array($profile) ? $profile : null,
         ];
     }
 
     /**
-     * Lista contratos disponíveis antes de solicitar a fatura.
-     *
-     * @param  array<string, string|null>  $payload
-     * @return array<string, mixed>
+     * @return array<int, array<string, mixed>>
      */
-    public function listarContratos(array $auth, array $payload): array
-    {
-        $token = $auth['token'] ?? null;
+    public function listarContratos(string $token, string $channel, string $partner): array {
 
-        if (!$token) {
-            throw new RuntimeException('Token de acesso da Celesc não informado para listar contratos.');
+    $body = [
+        'variables' => [
+            'channelCode' => $channel,
+            'target' => 'sap',
+            'partner' => $partner,
+            'profileType' => 'GRPA'
+        ],
+        'query' => "query (\$partner: String!, \$profileType: String ) {\n  allContracts(\n    partner: \$partner\n    profileType: \$profileType\n ) {\n    contracts {\n      partner\n      installation\n      category\n      office\n      contract\n      contractAccount\n      home\n      name\n      street\n      houseNum\n      postCode\n      city1\n      city2\n      region\n      country\n      alertCode\n      alert\n      status\n      tarifType\n      favorite\n      denomination\n      messageHome\n      messageCard\n      messageType\n      complement\n      referencePoint\n      generation\n      __typename\n    }\n    message\n    error\n    __typename\n  }\n}",
+    ];
+
+        $response = $this->performGraphQlRequest($token, $body, 'https://conecte.celesc.com.br/contrato/selecao');
+
+        if ($response->failed()) {
+            $message = $response->json('errors.0.message') ?? $response->reason();
+            throw new CelescApiException('Falha ao listar contratos da Celesc: ' . $message);
         }
 
-        $partner = $payload['partner'] ?? $auth['sap_access']['partner'] ?? null;
+        $contracts = $response->json('data.allContracts.contracts');
 
-        if (!$partner) {
-            throw new RuntimeException('Parceiro (partner) não encontrado na resposta de login.');
+        if (!is_array($contracts) || empty($contracts)) {
+            throw new ContractNotFoundException('Nenhuma UC encontrada para a instalação informada.');
         }
 
-        $body = [
-            'variables' => [
-                'channelCode' => $payload['channel'] ?? $auth['sap_access']['channel'] ?? $this->defaultChannel,
-                'target' => 'sap',
-                'partner' => $partner,
-                'profileType' => $payload['profile_type'] ?? $auth['sap_access']['profileType'] ?? 'GRPA',
-            ],
+        return $contracts;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function listarFaturas(string $token, string $channel, string $target, string $partner, string $installation, ?string $contractAccount): array {
+
+      $body = [
+        'variables' => [
+          'channelCode' => $channel,
+          'target' => $target,
+          'allBillsInput' => [
+            'installation' => $installation,
+            'partner' => $partner,
+            'contractAccount' => $contractAccount,
+          ],
+        ],
             'query' => <<<'GQL'
-query ($partner: String!, $profileType: String, $installation: String, $owner: String, $zipCode: String) {
-  allContracts(
-    partner: $partner
-    profileType: $profileType
-    installation: $installation
-    owner: $owner
-    zipCode: $zipCode
-  ) {
-    contracts {
-      partner
+query ($allBillsInput: AllBillsInput!, $channelCode: String, $target: String) {
+  getAllBills(allBillsInput: $allBillsInput, channelCode: $channelCode, target: $target) {
+    bills {
+      code
       installation
-      category
-      office
-      contract
       contractAccount
-      home
-      name
-      street
-      houseNum
-      postCode
-      city1
-      city2
-      region
-      country
-      alertCode
-      alert
-      status
-      tarifType
-      favorite
-      denomination
-      messageHome
-      messageCard
-      messageType
-      complement
-      referencePoint
-      generation
       __typename
     }
     message
@@ -213,78 +230,99 @@ query ($partner: String!, $profileType: String, $installation: String, $owner: S
 GQL,
         ];
 
-        $response = $this->performGraphQlRequest($token, $body, 'https://conecte.celesc.com.br/contrato/selecao');
+        $response = $this->performGraphQlRequest($token, $body, 'https://conecte.celesc.com.br/fatura/historico');
 
         if ($response->failed()) {
             $message = $response->json('errors.0.message') ?? $response->reason();
+            throw new CelescApiException('Falha ao listar faturas na Celesc: ' . $message);
 
-            throw new RuntimeException('Falha ao listar contratos da Celesc: ' . $message);
+            throw new RuntimeException(
+                sprintf('Falha ao solicitar fatura na Celesc: %s.', $message)
+            );
         }
 
-        $contracts = $response->json('data.allContracts.contracts');
+        $bills = $response->json('data.getAllBills.bills');
 
-        if (!is_array($contracts)) {
-            throw new RuntimeException('Resposta inesperada ao listar contratos da Celesc.');
+        if (!is_array($bills) || empty($bills)) {
+            throw new BillNotFoundException('Nenhuma fatura encontrada para a instalação informada.');
         }
 
-        return [
-            'contracts' => $contracts,
-            'message' => $response->json('data.allContracts.message'),
-            'error' => $response->json('data.allContracts.error'),
-        ];
+        return $bills;
     }
 
     /**
-     * Solicita a fatura em base64 após a listagem de contratos.
-     *
-     * @param  array<string, string|null>  $payload
+     * @param  array<int, array<string, mixed>>  $contracts
      * @return array<string, mixed>
      */
-    private function emitirFatura(array $auth, array $contractsResult, array $payload): array
+    private function selecionarContrato(array $contracts, string $installation, ?string $contractAccount): array {
+
+        $filtrados = array_values(array_filter(
+            $contracts,
+            fn ($contract) => ($contract['installation'] ?? null) === $installation
+        ));
+
+        if ($contractAccount) {
+            $filtrados = array_values(array_filter(
+                $filtrados,
+                fn ($contract) => ($contract['contractAccount'] ?? null) === $contractAccount
+            ));
+        }
+
+        if (empty($filtrados)) {
+            throw new ContractNotFoundException('Contrato/UC não encontrado para a instalação informada.');
+        }
+
+        $selecionado = $filtrados[0];
+
+        if ($contractAccount && ($selecionado['contractAccount'] ?? null) !== $contractAccount) {
+            throw new ContractNotFoundException('Contract account não pertence à instalação informada.');
+        }
+
+        return $selecionado;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $bills
+     * @return array<string, mixed>
+     */
+    private function selecionarFatura(array $bills, ?string $invoiceId): array
     {
-        $token = $auth['token'] ?? null;
+        if ($invoiceId) {
+            foreach ($bills as $bill) {
+                if (($bill['code'] ?? null) === $invoiceId) {
+                    return $bill;
+                }
+            }
+
+            throw new BillNotFoundException('Fatura não encontrada para o invoiceId informado.');
+        }
+
+        return $bills[0];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function duplicarFatura(array $payload): array
+    {
+        $token = $payload['token'] ?? $this->accessToken;
 
         if (!$token) {
-            throw new RuntimeException('Token de acesso da Celesc não informado para emitir fatura.');
-        }
-
-        $contracts = $contractsResult['contracts'] ?? [];
-
-        if (!is_array($contracts) || empty($contracts)) {
-            throw new RuntimeException('Nenhuma UC encontrada para emissão de fatura.');
-        }
-
-        $selectedContract = $this->buscarContrato($contracts, $payload['contract_account'] ?? null);
-
-        $payload['channel'] = $payload['channel']
-            ?? $selectedContract['channel']
-            ?? $auth['sap_access']['channel']
-            ?? $this->defaultChannel;
-
-        $contractAccount = $selectedContract['contractAccount'] ?? null;
-        $partner = $selectedContract['partner']
-            ?? $auth['sap_access']['partner']
-            ?? null;
-        $accessId = $selectedContract['accessId']
-            ?? $payload['access_id']
-            ?? $auth['sap_access']['accessId']
-            ?? null;
-
-        if (!$contractAccount || !$partner || !$accessId) {
-            throw new RuntimeException('Dados obrigatórios para emitir fatura não encontrados na listagem de UCs.');
+          throw new CelescApiException('Token de acesso da Celesc não informado para duplicar fatura.');
         }
 
         $body = [
             'variables' => [
                 'duplicateBillInput' => [
-                    'contractAccount' => $contractAccount,
-                    'accessId' => $accessId,
-                    'partner' => $partner,
-                    'invoiceId' => $this->resolverInvoiceId($payload, $selectedContract),
-                    'bill' => $this->resolverBill($payload, $selectedContract),
-                    'channel' => $payload['channel'] ?? $this->defaultChannel,
+                    'contractAccount' => $payload['contractAccount'],
+                    'accessId' => $payload['accessId'],
+                    'partner' => $payload['partner'],
+                    'invoiceId' => $payload['invoiceId'],
+                    'bill' => $payload['bill'],
+                    'channel' => $payload['channel'],
                 ],
-                'target' => 'sap',
+                'target' => $payload['target'],
             ],
             'query' => <<<'GQL'
 mutation ($duplicateBillInput: DuplicateBillInput!) {
@@ -304,72 +342,17 @@ GQL,
         $response = $this->performGraphQlRequest($token, $body, 'https://conecte.celesc.com.br/fatura/historico');
 
         if ($response->failed()) {
-            $message = $response->json('errors.0.message')
-                ?? $response->reason();
-
-            throw new RuntimeException(
-                sprintf('Falha ao solicitar fatura na Celesc: %s.', $message)
-            );
+            $message = $response->json('errors.0.message') ?? $response->reason();
+            throw new CelescApiException('Falha ao solicitar 2ª via na Celesc: ' . $message);
         }
-
+        
         $data = $response->json('data.duplicateBill');
 
         if (!$data || !is_array($data)) {
-            throw new RuntimeException('Resposta inesperada da Celesc ao emitir fatura.');
+            throw new CelescApiException('Resposta inesperada da Celesc ao emitir fatura.');
         }
 
         return $data;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $contracts
-     * @return array<string, mixed>
-     */
-    private function buscarContrato(array $contracts, ?string $contractAccount): array
-    {
-        if ($contractAccount) {
-            foreach ($contracts as $contract) {
-                if (($contract['contractAccount'] ?? null) === $contractAccount) {
-                    return $contract;
-                }
-            }
-        }
-
-        return $contracts[0];
-    }
-
-    /**
-     * Tenta obter o invoiceId do payload ou do contrato retornado pela Celesc.
-     *
-     * @param  array<string, mixed>  $payload
-     * @param  array<string, mixed>  $contract
-     */
-    private function resolverInvoiceId(array $payload, array $contract): string
-    {
-        $invoiceId = $payload['invoice_id']
-            ?? $contract['invoiceId']
-            ?? $contract['lastInvoiceId']
-            ?? $contract['invoice_id']
-            ?? null;
-
-        if (!$invoiceId) {
-            throw new RuntimeException('invoice_id não encontrado. Informe no payload ou garanta que a listagem de UCs o retorne.');
-        }
-
-        return (string) $invoiceId;
-    }
-
-    /**
-     * Retorna o bill informado ou tenta reutilizar algum valor retornado no contrato.
-     *
-     * @param  array<string, mixed>  $payload
-     * @param  array<string, mixed>  $contract
-     */
-    private function resolverBill(array $payload, array $contract): string
-    {
-        return (string) ($payload['bill']
-            ?? $contract['bill']
-            ?? '');
     }
 
     /**
@@ -381,130 +364,6 @@ GQL,
             ->withToken($token)
             ->acceptJson()
             ->post($this->graphQlEndpoint, $body);
-    }
-
-    /**
-     * Consulta a análise de faturas (variação de consumo) para uma instalação.
-     *
-     * @param  array<string, mixed>  $auth
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
-     */
-    public function buscarAnaliseFaturas(array $auth, array $payload): array
-    {
-        $token = $auth['token'] ?? $this->accessToken;
-
-        if (!$token) {
-            throw new RuntimeException('Token de acesso da Celesc não informado para analisar faturas.');
-        }
-
-        $partner = $payload['partner'] ?? $auth['sap_access']['partner'] ?? null;
-        $installation = $payload['installation'] ?? null;
-        $contractAccount = $payload['contract_account'] ?? null;
-        $invoice1 = $payload['invoice1'] ?? null;
-        $invoice2 = $payload['invoice2'] ?? null;
-
-        if (!$partner || !$installation || !$contractAccount || !$invoice1 || !$invoice2) {
-            throw new RuntimeException('Dados obrigatórios para análise de faturas ausentes (partner, installation, contract_account, invoice1, invoice2).');
-        }
-
-        $body = [
-            'variables' => [
-                'channelCode' => $payload['channel'] ?? $auth['sap_access']['channel'] ?? $this->defaultChannel,
-                'target' => 'sap',
-                'billsAnalysisInput' => [
-                    'installation' => $installation,
-                    'partner' => $partner,
-                    'contractAccount' => $contractAccount,
-                    'invoice1' => $invoice1,
-                    'invoice2' => $invoice2,
-                ],
-            ],
-            'query' => <<<'GQL'
-query ($billsAnalysisInput: BillsAnalysisInput!) {
-  getBillsAnalysis(billsAnalysisInput: $billsAnalysisInput) {
-    billsAnalysis {
-      channel
-      showCard
-      serviceCode
-      accessId
-      serviceId
-      partner
-      installation
-      contractAccount
-      contract
-      invoice1
-      invoice2
-      group
-      item
-      descCard
-      descMsg
-      valueInvoice1
-      valueInvoice2
-      variation
-      protocol
-      __typename
-    }
-    error
-    message
-    __typename
-  }
-}
-GQL,
-        ];
-
-        $response = $this->performGraphQlRequest($token, $body, 'https://conecte.celesc.com.br/pagina-inicial/area-privada');
-
-        if ($response->failed()) {
-            $message = $response->json('errors.0.message') ?? $response->reason();
-
-            throw new RuntimeException('Falha ao consultar análise de faturas na Celesc: ' . $message);
-        }
-
-        $data = $response->json('data.getBillsAnalysis');
-
-        if (!is_array($data)) {
-            throw new RuntimeException('Resposta inesperada da Celesc ao consultar análise de faturas.');
-        }
-
-        $billsAnalysis = array_map(
-            fn ($item) => $this->normalizarAnaliseFatura($item),
-            $data['billsAnalysis'] ?? []
-        );
-
-        $invoiceIds = [];
-
-        foreach ($billsAnalysis as $bill) {
-            foreach (['invoice1', 'invoice2'] as $invoiceKey) {
-                if (!empty($bill[$invoiceKey])) {
-                    $invoiceIds[] = $bill[$invoiceKey];
-                }
-            }
-        }
-
-        return [
-            'bills_analysis' => $billsAnalysis,
-            'invoice_ids' => array_values(array_unique($invoiceIds)),
-            'message' => $data['message'] ?? null,
-            'error' => $data['error'] ?? null,
-        ];
-    }
-
-    /**
-     * Normaliza campos textuais da análise de faturas.
-     *
-     * @param  array<string, mixed>  $bill
-     * @return array<string, mixed>
-     */
-    private function normalizarAnaliseFatura(array $bill): array
-    {
-        foreach (['invoice1', 'invoice2', 'valueInvoice1', 'valueInvoice2', 'variation'] as $field) {
-            if (isset($bill[$field]) && is_string($bill[$field])) {
-                $bill[$field] = trim($bill[$field]);
-            }
-        }
-
-        return $bill;
     }
 
     private function baseRequest(string $referer)
@@ -526,7 +385,8 @@ GQL,
 
         // Ajuste para ambiente local (ex: Windows com CA/SSL desconfigurado)
         // - services.celesc.ssl_verify = false  -> desativa verificação SSL
-        // - services.celesc.ca_bundle = "C:\path\cacert.pem" -> usa CA bundle específico
+        // - services.celesc.ca_bundle = "C:\\path\
+        // \cacert.pem" -> usa CA bundle específico
         $sslVerify = config('services.celesc.ssl_verify');
         $caBundle = config('services.celesc.ca_bundle');
 
@@ -537,5 +397,20 @@ GQL,
         }
 
         return $request;
+    }
+
+    private function normalizarPartner(?string $partner): ?string
+    {
+        if (!$partner) {
+            return null;
+        }
+
+        $partner = preg_replace('/\\D/', '', (string) $partner) ?? '';
+
+        if ($partner === '') {
+            return null;
+        }
+
+        return str_pad($partner, 10, '0', STR_PAD_LEFT);
     }
 }
