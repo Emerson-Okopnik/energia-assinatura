@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Services\CelescApiService;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\View;
 use App\Models\Usina;
@@ -16,6 +17,12 @@ use Carbon\Carbon;
 class PDFController extends Controller {
 
   private const TRANSPARENT_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+  private CelescApiService $celescApiService;
+
+  public function __construct(CelescApiService $celescApiService)
+  {
+      $this->celescApiService = $celescApiService;
+  }
 
   public function gerarUsinaPDF(Request $request, $id) {
     try {
@@ -75,6 +82,9 @@ class PDFController extends Controller {
         $colunaMes = $nomesMeses[$mes];
 
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
+        $celescInvoiceBase64 = (string) $request->query('celesc_invoice_base64', '');
+        $celescInvoiceId = (string) $request->query('celesc_invoice_id', '');
+        $celescBillingPeriod = (string) $request->query('celesc_billing_period', '');
 
         // Meses: atual + últimos 11 (12 no total), mais antigos primeiro
         $datasRange = collect();
@@ -227,6 +237,31 @@ class PDFController extends Controller {
             ?: optional(optional(optional($usina->cliente)->consumidores)->first())->uc
             ?: 'N/A';
 
+        if (!$celescInvoiceBase64 && $uc) {
+            try {
+                $celescPayload = [
+                    'installation' => $request->query('celesc_installation', $uc),
+                    'contract_account' => $request->query('celesc_contract_account'),
+                    'billingPeriod' => $celescBillingPeriod,
+                    'invoiceId' => $celescInvoiceId ?: $request->query('celesc_invoice_id'),
+                    'channelCode' => $request->query('celesc_channel', config('services.celesc.channel', 'ZAW')),
+                    'target' => $request->query('celesc_target', 'sap'),
+                    'username' => $request->query('celesc_username'),
+                    'password' => $request->query('celesc_password'),
+                ];
+
+                $celescResponse = $this->celescApiService->gerarSegundaVia($celescPayload);
+                $celescInvoiceBase64 = (string) ($celescResponse['invoiceBase64'] ?? '');
+                $celescInvoiceId = (string) ($celescResponse['invoiceId'] ?? $celescInvoiceId);
+            } catch (\Throwable $e) {
+                \Log::warning('Celesc invoice not attached to PDF', [
+                    'usina_id' => $id,
+                    'installation' => $uc,
+                    'mensagem' => $e->getMessage(),
+                ]);
+            }
+        }
+
         // Imagens inline (sem depender de fileinfo/mime_content_type)
         $imagensInline = [
             'logo' => 'img/logo-consorcio-lider-energy.png',
@@ -280,6 +315,8 @@ class PDFController extends Controller {
             'saldo' => $saldo,
             'uc' => $uc,
             'geracaoMensalReal' => $geracaoMensalReal,
+            'celescInvoiceBase64' => $celescInvoiceBase64,
+            'celescInvoiceId' => $celescInvoiceId,
         ])->render();
 
         $pdf = $this->configureBrowsershot(Browsershot::html($html))
@@ -289,6 +326,10 @@ class PDFController extends Controller {
             //->waitUntilNetworkIdle()
             ->timeout(60)
             ->pdf();
+
+        if ($celescInvoiceBase64) {
+            $pdf = $this->anexarFaturaCelesc($pdf, $celescInvoiceBase64);
+        }
 
         return response($pdf, 200)
             ->header('Content-Type', 'application/pdf')
@@ -319,6 +360,45 @@ class PDFController extends Controller {
         return 'data:' . $mime . ';base64,' . base64_encode($contents);
     }
     return self::TRANSPARENT_PIXEL;
+  }
+
+   /**
+   * Anexa a fatura da Celesc (base64 PDF) ao PDF principal.
+   */
+  private function anexarFaturaCelesc(string $pdfPrincipal, string $celescBase64): string
+  {
+      $tmpMain = tempnam(sys_get_temp_dir(), 'lider-main-') . '.pdf';
+      $tmpCelesc = tempnam(sys_get_temp_dir(), 'celesc-') . '.pdf';
+      $tmpMerged = tempnam(sys_get_temp_dir(), 'lider-merged-') . '.pdf';
+
+      file_put_contents($tmpMain, $pdfPrincipal);
+      file_put_contents($tmpCelesc, base64_decode($celescBase64));
+
+      $cmd = sprintf(
+          'gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=%s %s %s 2>&1',
+          escapeshellarg($tmpMerged),
+          escapeshellarg($tmpMain),
+          escapeshellarg($tmpCelesc)
+      );
+
+      @exec($cmd, $output, $code);
+
+      $mergedContent = ($code === 0 && is_file($tmpMerged)) ? file_get_contents($tmpMerged) : null;
+
+      @unlink($tmpMain);
+      @unlink($tmpCelesc);
+      @unlink($tmpMerged);
+
+      if ($mergedContent !== null) {
+          return $mergedContent;
+      }
+
+      \Log::warning('Falha ao mesclar fatura Celesc no PDF; retornando PDF principal.', [
+          'exit_code' => $code ?? null,
+          'output' => $output ?? [],
+      ]);
+
+      return $pdfPrincipal;
   }
 
   public function gerarConsumidoresPDF($id) {

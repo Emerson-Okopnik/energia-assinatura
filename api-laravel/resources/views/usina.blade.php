@@ -185,6 +185,17 @@
       font-size: 7pt;
     }
 
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background-color: #fbbc04;
+      color: #333;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 8pt;
+      font-weight: 600;
+    }
+
     /* Borda só no cabeçalho */
     .data-table thead th {
       border: 1px solid #470b07;
@@ -467,6 +478,11 @@
                 <img src="{{ $iconeEmail }}" alt="Ícone Email" class="icon">
                 <span>contato@<strong>liderenergy</strong>.com.br</span>
               </div>
+              @if(!empty($celescInvoiceBase64))
+              <div class="contact-item">
+                <span class="badge">Fatura Celesc anexada @if(!empty($celescInvoiceId)) (Protocolo {{ $celescInvoiceId }}) @endif @if(!empty($celescBillingPeriod)) - Ref {{ $celescBillingPeriod }} @endif</span>
+              </div>
+              @endif
             </div>
           </div>
         </div>
@@ -608,6 +624,7 @@
         </div>
       </div>
     </div>
+
     <footer class="rodape">
       <div class="rodape-esquerda">
         <img src="{{ $iconeLampada }}" alt="Lâmpada" class="icon">
