@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Response;
 use App\Models\CreditosDistribuidosUsina;
 use App\Models\DadosGeracaoRealUsina;
 use Carbon\Carbon;
+use Symfony\Component\Process\Process;
 
 class PDFController extends Controller {
 
@@ -351,75 +352,108 @@ class PDFController extends Controller {
     return self::TRANSPARENT_PIXEL;
   }
 
-  /**
-  * Anexa a fatura da Celesc (base64 PDF) ao PDF principal.
-  */
-  private function anexarFaturaCelesc(string $pdfPrincipal, string $celescBase64): string
-  {
-      $celescBase64 = $this->normalizarPdfBase64($celescBase64);
-      if ($celescBase64 === '') {
-          return $pdfPrincipal;
-      }
+private function anexarFaturaCelesc(string $pdfPrincipal, string $celescBase64): string
+{
+    $pdfCelesc = $this->decodePdfBase64($celescBase64);
 
-      $tmpMain = tempnam(sys_get_temp_dir(), 'lider-main-') . '.pdf';
-      $tmpCelesc = tempnam(sys_get_temp_dir(), 'celesc-') . '.pdf';
-      $tmpMerged = tempnam(sys_get_temp_dir(), 'lider-merged-') . '.pdf';
+    return $pdfCelesc
+        ? ($this->mergePdfsWithPdfLib($pdfPrincipal, $pdfCelesc) ?? $pdfPrincipal)
+        : $pdfPrincipal;
+}
 
-      file_put_contents($tmpMain, $pdfPrincipal);
-      $decodedCelesc = base64_decode($celescBase64, true);
-      if ($decodedCelesc === false) {
-          \Log::warning('Celesc invoice base64 inválido; retornando PDF principal.');
-          @unlink($tmpMain);
-          @unlink($tmpCelesc);
-          @unlink($tmpMerged);
-          return $pdfPrincipal;
-      }
-      file_put_contents($tmpCelesc, $decodedCelesc);
+/**
+ * Decodifica base64 (puro ou data URI) e retorna binário do PDF, ou null.
+ */
+private function decodePdfBase64(?string $base64): ?string
+{
+    $base64 = trim((string) $base64);
+    if ($base64 === '') return null;
 
-      $cmd = sprintf(
-          'gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=%s %s %s 2>&1',
-          escapeshellarg($tmpMerged),
-          escapeshellarg($tmpMain),
-          escapeshellarg($tmpCelesc)
-      );
+    $base64 = preg_replace('#^data:.*;base64,#i', '', $base64) ?? $base64;
+    $base64 = preg_replace('/\s+/', '', trim($base64, "\"'")) ?? '';
 
-      @exec($cmd, $output, $code);
+    $bin = base64_decode($base64, true) ?: base64_decode(strtr($base64, '-_', '+/'), true);
 
-      $mergedContent = ($code === 0 && is_file($tmpMerged)) ? file_get_contents($tmpMerged) : null;
+    return ($bin && strncmp($bin, '%PDF-', 5) === 0) ? $bin : null;
+}
 
-      @unlink($tmpMain);
-      @unlink($tmpCelesc);
-      @unlink($tmpMerged);
+private function mergePdfsWithPdfLib(string $pdfA, string $pdfB): ?string
+{
+    $tmpA   = tempnam(sys_get_temp_dir(), 'pdf-a-');
+    $tmpB   = tempnam(sys_get_temp_dir(), 'pdf-b-');
+    $tmpOut = tempnam(sys_get_temp_dir(), 'pdf-out-');
 
-      if ($mergedContent !== null) {
-          return $mergedContent;
-      }
+    if (!$tmpA || !$tmpB || !$tmpOut) return null;
 
-      \Log::warning('Falha ao mesclar fatura Celesc no PDF; retornando PDF principal.', [
-          'exit_code' => $code ?? null,
-          'output' => $output ?? [],
-      ]);
+    try {
+        file_put_contents($tmpA, $pdfA);
+        file_put_contents($tmpB, $pdfB);
 
-      return $pdfPrincipal;
-  }
+        // Ajuste se necessário (no Windows às vezes precisa caminho completo do node.exe)
+        $node   = config('services.node.binary', 'node');
+        $script = base_path('resources/node/merge-pdf.cjs');
 
-   /**
-   * Remove prefixos de data URI e espaços em base64 de PDF.
-   */
-  private function normalizarPdfBase64(string $raw): string
-  {
-      if ($raw === '') {
-          return '';
-      }
+        if (!is_file($script)) {
+            \Log::warning('Script de merge PDF não encontrado.', ['script' => $script]);
+            return null;
+        }
 
-      // Remove prefixos como \"data:application/pdf;base64,\"
-      $limpo = preg_replace('#^data:application/pdf(?:;charset=[^;]+)?;base64,#i', '', trim($raw));
+        $args = [$node, $script, $tmpA, $tmpB, $tmpOut];
 
-      // Remove espaços em branco ou quebras de linha que possam quebrar o decode
-      $limpo = preg_replace('/\\s+/', '', $limpo ?? '');
+        $exitCode = null;
+        $out = '';
 
-      return $limpo ?: '';
-  }
+        if (class_exists(Process::class) && function_exists('proc_open')) {
+            $p = new Process($args, base_path()); // cwd = raiz (para achar node_modules)
+            $p->setTimeout(60);
+            $p->run();
+            $exitCode = $p->getExitCode();
+            $out = trim($p->getErrorOutput() ?: $p->getOutput());
+        } elseif (function_exists('exec')) {
+            $cmd = implode(' ', array_map('escapeshellarg', $args)) . ' 2>&1';
+            @exec($cmd, $lines, $code);
+            $exitCode = $code;
+            $out = is_array($lines) ? implode("\n", array_slice($lines, 0, 120)) : '';
+        } else {
+            \Log::warning('Nem proc_open nem exec disponíveis; não dá para rodar o merge via Node.');
+            return null;
+        }
+
+        if ($exitCode === 0 && is_file($tmpOut) && filesize($tmpOut) > 0) {
+            $merged = file_get_contents($tmpOut);
+            return ($merged !== false && $merged !== '') ? $merged : null;
+        }
+
+        \Log::warning('Falha ao mesclar PDFs via pdf-lib (node).', [
+            'exit_code' => $exitCode,
+            'output' => $out ? substr($out, 0, 2000) : null,
+        ]);
+
+        return null;
+    } finally {
+        @unlink($tmpA);
+        @unlink($tmpB);
+        @unlink($tmpOut);
+    }
+}
+
+
+/**
+ * Importa todas as páginas de um PDF binário para o PDF de saída.
+ */
+private function appendPdfPages(Fpdi $out, string $pdfBin): void
+{
+    $pageCount = $out->setSourceFile(StreamReader::createByString($pdfBin));
+
+    for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+        $tpl = $out->importPage($pageNo);
+        $size = $out->getTemplateSize($tpl);
+
+        $out->AddPage($size['orientation'], [$size['width'], $size['height']]);
+        $out->useTemplate($tpl);
+    }
+}
+
 
   public function gerarConsumidoresPDF($id) {
   

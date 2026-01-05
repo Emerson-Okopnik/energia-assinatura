@@ -478,11 +478,6 @@
                 <img src="{{ $iconeEmail }}" alt="Ícone Email" class="icon">
                 <span>contato@<strong>liderenergy</strong>.com.br</span>
               </div>
-              @if(!empty($celescInvoiceBase64))
-              <div class="contact-item">
-                <span class="badge">Fatura Celesc anexada @if(!empty($celescInvoiceId)) (Protocolo {{ $celescInvoiceId }}) @endif @if(!empty($celescBillingPeriod)) - Ref {{ $celescBillingPeriod }} @endif</span>
-              </div>
-              @endif
             </div>
           </div>
         </div>

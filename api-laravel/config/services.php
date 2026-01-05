@@ -51,4 +51,8 @@ return [
         'password' => env('CELESC_PASSWORD'),
         'cookies' => env('CELESC_COOKIES'),
     ],
+
+    'node' => [
+      'binary' => env('NODE_BINARY', 'node'),
+    ],
 ];
