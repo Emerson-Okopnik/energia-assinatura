@@ -4,6 +4,7 @@
     release_path: "{{ app_root }}/current"
     repo_path: "{{ app_root }}/repo"
     nginx_configure_frontend: false
+    backend_requires_nodejs: true
   pre_tasks:
     - name: Garantir diretórios base
       ansible.builtin.file:

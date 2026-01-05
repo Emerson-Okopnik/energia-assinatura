@@ -102,6 +102,7 @@
   loop:
     - "{{ app_root }}/shared/storage/app"
     - "{{ app_root }}/shared/storage/app/browsershot-tmp"
+  when: backend_requires_nodejs | default(true) | bool
 
 - name: Ajustar permissões do cache do bootstrap da release
   ansible.builtin.file:
@@ -111,6 +112,13 @@
     group: "{{ php_fpm_pool_group }}"
     mode: "0775"
 
+- name: Validar disponibilidade do Node.js para dependências npm
+  ansible.builtin.command:
+    cmd: node --version
+  register: backend_node_version
+  changed_when: false
+  when: backend_requires_nodejs | default(true) | bool
+
 - name: Detectar executável do Chrome/Chromium (auto)
   ansible.builtin.stat:
     path: "{{ item }}"
@@ -118,7 +126,9 @@
   loop_control:
     label: "{{ item }}"
   register: browsershot_chrome_candidates_stats
-  when: browsershot_chrome_path == 'auto'
+  when:
+    - backend_requires_nodejs | default(true) | bool
+    - browsershot_chrome_path == 'auto'
   changed_when: false
 
 - name: Selecionar executável do Chrome/Chromium (auto)
@@ -131,14 +141,18 @@
          | list
          | first
          | default('auto') }}
-  when: browsershot_chrome_path == 'auto'
+  when:
+    - backend_requires_nodejs | default(true) | bool
+    - browsershot_chrome_path == 'auto'
 
 - name: Falhar se nenhum Chrome/Chromium foi encontrado
   ansible.builtin.fail:
     msg: >-
       Não foi possível localizar um executável do Chrome/Chromium nos caminhos {{ browsershot_chrome_candidates | join(', ') }}.
       Instale o navegador ou defina browsershot_chrome_path manualmente.
-  when: browsershot_chrome_path == 'auto'
+  when:
+    - backend_requires_nodejs | default(true) | bool
+    - browsershot_chrome_path == 'auto'
   
 - name: Renderizar .env
   ansible.builtin.template:
@@ -176,6 +190,7 @@
   community.general.npm:
     path: "{{ release_path }}"
     production: false
+  when: backend_requires_nodejs | default(true) | bool
 
 - name: Garantir instalação do Puppeteer local
   become: true
@@ -185,6 +200,7 @@
     name: puppeteer
     production: false
     state: present
+  when: backend_requires_nodejs | default(true) | bool
 
 - name: Construir assets Laravel (se houver)
   become: true
@@ -192,7 +208,9 @@
   ansible.builtin.command:
     cmd: npm run build
     chdir: "{{ release_path }}"
-  when: lookup('ansible.builtin.fileglob', release_path + '/vite.config.js', errors='ignore') != []
+  when:
+    - backend_requires_nodejs | default(true) | bool
+    - lookup('ansible.builtin.fileglob', release_path + '/vite.config.js', errors='ignore') != []
 
 - name: Gerar APP_KEY se não existir
   ansible.builtin.command:

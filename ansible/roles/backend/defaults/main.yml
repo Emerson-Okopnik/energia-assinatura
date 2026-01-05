@@ -1,0 +1,3 @@
+---
+# Node.js é necessário para dependências npm (Browsershot, pdf-lib, etc.)
+backend_requires_nodejs: true
