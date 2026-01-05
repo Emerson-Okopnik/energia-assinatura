@@ -35,6 +35,8 @@ jobs:
       DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
       APP_KEY: ${{ secrets.PROD_APP_KEY }}
       JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+      USER_CELESC: ${{secrets.PROD_USER_CELESC}}
+      PASSWORD_CELESC: ${{secrets.PROD_PASSWORD_CELESC}}
 
     steps:
       - name: Determinar ref para deploy

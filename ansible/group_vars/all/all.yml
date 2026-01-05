@@ -35,6 +35,8 @@ db_username: "{{ vault_db_username | default(lookup('env', 'DB_USERNAME'), true)
 db_password: "{{ vault_db_password | default(lookup('env', 'DB_PASSWORD'), true) }}"          # ansible-vault
 app_key: "{{ vault_app_key | default(lookup('env', 'APP_KEY'), true) }}"                  # Base64::32 chars
 jwt_secret: "{{ vault_jwt_secret | default(lookup('env', 'JWT_SECRET'), true) }}"            # 32+ chars
+user_celesc: "{{ vault_user_celesc | default(lookup('env', 'USER_CELESC'), true) }}"  
+password_celesc: "{{ vault_password_celesc | default(lookup('env', 'PASSWORD_CELESC'), true) }}"  
 queue_connection: database
 
 # Evita reinstalar/atualizar o PostgreSQL local a cada deploy. Ajuste para true
