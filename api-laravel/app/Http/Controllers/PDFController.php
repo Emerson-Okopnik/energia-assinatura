@@ -79,7 +79,7 @@ class PDFController extends Controller {
         $colunaMes = $nomesMeses[$mes];
 
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
-        $celescInvoiceBase64 = null;
+        $celescInvoiceBase64 = '';
         $celescInvoiceId = '';
         $celescBillingPeriod = $anchorData->format('Y/m');
 
@@ -240,7 +240,7 @@ class PDFController extends Controller {
                 ];
 
                 $celescResponse = $this->celescApiService->gerarSegundaVia($celescPayload);
-                $celescInvoiceBase64 = $celescResponse['invoiceBase64'] ?? 'NÃO FOI';
+                $celescInvoiceBase64 = (string) ($celescResponse['invoiceBase64'] ?? '');
                 $celescInvoiceId = (string) ($celescResponse['invoiceId'] ?? $celescInvoiceId);
             } catch (\Throwable $e) {
                 \Log::warning('Celesc invoice not attached to PDF', [
@@ -317,6 +317,9 @@ class PDFController extends Controller {
             ->timeout(90)
             ->pdf();
 
+        if (!empty($celescInvoiceBase64)) {
+            $pdf = $this->anexarFaturaCelesc($pdf, $celescInvoiceBase64);
+        }
         return response($pdf, 200)
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'inline; filename="grafico_usina.pdf"');
