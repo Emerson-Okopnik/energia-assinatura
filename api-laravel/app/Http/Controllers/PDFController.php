@@ -69,22 +69,19 @@ class PDFController extends Controller {
         $mes = (int) $request->query('mes', now()->month);
         if ($mes < 1 || $mes > 12) { $mes = now()->month; }
         $anoInformado = $request->query('ano');
-        $ano = is_numeric($anoInformado)
-            ? (int) $anoInformado
-            : (int) (DadosGeracaoRealUsina::where('usi_id', $id)->max('ano') ?? now()->year);
+        $ano = is_numeric($anoInformado) ? (int) $anoInformado : (int) (DadosGeracaoRealUsina::where('usi_id', $id)->max('ano') ?? now()->year);
         $observacoes = (string) $request->query('observacoes', '');
 
         // Mapa de colunas no banco
         $nomesMeses = [
-            1=>'janeiro',2=>'fevereiro',3=>'marco',4=>'abril',5=>'maio',6=>'junho',
-            7=>'julho',8=>'agosto',9=>'setembro',10=>'outubro',11=>'novembro',12=>'dezembro',
+            1=>'janeiro',2=>'fevereiro',3=>'marco',4=>'abril',5=>'maio',6=>'junho', 7=>'julho',8=>'agosto',9=>'setembro',10=>'outubro',11=>'novembro',12=>'dezembro',
         ];
         $colunaMes = $nomesMeses[$mes];
 
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
-        $celescInvoiceBase64 = (string) $request->query('celesc_invoice_base64', '');
-        $celescInvoiceId = (string) $request->query('celesc_invoice_id', '');
-        $celescBillingPeriod = (string) $request->query('celesc_billing_period', '');
+        $celescInvoiceBase64 = null;
+        $celescInvoiceId = '';
+        $celescBillingPeriod = $anchorData->format('Y/m');
 
         // Meses: atual + últimos 11 (12 no total), mais antigos primeiro
         $datasRange = collect();
@@ -233,25 +230,17 @@ class PDFController extends Controller {
         $geracaoMes = $geracaoMensalReal[$mesSelecionadoLabel] ?? 0;
 
         // UC: prioriza a UC da própria usina, depois a primeira do cliente (se houver)
-        $uc = $usina->uc
-            ?: optional(optional(optional($usina->cliente)->consumidores)->first())->uc
-            ?: 'N/A';
+        $uc = $usina->uc ?: optional(optional(optional($usina->cliente)->consumidores)->first())->uc ?: 'N/A';
 
         if (!$celescInvoiceBase64 && $uc) {
             try {
                 $celescPayload = [
-                    'installation' => $request->query('celesc_installation', $uc),
-                    'contract_account' => $request->query('celesc_contract_account'),
-                    'billingPeriod' => $celescBillingPeriod,
-                    'invoiceId' => $celescInvoiceId ?: $request->query('celesc_invoice_id'),
-                    'channelCode' => $request->query('celesc_channel', config('services.celesc.channel', 'ZAW')),
-                    'target' => $request->query('celesc_target', 'sap'),
-                    'username' => $request->query('celesc_username'),
-                    'password' => $request->query('celesc_password'),
+                    'installation' => $uc,
+                    'billingPeriod' => $celescBillingPeriod
                 ];
 
                 $celescResponse = $this->celescApiService->gerarSegundaVia($celescPayload);
-                $celescInvoiceBase64 = (string) ($celescResponse['invoiceBase64'] ?? '');
+                $celescInvoiceBase64 = $celescResponse['invoiceBase64'] ?? 'NÃO FOI';
                 $celescInvoiceId = (string) ($celescResponse['invoiceId'] ?? $celescInvoiceId);
             } catch (\Throwable $e) {
                 \Log::warning('Celesc invoice not attached to PDF', [
@@ -323,13 +312,10 @@ class PDFController extends Controller {
             ->format('A4')
             ->showBackground()
             ->deviceScaleFactor(1)
-            //->waitUntilNetworkIdle()
-            ->timeout(60)
+            ->waitUntilNetworkIdle()
+            ->setDelay(1500) // aguarda render do pdf.js
+            ->timeout(90)
             ->pdf();
-
-        if ($celescInvoiceBase64) {
-            $pdf = $this->anexarFaturaCelesc($pdf, $celescInvoiceBase64);
-        }
 
         return response($pdf, 200)
             ->header('Content-Type', 'application/pdf')
@@ -362,17 +348,30 @@ class PDFController extends Controller {
     return self::TRANSPARENT_PIXEL;
   }
 
-   /**
-   * Anexa a fatura da Celesc (base64 PDF) ao PDF principal.
-   */
+  /**
+  * Anexa a fatura da Celesc (base64 PDF) ao PDF principal.
+  */
   private function anexarFaturaCelesc(string $pdfPrincipal, string $celescBase64): string
   {
+      $celescBase64 = $this->normalizarPdfBase64($celescBase64);
+      if ($celescBase64 === '') {
+          return $pdfPrincipal;
+      }
+
       $tmpMain = tempnam(sys_get_temp_dir(), 'lider-main-') . '.pdf';
       $tmpCelesc = tempnam(sys_get_temp_dir(), 'celesc-') . '.pdf';
       $tmpMerged = tempnam(sys_get_temp_dir(), 'lider-merged-') . '.pdf';
 
       file_put_contents($tmpMain, $pdfPrincipal);
-      file_put_contents($tmpCelesc, base64_decode($celescBase64));
+      $decodedCelesc = base64_decode($celescBase64, true);
+      if ($decodedCelesc === false) {
+          \Log::warning('Celesc invoice base64 inválido; retornando PDF principal.');
+          @unlink($tmpMain);
+          @unlink($tmpCelesc);
+          @unlink($tmpMerged);
+          return $pdfPrincipal;
+      }
+      file_put_contents($tmpCelesc, $decodedCelesc);
 
       $cmd = sprintf(
           'gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=%s %s %s 2>&1',
@@ -399,6 +398,24 @@ class PDFController extends Controller {
       ]);
 
       return $pdfPrincipal;
+  }
+
+   /**
+   * Remove prefixos de data URI e espaços em base64 de PDF.
+   */
+  private function normalizarPdfBase64(string $raw): string
+  {
+      if ($raw === '') {
+          return '';
+      }
+
+      // Remove prefixos como \"data:application/pdf;base64,\"
+      $limpo = preg_replace('#^data:application/pdf(?:;charset=[^;]+)?;base64,#i', '', trim($raw));
+
+      // Remove espaços em branco ou quebras de linha que possam quebrar o decode
+      $limpo = preg_replace('/\\s+/', '', $limpo ?? '');
+
+      return $limpo ?: '';
   }
 
   public function gerarConsumidoresPDF($id) {
