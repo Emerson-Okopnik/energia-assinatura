@@ -24,7 +24,7 @@ use App\Http\Controllers\CalculoGeracaoController;
 use App\Http\Controllers\CelescController;
 
 Route::post('/login', [AuthController::class, 'login']);
-//Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register', [AuthController::class, 'register']);
 
 Route::middleware('auth:api')->group(function () {
   Route::get('/home', [AuthController::class, 'user']);
