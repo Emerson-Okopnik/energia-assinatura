@@ -6,6 +6,7 @@ use App\Exceptions\BillNotFoundException;
 use App\Exceptions\CelescApiException;
 use App\Exceptions\ContractNotFoundException;
 use App\Exceptions\LoginFailedException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +21,7 @@ class CelescApiService
     private ?string $username;
     private ?string $password;
     private ?string $cookiesHeader;
+    private ?string $caBundle;
 
     public function __construct()
     {
@@ -31,6 +33,7 @@ class CelescApiService
         $this->username = config('services.celesc.username');
         $this->password = config('services.celesc.password');
         $this->cookiesHeader = config('services.celesc.cookies');
+        $this->caBundle = config('services.celesc.ca_bundle') ?: null;
     }
 
     /**
@@ -130,11 +133,15 @@ class CelescApiService
             'firebaseToken' => $payload['firebase_token'] ?? '',
         ];
 
-        $response = $this->baseRequest('https://conecte.celesc.com.br/autenticacao/login')
-            ->withHeaders([
-                'Referer' => 'https://conecte.celesc.com.br/autenticacao/login',
-            ])
-            ->post($this->authEndpoint, $body);
+        try {
+            $response = $this->baseRequest('https://conecte.celesc.com.br/autenticacao/login')
+                ->withHeaders([
+                    'Referer' => 'https://conecte.celesc.com.br/autenticacao/login',
+                ])
+                ->post($this->authEndpoint, $body);
+        } catch (ConnectionException $e) {
+            throw new LoginFailedException('Falha ao conectar na Celesc: ' . $e->getMessage(), previous: $e);
+        }
 
         if ($response->failed()) {
             $message = $response->json('errors.0.message') ?? $response->reason();
@@ -379,18 +386,31 @@ GQL,
 
         $request = Http::withHeaders($headers);
 
-        // Ajuste para ambiente local (ex: Windows com CA/SSL desconfigurado)
-        // - services.celesc.ssl_verify = false  -> desativa verificação SSL
-        // - services.celesc.ca_bundle = "C:\\path\
-        // \cacert.pem" -> usa CA bundle específico
-        $sslVerify = config('services.celesc.ssl_verify');
-        $caBundle = config('services.celesc.ca_bundle');
+        $caBundle = $this->caBundle;
 
-        if ($sslVerify === false || ($sslVerify === null && app()->environment('local'))) {
-            $request = $request->withoutVerifying();
-        } elseif ($caBundle) {
-            $request = $request->withOptions(['verify' => $caBundle]);
+        if ($caBundle) {
+            if (file_exists($caBundle)) {
+                $request = $request->withOptions(['verify' => $caBundle]);
+            } else {
+                Log::warning('Celesc - CA bundle configurado, mas o arquivo não existe.', ['path' => $caBundle]);
+            }
         }
+
+        /*
+            //TESTE LOCAL
+            // Ajuste para ambiente local (ex: Windows com CA/SSL desconfigurado)
+            // - services.celesc.ssl_verify = false  -> desativa verificação SSL
+            // - services.celesc.ca_bundle = "C:\\path\
+            // \cacert.pem" -> usa CA bundle específico
+            $sslVerify = config('services.celesc.ssl_verify');
+            $caBundle = config('services.celesc.ca_bundle');
+
+            if ($sslVerify === false || ($sslVerify === null && app()->environment('local'))) {
+                $request = $request->withoutVerifying();
+            } elseif ($caBundle) {
+                $request = $request->withOptions(['verify' => $caBundle]);
+            }
+        */
 
         return $request;
     }

@@ -50,6 +50,7 @@ return [
         'username' => env('CELESC_USERNAME'),
         'password' => env('CELESC_PASSWORD'),
         'cookies' => env('CELESC_COOKIES'),
+        'ca_bundle' => env('CELESC_CA_BUNDLE', ''),
     ],
 
     'node' => [
