@@ -54,6 +54,6 @@ browsershot_chrome_path: /usr/bin/google-chrome
 browsershot_node_path: /usr/bin/node
 browsershot_disable_sandbox: true
 
-letsencrypt_email: emer00k@gmail.com       # opcional
+letsencrypt_email: ti2@rudniksolucoes.com.br       # opcional
 
 # Secrets armazenados em group_vars/all/vault.yml criptografado
