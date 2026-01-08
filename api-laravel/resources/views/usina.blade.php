@@ -544,7 +544,7 @@
               @foreach($dadosMensais as $mes => $dados)
                 <tr>
                   <td>{{ $mes }}</td>
-                  <td>{{ number_format($geracaoMensalReal[$mes] ?? 0, 2, ',', '.') }}</td>
+                  <td>{{ number_format($dados['geracao_kwh'] ?? 0, 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['fixo'], 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['injetado'], 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>

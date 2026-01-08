@@ -12,6 +12,7 @@ use Spatie\Browsershot\Browsershot;
 use Illuminate\Support\Facades\Response;
 use App\Models\CreditosDistribuidosUsina;
 use App\Models\DadosGeracaoRealUsina;
+use App\Models\GeracaoFaturamentoPdf;
 use Carbon\Carbon;
 use Symfony\Component\Process\Process;
 
@@ -103,11 +104,14 @@ class PDFController extends Controller {
             ->keyBy('ano');
 
         $janelaMeses = $datasRange->mapWithKeys(function ($dataMes) use ($nomesMeses) {
+            $competencia = $dataMes->copy()->startOfMonth()->toDateString();
             return [
                 $dataMes->format('Y-m') => [
                     'ano' => (int) $dataMes->year,
                     'coluna' => $nomesMeses[$dataMes->month],
+                    'mes' => (int) $dataMes->month,
                     'label' => Str::ucfirst($nomesMeses[$dataMes->month]) . '/' . substr((string) $dataMes->year, -2),
+                    'competencia' => $dataMes->format('Y-m-01'),
                 ],
             ];
         });
@@ -168,7 +172,41 @@ class PDFController extends Controller {
         // Tabela mensal de valores (apenas meses com geração informada)
         $mesSelecionadoLabel = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
         $dadosMensais = [];
+        $competencias = [];
         foreach ($meses as $mesNome => $valor) {
+            $competencias[] = $mesesInfo[$mesNome]['competencia'];
+        }
+
+        $competencias = array_values(array_unique($competencias));
+
+        $dadosPersistidos = count($competencias)
+            ? GeracaoFaturamentoPdf::where('usi_id', $id)
+                ->whereIn('competencia', $competencias)
+                ->get()
+                ->keyBy(function ($registro) {
+                    return $registro->competencia instanceof Carbon
+                        ? $registro->competencia->toDateString()
+                        : (string) $registro->competencia;
+                })
+            : collect();
+
+        $novosRegistros = [];
+        foreach ($meses as $mesNome => $valor) {
+            $competencia = $mesesInfo[$mesNome]['competencia'];
+            $registroPersistido = $dadosPersistidos->get($competencia);
+
+            if ($registroPersistido) {
+                $dadosMensais[$mesNome] = [
+                    'geracao_kwh' => (float) $registroPersistido->geracao_kwh,
+                    'fixo' => (float) $registroPersistido->valor_fixo,
+                    'injetado' => (float) $registroPersistido->injetado,
+                    'creditado' => (float) $registroPersistido->creditado,
+                    'cuo' => (float) $registroPersistido->cuo,
+                    'valor_final' => (float) $registroPersistido->valor_final,
+                ];
+                continue;
+            }
+
             $fixo           = (float) ($usina->comercializacao->valor_fixo ?? 0);
             $injetado       = ($valor >= $mediaGeracao) ? ($mediaGeracao - $menorGeracao) * $valorKwh : ($valor - $menorGeracao) * $valorKwh;
             $valorBaseCuo   = $faturaEnergia + ($valor * $valorFinalFioB);
@@ -182,13 +220,33 @@ class PDFController extends Controller {
                 }
             }
             //$cuo       =  ($faturaEnergia + ($fioB * $valor * ($percentualLei / 100)));
+            $valorFinal = ($fixo + $injetado + $creditado) - $cuo;
+
             $dadosMensais[$mesNome] = [
+                'geracao_kwh' => $valor,
                 'fixo' => $fixo,
                 'injetado' => $injetado,
                 'creditado' => $creditado,
                 'cuo' => $cuo,
-                'valor_final' => ($fixo + $injetado + $creditado) - $cuo,
+                'valor_final' => $valorFinal,
             ];
+            
+            $novosRegistros[] = [
+                'usi_id' => $id,
+                'competencia' => $competencia,
+                'geracao_kwh' => $valor,
+                'valor_fixo' => $fixo,
+                'injetado' => $injetado,
+                'creditado' => $creditado,
+                'cuo' => $cuo,
+                'valor_final' => $valorFinal,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if (count($novosRegistros)) {
+            GeracaoFaturamentoPdf::insertOrIgnore($novosRegistros);
         }
 
         $dadosFaturamento = [];
