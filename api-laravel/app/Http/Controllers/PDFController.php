@@ -264,13 +264,41 @@ class PDFController extends Controller {
             $reserva  = $faturamento->valorAcumuladoReserva;
             $pago     = $faturamento->faturamentoUsina;
             $geracaoMensalRealObj = $geracaoRealAnoSelecionado->DadosGeracaoReal;
-            $datasUsoCreditos = collect();
+            $mesesUtilizadosPorMes = [];
+            $filaReservas = [];
 
             foreach ($nomesMeses as $indiceMes => $chave) {
-                $creditoVal = (float) ($creditos?->$chave ?? 0);
-                if ($creditoVal > 0) {
-                    $datasUsoCreditos->push(Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth());
+                $dataBase = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
+                $labelMes = $formatarCompetencia($dataBase);
+                $reservaVal = (float) ($reserva?->$chave ?? 0);
+
+                if ($reservaVal > 0) {
+                    $filaReservas[] = [
+                        'label' => $labelMes,
+                        'saldo' => $reservaVal,
+                    ];
                 }
+
+                $creditoVal = (float) ($creditos?->$chave ?? 0);
+                $mesesUtilizados = [];
+                $saldoRestante = $creditoVal;
+
+                while ($saldoRestante > 0 && count($filaReservas)) {
+                    if ($filaReservas[0]['saldo'] <= 0.000001) {
+                        array_shift($filaReservas);
+                        continue;
+                    }
+
+                    $mesesUtilizados[] = $filaReservas[0]['label'];
+                    $consumo = min($filaReservas[0]['saldo'], $saldoRestante);
+                    $filaReservas[0]['saldo'] -= $consumo;
+                    $saldoRestante -= $consumo;
+
+                    if ($filaReservas[0]['saldo'] <= 0.000001) {
+                        array_shift($filaReservas);
+                    }
+                }
+                $mesesUtilizadosPorMes[$indiceMes] = array_values(array_unique($mesesUtilizados));
             }
 
             foreach ($nomesMeses as $indiceMes => $chave) {
@@ -278,16 +306,7 @@ class PDFController extends Controller {
                 if ($pagoVal > 0) {
                     $dataBaseCredito = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
                     $dataVencimento = $dataBaseCredito->copy()->addDays(180);
-                    $mesesUtilizados = $datasUsoCreditos
-                        ->filter(function (Carbon $dataUso) use ($dataBaseCredito, $dataVencimento) {
-                            return $dataUso->greaterThanOrEqualTo($dataBaseCredito)
-                                && $dataUso->lessThanOrEqualTo($dataVencimento);
-                        })
-                        ->sort()
-                        ->map(function (Carbon $dataUso) use ($formatarCompetencia) {
-                            return $formatarCompetencia($dataUso);
-                        })
-                        ->values();
+                    $mesesUtilizados = collect($mesesUtilizadosPorMes[$indiceMes] ?? []);
 
                     $dadosFaturamento[$formatarCompetencia($dataBaseCredito)] = [
                         'competencia'      => $formatarCompetencia($dataBaseCredito),
