@@ -264,60 +264,25 @@ class PDFController extends Controller {
             $reserva  = $faturamento->valorAcumuladoReserva;
             $pago     = $faturamento->faturamentoUsina;
             $geracaoMensalRealObj = $geracaoRealAnoSelecionado->DadosGeracaoReal;
-            $mesesUtilizadosPorMes = [];
-            $filaReservas = [];
-
-            foreach ($nomesMeses as $indiceMes => $chave) {
-                $dataBase = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
-                $labelMes = $formatarCompetencia($dataBase);
-                $reservaVal = (float) ($reserva?->$chave ?? 0);
-
-                if ($reservaVal > 0) {
-                    $filaReservas[] = [
-                        'label' => $labelMes,
-                        'saldo' => $reservaVal,
-                    ];
-                }
-
-                $creditoVal = (float) ($creditos?->$chave ?? 0);
-                $mesesUtilizados = [];
-                $saldoRestante = $creditoVal;
-
-                while ($saldoRestante > 0 && count($filaReservas)) {
-                    if ($filaReservas[0]['saldo'] <= 0.000001) {
-                        array_shift($filaReservas);
-                        continue;
-                    }
-
-                    $mesesUtilizados[] = $filaReservas[0]['label'];
-                    $consumo = min($filaReservas[0]['saldo'], $saldoRestante);
-                    $filaReservas[0]['saldo'] -= $consumo;
-                    $saldoRestante -= $consumo;
-
-                    if ($filaReservas[0]['saldo'] <= 0.000001) {
-                        array_shift($filaReservas);
-                    }
-                }
-                $mesesUtilizadosPorMes[$indiceMes] = array_values(array_unique($mesesUtilizados));
-            }
 
             foreach ($nomesMeses as $indiceMes => $chave) {
                 $pagoVal = (float) ($pago?->$chave ?? 0);
                 if ($pagoVal > 0) {
                     $dataBaseCredito = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
                     $dataVencimento = $dataBaseCredito->copy()->addDays(180);
-                    $mesesUtilizados = collect($mesesUtilizadosPorMes[$indiceMes] ?? []);
+                    $creditado = (float) ($creditos?->$chave ?? 0);
+                    $mesCreditado = $creditado > 0
+                        ? $formatarCompetencia($dataBaseCredito)
+                        : '-';
 
                     $dadosFaturamento[$formatarCompetencia($dataBaseCredito)] = [
                         'competencia'      => $formatarCompetencia($dataBaseCredito),
                         'geracao'          => (float) ($geracaoMensalRealObj?->$chave ?? 0),
                         'guardado'         => (float) ($reserva?->$chave ?? 0),
-                        'creditado'        => (float) ($creditos?->$chave ?? 0),
+                        'creditado'        => $creditado,
                         'pago'             => $pagoVal,
                         'vencimento'       => $formatarCompetencia($dataVencimento),
-                        'meses_utilizados' => $mesesUtilizados->isEmpty()
-                            ? '-'
-                            : $mesesUtilizados->implode(', '),
+                        'mes_creditado'    => $mesCreditado,
                     ];
                 }
             }

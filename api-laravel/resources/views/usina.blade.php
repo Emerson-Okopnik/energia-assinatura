@@ -581,7 +581,7 @@
                           <td>{{ $dados['vencimento'] ?? '-' }}</td>
                           <td>{{ number_format($dados['guardado'], 2, ',', '.') }} Kwh</td>
                           <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
-                          <td>{{ $dados['meses_utilizados'] ?? '-' }}</td>
+                          <td>{{ $dados['mes_creditado'] ?? '-' }}</td>
                       </tr>
                   @endforeach
               </tbody>
