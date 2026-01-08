@@ -429,7 +429,7 @@ export default {
     mediaGeracao() {
       const meses = Object.values(this.meses).map((_, i) => this.form[Object.keys(this.meses)[i]]);
       const soma = meses.reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
-      this.form.media = parseFloat((soma / 12).toFixed(2));
+      this.form.media = parseFloat((soma / 12).toFixed(0));
       return this.form.media;
     },
     menorGeracao() {
@@ -437,7 +437,7 @@ export default {
       return Math.min(...valores);
     },
     valorFixoCalculado() {
-      return parseFloat((this.menorGeracao * this.form.valor_kwh).toFixed(2)) || 0;
+      return parseFloat((this.menorGeracao * this.form.valor_kwh).toFixed(0)) || 0;
     },
     valorFinalMedioCalculado() {
       //Valor Final Projetado = (Média Geração * (Valor do kWh - ( FIO B * Percentual LEI)))
@@ -449,7 +449,7 @@ export default {
       const descontoLei = fioB * (percentualLei/100);
       const valorFinalMedio = mediaGeracao * (valorKwh - descontoLei);
 
-      return parseFloat(valorFinalMedio.toFixed(2)) || 0;
+      return parseFloat(valorFinalMedio) || 0;
     }
   },
   mounted() {

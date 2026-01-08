@@ -81,6 +81,9 @@ class PDFController extends Controller {
         $colunaMes = $nomesMeses[$mes];
 
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
+        $formatarCompetencia = function (Carbon $data) use ($nomesMeses): string {
+            return Str::ucfirst($nomesMeses[$data->month]) . '/' . substr((string) $data->year, -2);
+        };
         $celescInvoiceBase64 = '';
         $celescInvoiceId = '';
         $celescBillingPeriod = $anchorData->format('Y/m');
@@ -261,15 +264,41 @@ class PDFController extends Controller {
             $reserva  = $faturamento->valorAcumuladoReserva;
             $pago     = $faturamento->faturamentoUsina;
             $geracaoMensalRealObj = $geracaoRealAnoSelecionado->DadosGeracaoReal;
+            $datasUsoCreditos = collect();
 
-            foreach (array_values($nomesMeses) as $chave) {
+            foreach ($nomesMeses as $indiceMes => $chave) {
+                $creditoVal = (float) ($creditos?->$chave ?? 0);
+                if ($creditoVal > 0) {
+                    $datasUsoCreditos->push(Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth());
+                }
+            }
+
+            foreach ($nomesMeses as $indiceMes => $chave) {
                 $pagoVal = (float) ($pago?->$chave ?? 0);
                 if ($pagoVal > 0) {
-                    $dadosFaturamento[\Illuminate\Support\Str::ucfirst($chave)] = [
-                        'geracao'   => (float) ($geracaoMensalRealObj?->$chave ?? 0),
-                        'guardado'  => (float) ($reserva?->$chave ?? 0),
-                        'creditado' => (float) ($creditos?->$chave ?? 0),
-                        'pago'      => $pagoVal,
+                    $dataBaseCredito = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
+                    $dataVencimento = $dataBaseCredito->copy()->addDays(180);
+                    $mesesUtilizados = $datasUsoCreditos
+                        ->filter(function (Carbon $dataUso) use ($dataBaseCredito, $dataVencimento) {
+                            return $dataUso->greaterThanOrEqualTo($dataBaseCredito)
+                                && $dataUso->lessThanOrEqualTo($dataVencimento);
+                        })
+                        ->sort()
+                        ->map(function (Carbon $dataUso) use ($formatarCompetencia) {
+                            return $formatarCompetencia($dataUso);
+                        })
+                        ->values();
+
+                    $dadosFaturamento[$formatarCompetencia($dataBaseCredito)] = [
+                        'competencia'      => $formatarCompetencia($dataBaseCredito),
+                        'geracao'          => (float) ($geracaoMensalRealObj?->$chave ?? 0),
+                        'guardado'         => (float) ($reserva?->$chave ?? 0),
+                        'creditado'        => (float) ($creditos?->$chave ?? 0),
+                        'pago'             => $pagoVal,
+                        'vencimento'       => $formatarCompetencia($dataVencimento),
+                        'meses_utilizados' => $mesesUtilizados->isEmpty()
+                            ? '-'
+                            : $mesesUtilizados->implode(', '),
                     ];
                 }
             }
@@ -284,7 +313,7 @@ class PDFController extends Controller {
         $totalFaturasEmitidas      = $totalPago;
         $saldo                     = $totalFaturasEmitidas;
 
-        $chaveMesSelecionado = Str::ucfirst($nomesMeses[$mes]);
+        $chaveMesSelecionado = $formatarCompetencia($anchorData);
         $valorReceber = $dadosFaturamento[$chaveMesSelecionado]['pago'] ?? 0;
         $geracaoMes = $geracaoMensalReal[$mesSelecionadoLabel] ?? 0;
 
@@ -331,7 +360,7 @@ class PDFController extends Controller {
             return [$chave => $this->inlinePublicImage($path)];
         });
 
-        $mesAnoSelecionado = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
+        $mesAnoSelecionado = $formatarCompetencia($anchorData);
 
         $html = View::file(resource_path('views/usina.blade.php'), [
             'usina' => $usina,
