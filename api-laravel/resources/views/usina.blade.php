@@ -544,7 +544,7 @@
               @foreach($dadosMensais as $mes => $dados)
                 <tr>
                   <td>{{ $mes }}</td>
-                  <td>{{ number_format($geracaoMensalReal[$mes] ?? 0, 2, ',', '.') }}</td>
+                  <td>{{ number_format($dados['geracao_kwh'] ?? 0, 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['fixo'], 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['injetado'], 2, ',', '.') }}</td>
                   <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
@@ -568,20 +568,20 @@
               <thead>
                   <tr>
                       <th>Mês</th>
-                      <th>Geração</th>
+                      <th>Mês de vencimento</th>
                       <th>Valor Guardado</th>
                       <th>Creditado</th>
-                      <th>Valor Pago</th>
+                      <th>Meses utilizados</th>
                   </tr>
               </thead>
               <tbody>
                   @foreach($ultimos6Meses as $mes => $dados)
                       <tr>
                           <td>{{ $mes }}</td>
-                          <td>{{ number_format($dados['geracao'], 2, ',', '.') }} Kwh</td>
+                          <td>{{ $dados['vencimento'] ?? '-' }}</td>
                           <td>{{ number_format($dados['guardado'], 2, ',', '.') }} Kwh</td>
                           <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
-                          <td>{{ number_format($dados['pago'], 2, ',', '.') }}</td>
+                          <td>{{ $dados['mes_creditado'] ?? '-' }}</td>
                       </tr>
                   @endforeach
               </tbody>

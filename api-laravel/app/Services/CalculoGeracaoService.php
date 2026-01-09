@@ -104,7 +104,6 @@ class CalculoGeracaoService
                 }
             }
 
-            $valorPago += $creditoExpirado;
             $reservaAnterior = max(0.0, (float) ($reserva->total ?? 0));
             $valorGuardado = 0.0;
             $energiaCompensada = 0.0;
@@ -136,7 +135,7 @@ class CalculoGeracaoService
                 }
             }
 
-            $creditoGerado = $energiaCompensada * $tarifa;
+            $creditoGerado = ($energiaCompensada * $tarifa) + $creditoExpirado;
 
             $saldoMesAtual = max(0.0, (float) ($reserva->$mesNome ?? 0));
             $reserva->$mesNome = $saldoMesAtual + $valorGuardado;

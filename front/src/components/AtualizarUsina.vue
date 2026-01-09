@@ -158,7 +158,7 @@
             </div>
             <div class="col-md-4">
               <label for="valorfixo">Valor Fixo</label>
-              <input id="valorfixo" type="number" class="form-control" v-model="form.valor_fixo" />
+              <input id="valorfixo" type="number" class="form-control" :value="valorFixoCalculado" />
             </div>
             <div class="col-md-4">
               <label for="ciaenergia">CIA Energia</label>
@@ -265,7 +265,7 @@ export default {
       const meses = Object.values(this.meses).map((_, i) => this.form[Object.keys(this.meses)[i]]);
       const soma = meses.reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
 
-      this.form.media = parseFloat((soma / 12).toFixed(2));
+      this.form.media = parseFloat((soma / 12).toFixed(0));
 
       return this.form.media;
     },
@@ -273,6 +273,10 @@ export default {
       const valores = Object.values(this.meses).map((_, i) => this.form[Object.keys(this.meses)[i]]);
     
       return Math.min(...valores);
+    },
+    valorFixoCalculado() {
+      const valorKwh = parseFloat(this.form.valor_kwh) || 0;
+      return parseFloat((this.menorGeracao * valorKwh).toFixed(0)) || 0;
     }
   },
   watch: {
@@ -460,7 +464,7 @@ export default {
           // Atualizar Comercialização
           await axios.put(`${baseURL}/comercializacao/${this.form.com_id}`, {
             valor_kwh: this.form.valor_kwh,
-            valor_fixo: this.form.valor_fixo,
+            valor_fixo: this.valorFixoCalculado,
             cia_energia: this.form.cia_energia,
             valor_final_media: this.form.valor_final_medio,
             previsao_conexao: this.form.previsao_conexao,
