@@ -269,8 +269,13 @@ class PDFController extends Controller {
                 $pagoVal = (float) ($pago?->$chave ?? 0);
                 if ($pagoVal > 0) {
                     $dataBaseCredito = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
-                    $dataVencimento = $dataBaseCredito->copy()->addDays(180);
+                    $dataVencimento = $dataBaseCredito->copy()->addDays(210);
                     $creditado = (float) ($creditos?->$chave ?? 0);
+                    $creditadoKwh = $valorKwh > 0 ? ($creditado / $valorKwh) : 0;
+                    $guardadoMes = (float) ($reserva?->$chave ?? 0);
+                    $mesesUtilizados = $creditadoKwh > 0
+                        ? $formatarCompetencia($dataBaseCredito->copy()->subMonth())
+                        : '-';
                     $mesCreditado = $creditado > 0
                         ? $formatarCompetencia($dataBaseCredito)
                         : '-';
@@ -278,11 +283,13 @@ class PDFController extends Controller {
                     $dadosFaturamento[$formatarCompetencia($dataBaseCredito)] = [
                         'competencia'      => $formatarCompetencia($dataBaseCredito),
                         'geracao'          => (float) ($geracaoMensalRealObj?->$chave ?? 0),
-                        'guardado'         => (float) ($reserva?->$chave ?? 0),
+                        'guardado'         => $guardadoMes,
                         'creditado'        => $creditado,
+                        'creditado_kwh'    => $creditadoKwh,
                         'pago'             => $pagoVal,
                         'vencimento'       => $formatarCompetencia($dataVencimento),
                         'mes_creditado'    => $mesCreditado,
+                        'meses_utilizados' => $mesesUtilizados,
                     ];
                 }
             }
