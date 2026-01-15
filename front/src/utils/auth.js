@@ -5,16 +5,40 @@ const AUTH_REFRESH_TOKEN_KEY = 'refreshToken'
 const AUTH_USER_KEY = 'user'
 const AUTH_EVENT = 'auth:changed'
 
+function resolveStorage(name) {
+  const storage = globalThis?.[name]
+  if (!storage) {
+    return null
+  }
+  const hasMethods = typeof storage.getItem === 'function'
+    && typeof storage.setItem === 'function'
+    && typeof storage.removeItem === 'function'
+  return hasMethods ? storage : null
+}
+
+function decodeBase64(value) {
+  if (typeof atob === 'function') {
+    return atob(value)
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(value, 'base64').toString('binary')
+  }
+  return null
+}
+
 export function getAuthToken() {
-  return localStorage.getItem(AUTH_TOKEN_KEY)
+  const storage = resolveStorage('localStorage')
+  return storage ? storage.getItem(AUTH_TOKEN_KEY) : null
 }
 
 export function getRefreshToken() {
-  return localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)
+  const storage = resolveStorage('localStorage')
+  return storage ? storage.getItem(AUTH_REFRESH_TOKEN_KEY) : null
 }
 
 export function getAuthUser() {
-  const raw = localStorage.getItem(AUTH_USER_KEY)
+  const storage = resolveStorage('localStorage')
+  const raw = storage ? storage.getItem(AUTH_USER_KEY) : null
   if (!raw) {
     return null
   }
@@ -39,7 +63,10 @@ function decodeJwtPayload(token) {
     if (padLength) {
       payload += '='.repeat(4 - padLength)
     }
-    const decoded = atob(payload)
+    const decoded = decodeBase64(payload)
+    if (!decoded) {
+      return null
+    }
     return JSON.parse(decoded)
   } catch (error) {
     return null
@@ -71,33 +98,41 @@ export function setAuthSession(token, options = {}) {
   if (!token) {
     return
   }
-  localStorage.setItem(AUTH_TOKEN_KEY, token)
+  const storage = resolveStorage('localStorage')
+  if (storage) {
+    storage.setItem(AUTH_TOKEN_KEY, token)
+  }
   if (options.refreshToken) {
-    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, options.refreshToken)
+    storage?.setItem(AUTH_REFRESH_TOKEN_KEY, options.refreshToken)
   }
   if (options.user) {
-    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(options.user))
+    storage?.setItem(AUTH_USER_KEY, JSON.stringify(options.user))
   }
   axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
   notifyAuthChange()
 }
 
 export function clearAuthSession() {
-  localStorage.removeItem(AUTH_TOKEN_KEY)
-  localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
-  localStorage.removeItem(AUTH_USER_KEY)
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refresh_token')
-  sessionStorage.removeItem(AUTH_TOKEN_KEY)
-  sessionStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
-  sessionStorage.removeItem(AUTH_USER_KEY)
-  sessionStorage.removeItem('accessToken')
-  sessionStorage.removeItem('refresh_token')
+  const storage = resolveStorage('localStorage')
+  const session = resolveStorage('sessionStorage')
+  storage?.removeItem(AUTH_TOKEN_KEY)
+  storage?.removeItem(AUTH_REFRESH_TOKEN_KEY)
+  storage?.removeItem(AUTH_USER_KEY)
+  storage?.removeItem('accessToken')
+  storage?.removeItem('refresh_token')
+  session?.removeItem(AUTH_TOKEN_KEY)
+  session?.removeItem(AUTH_REFRESH_TOKEN_KEY)
+  session?.removeItem(AUTH_USER_KEY)
+  session?.removeItem('accessToken')
+  session?.removeItem('refresh_token')
   delete axios.defaults.headers.common['Authorization']
   notifyAuthChange()
 }
 
 export function notifyAuthChange() {
+  if (typeof window === 'undefined' || typeof CustomEvent === 'undefined') {
+    return
+  }
   window.dispatchEvent(new CustomEvent(AUTH_EVENT, {
     detail: {
       isAuthenticated: isAuthenticated(),
@@ -107,6 +142,9 @@ export function notifyAuthChange() {
 }
 
 export function onAuthChange(handler) {
+  if (typeof window === 'undefined') {
+    return () => {}
+  }
   const listener = event => handler(event.detail)
   window.addEventListener(AUTH_EVENT, listener)
   return () => window.removeEventListener(AUTH_EVENT, listener)
