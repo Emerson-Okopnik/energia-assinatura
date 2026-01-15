@@ -571,7 +571,7 @@
                       <th>Mês de vencimento</th>
                       <th>Valor Guardado</th>
                       <th>Creditado (kWh)</th>
-                      <th>Meses utilizados</th>
+                      <th>Meses Resgatados</th>
                   </tr>
               </thead>
               <tbody>

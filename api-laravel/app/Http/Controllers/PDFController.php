@@ -12,6 +12,7 @@ use Spatie\Browsershot\Browsershot;
 use Illuminate\Support\Facades\Response;
 use App\Models\CreditosDistribuidosUsina;
 use App\Models\DadosGeracaoRealUsina;
+use App\Models\DemonstrativoCreditosPdf;
 use App\Models\GeracaoFaturamentoPdf;
 use Carbon\Carbon;
 use Symfony\Component\Process\Process;
@@ -147,6 +148,9 @@ class PDFController extends Controller {
         $mesesInfo = [];
         
         foreach ($janelaMeses as $chave => $infoMes) {
+            if ((int) $infoMes['ano'] !== $ano || (int) $infoMes['mes'] > $mes) {
+                continue;
+            }
             $registroAno = $geracoesReais->get($infoMes['ano']);
             $valor = optional($registroAno?->DadosGeracaoReal)->{$infoMes['coluna']};
 
@@ -264,8 +268,101 @@ class PDFController extends Controller {
             $reserva  = $faturamento->valorAcumuladoReserva;
             $pago     = $faturamento->faturamentoUsina;
             $geracaoMensalRealObj = $geracaoRealAnoSelecionado->DadosGeracaoReal;
+            $mesesUtilizadosPorMes = [];
+            $reservaSimulada = array_fill_keys(array_values($nomesMeses), 0.0);
+
+            // Simula o uso da reserva para listar os meses utilizados em cada credito.
+            foreach ($nomesMeses as $indiceMes => $chave) {
+                if ($indiceMes > $mes) {
+                    continue;
+                }
+                $pagoVal = (float) ($pago?->$chave ?? 0);
+                if ($pagoVal <= 0) {
+                    continue;
+                }
+
+                $referencia = Carbon::createFromDate($ano, $indiceMes, 1)->endOfMonth();
+                foreach ($nomesMeses as $num => $nome) {
+                    $saldo = (float) ($reservaSimulada[$nome] ?? 0);
+                    if ($saldo <= 0) {
+                        continue;
+                    }
+                    $dataMes = Carbon::createFromDate($ano, $num, 1)->endOfMonth();
+                    if ($dataMes->lessThan($referencia) && $dataMes->diffInDays($referencia) > 180) {
+                        $reservaSimulada[$nome] = 0.0;
+                    }
+                }
+
+                $geracaoMes = (float) ($geracaoMensalRealObj?->$chave ?? 0);
+                if ($mediaGeracao <= 0) {
+                    $mesesUtilizadosPorMes[$chave] = [];
+                    continue;
+                }
+
+                if ($geracaoMes >= $mediaGeracao) {
+                    $valorGuardado = $geracaoMes - $mediaGeracao;
+                    if ($valorGuardado > 0) {
+                        $reservaSimulada[$chave] = ($reservaSimulada[$chave] ?? 0) + $valorGuardado;
+                    }
+                    $mesesUtilizadosPorMes[$chave] = [];
+                    continue;
+                }
+
+                $faltante = $mediaGeracao - $geracaoMes;
+                $energiaParaDescontar = min($faltante, array_sum($reservaSimulada));
+                $mesesUsados = [];
+
+                if ($energiaParaDescontar > 0) {
+                    foreach ($nomesMeses as $num => $nome) {
+                        $saldo = (float) ($reservaSimulada[$nome] ?? 0);
+                        if ($saldo <= 0) {
+                            continue;
+                        }
+                        $retirar = min($saldo, $energiaParaDescontar);
+                        if ($retirar > 0) {
+                            $reservaSimulada[$nome] = $saldo - $retirar;
+                            $energiaParaDescontar -= $retirar;
+                            $mesesUsados[] = $formatarCompetencia(Carbon::createFromDate($ano, $num, 1));
+                        }
+                        if ($energiaParaDescontar <= 0) {
+                            break;
+                        }
+                    }
+                }
+
+                $mesesUtilizadosPorMes[$chave] = $mesesUsados;
+            }
+
+            $competenciasDemonstrativo = [];
+            foreach ($nomesMeses as $indiceMes => $chave) {
+                if ($indiceMes > $mes) {
+                    continue;
+                }
+                $pagoVal = (float) ($pago?->$chave ?? 0);
+                if ($pagoVal <= 0) {
+                    continue;
+                }
+                $dataBaseCredito = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
+                $competenciasDemonstrativo[] = $dataBaseCredito->toDateString();
+            }
+
+            $demonstrativosPersistidos = count($competenciasDemonstrativo)
+                ? DemonstrativoCreditosPdf::where('usi_id', $id)
+                    ->whereIn('competencia', $competenciasDemonstrativo)
+                    ->get()
+                    ->keyBy(function ($registro) {
+                        return $registro->competencia instanceof Carbon
+                            ? $registro->competencia->toDateString()
+                            : (string) $registro->competencia;
+                    })
+                : collect();
+
+            $novosDemonstrativos = [];
 
             foreach ($nomesMeses as $indiceMes => $chave) {
+                if ($indiceMes > $mes) {
+                    continue;
+                }
                 $pagoVal = (float) ($pago?->$chave ?? 0);
                 if ($pagoVal > 0) {
                     $dataBaseCredito = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
@@ -273,9 +370,38 @@ class PDFController extends Controller {
                     $creditado = (float) ($creditos?->$chave ?? 0);
                     $creditadoKwh = $valorKwh > 0 ? ($creditado / $valorKwh) : 0;
                     $guardadoMes = (float) ($reserva?->$chave ?? 0);
-                    $mesesUtilizados = $creditadoKwh > 0
-                        ? $formatarCompetencia($dataBaseCredito->copy()->subMonth())
-                        : '-';
+                    $competencia = $dataBaseCredito->toDateString();
+                    $registroDemonstrativo = $demonstrativosPersistidos->get($competencia);
+
+                    $mesesUtilizados = '-';
+                    $vencimentoLabel = $formatarCompetencia($dataVencimento);
+                    if ($registroDemonstrativo) {
+                        $guardadoMes = (float) ($registroDemonstrativo->guardado_kwh ?? 0);
+                        $creditadoKwh = (float) ($registroDemonstrativo->creditado_kwh ?? 0);
+                        $mesesUtilizados = $registroDemonstrativo->meses_utilizados ?: '-';
+                        $vencimentoData = $registroDemonstrativo->vencimento;
+                        if ($vencimentoData instanceof Carbon) {
+                            $vencimentoLabel = $formatarCompetencia($vencimentoData);
+                        } elseif ($vencimentoData) {
+                            $vencimentoLabel = $formatarCompetencia(Carbon::parse($vencimentoData));
+                        }
+                    } else {
+                        if ($creditadoKwh > 0) {
+                            $mesesUsados = $mesesUtilizadosPorMes[$chave] ?? [];
+                            $mesesUtilizados = count($mesesUsados) ? implode(', ', $mesesUsados) : '-';
+                        }
+
+                        $novosDemonstrativos[] = [
+                            'usi_id' => $id,
+                            'competencia' => $competencia,
+                            'vencimento' => $dataVencimento->toDateString(),
+                            'guardado_kwh' => $guardadoMes,
+                            'creditado_kwh' => $creditadoKwh,
+                            'meses_utilizados' => $mesesUtilizados === '-' ? null : $mesesUtilizados,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
                     $mesCreditado = $creditado > 0
                         ? $formatarCompetencia($dataBaseCredito)
                         : '-';
@@ -287,11 +413,15 @@ class PDFController extends Controller {
                         'creditado'        => $creditado,
                         'creditado_kwh'    => $creditadoKwh,
                         'pago'             => $pagoVal,
-                        'vencimento'       => $formatarCompetencia($dataVencimento),
+                        'vencimento'       => $vencimentoLabel,
                         'mes_creditado'    => $mesCreditado,
                         'meses_utilizados' => $mesesUtilizados,
                     ];
                 }
+            }
+
+            if (count($novosDemonstrativos)) {
+                DemonstrativoCreditosPdf::insertOrIgnore($novosDemonstrativos);
             }
         }
 
@@ -305,7 +435,8 @@ class PDFController extends Controller {
         $saldo                     = $totalFaturasEmitidas;
 
         $chaveMesSelecionado = $formatarCompetencia($anchorData);
-        $valorReceber = $dadosFaturamento[$chaveMesSelecionado]['pago'] ?? 0;
+        $valorReceber = $dadosMensais[$mesSelecionadoLabel]['valor_final']
+            ?? ($dadosFaturamento[$chaveMesSelecionado]['pago'] ?? 0);
         $geracaoMes = $geracaoMensalReal[$mesSelecionadoLabel] ?? 0;
 
         // UC: prioriza a UC da própria usina, depois a primeira do cliente (se houver)
