@@ -448,7 +448,7 @@
               </div>
               <div class="details-2">
                 <img src="{{ $iconeDinheiro }}" alt="Ícone de dinheiro" class="icon">
-                <p><strong>Valor a receber:</strong> {{ number_format($valorReceber, 2, ',', '.') }}</p>
+                <p><strong>Valor a Receber:</strong> {{ number_format($valorReceber, 2, ',', '.') }}</p>
               </div>
             </div>
 
@@ -484,8 +484,8 @@
         <div class="highlight-bar">
           <p><strong>UC:</strong> {{ $uc }}</p>
           <p><strong>Fonte de Geração:</strong> UFV</p>
-          <p><strong>Valor Kwh:</strong> R$ {{$usina->comercializacao->valor_kwh}}</p>
-          <p><strong>Valor a receber:</strong> R$ {{ number_format($valorReceber, 2, ',', '.') }}</p>
+          <p><strong>Valor kWh:</strong> R$ {{$usina->comercializacao->valor_kwh}}</p>
+          <p><strong>Valor a Receber:</strong> R$ {{ number_format($valorReceber, 2, ',', '.') }}</p>
         </div>
       
         <div class="demonstrativo-geracao">
@@ -510,7 +510,7 @@
 
           <div class="dados-geracao">
             <h3>Dados de Geração<br>de Energia</h3>
-            <p>Sua geração de energia foi de <span style="color: orangered;"><strong>{{ number_format($geracaoMes, 2, ',', '.') }} Kwh</span><br>isso é igual a:</p>
+            <p>Sua geração de energia foi de <span style="color: orangered;"><strong>{{ number_format($geracaoMes, 2, ',', '.') }} kWh</span><br>isso é igual a:</p>
 
             <div class="item-geracao">
               <img src="{{ $iconeCo2 }}" alt="Ícone CO2" class="icon-geracao">
@@ -579,7 +579,7 @@
                       <tr>
                           <td>{{ $mes }}</td>
                           <td>{{ $dados['vencimento'] ?? '-' }}</td>
-                          <td>{{ number_format($dados['guardado'], 2, ',', '.') }} Kwh</td>
+                          <td>{{ number_format($dados['guardado'], 2, ',', '.') }} kWh</td>
                           <td>{{ number_format($dados['creditado_kwh'] ?? 0, 2, ',', '.') }} kWh</td>
                           <td>{{ $dados['meses_utilizados'] ?? '-' }}</td>
                       </tr>

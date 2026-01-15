@@ -18,7 +18,7 @@
           </div>
           <div class="row mb-2">
             <div class="col-md-6">
-              <label for="name">Nome</label>
+              <label for="name">Nome <span class="required-asterisk">*</span></label>
               <input
                 id="name"
                 type="text"
@@ -30,7 +30,7 @@
               <div v-if="errors.nome" class="invalid-feedback">{{ errors.nome }}</div>
             </div>
             <div class="col-md-6">
-              <label for="cpf/cnpj">CPF/CNPJ</label>
+              <label for="cpf/cnpj">CPF/CNPJ <span class="required-asterisk">*</span></label>
               <input
                 id="cpf/cnpj"
                 type="text"
@@ -44,7 +44,7 @@
           </div>
           <div class="row mb-2">
             <div class="col-md-5">
-              <label for="endereco">Endereço</label>
+              <label for="endereco">Endereço <span class="required-asterisk">*</span></label>
               <input
                 id="endereco"
                 type="text"
@@ -56,7 +56,7 @@
               <div v-if="errors.rua" class="invalid-feedback">{{ errors.rua }}</div>
             </div>
             <div class="col-md-1">
-              <label for="numero">Número</label>
+              <label for="numero">Número <span class="required-asterisk">*</span></label>
               <input
                 id="numero"
                 type="number"
@@ -68,7 +68,7 @@
               <div v-if="errors.numero" class="invalid-feedback">{{ errors.numero }}</div>
             </div>
             <div class="col-md-3">
-              <label for="bairro">Bairro</label>
+              <label for="bairro">Bairro <span class="required-asterisk">*</span></label>
               <input
                 id="bairro"
                 type="text"
@@ -80,7 +80,7 @@
               <div v-if="errors.bairro" class="invalid-feedback">{{ errors.bairro }}</div>
             </div>
             <div class="col-md-3">
-              <label for="complemento">Complemento</label>
+              <label for="complemento">Complemento <span class="required-asterisk">*</span></label>
               <input
                 id="complemento"
                 type="text"
@@ -95,7 +95,7 @@
 
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="cidade">Cidade</label>
+              <label for="cidade">Cidade <span class="required-asterisk">*</span></label>
               <input
                 id="cidade"
                 type="text"
@@ -107,7 +107,7 @@
               <div v-if="errors.cidade" class="invalid-feedback">{{ errors.cidade }}</div>
             </div>
             <div class="col-md-4">
-              <label for="estado">Estado</label>
+              <label for="estado">Estado <span class="required-asterisk">*</span></label>
               <input
                 id="estado"
                 type="text"
@@ -119,7 +119,7 @@
               <div v-if="errors.estado" class="invalid-feedback">{{ errors.estado }}</div>
             </div>
             <div class="col-md-4">
-              <label for="cep">CEP</label>
+              <label for="cep">CEP <span class="required-asterisk">*</span></label>
               <input
                 id="cep"
                 type="text"
@@ -134,7 +134,7 @@
 
           <div class="row mb-2">
             <div class="col-md-6">
-              <label for="telefone">Telefone</label>
+              <label for="telefone">Telefone <span class="required-asterisk">*</span></label>
               <input
                 id="telefone"
                 type="text"
@@ -146,7 +146,7 @@
               <div v-if="errors.telefone" class="invalid-feedback">{{ errors.telefone }}</div>
             </div>
             <div class="col-md-6">
-              <label for="email">E-mail</label>
+              <label for="email">E-mail <span class="required-asterisk">*</span></label>
               <input
                 id="email"
                 type="email"
@@ -160,7 +160,7 @@
           </div>
           <div class="row mb-2 mt-2">
             <div class="col-md-3">
-              <label for="vendedor">Vendedor</label>
+              <label for="vendedor">Vendedor <span class="required-asterisk">*</span></label>
               <select id="vendedor" class="form-control" :class="{ 'is-invalid': errors.vendedor }" v-model="form.vendedor" @change="errors.vendedor = ''">
                 <option disabled value="">Selecione o Vendedor</option>
                 <option v-for="v in vendedor" :key="v.ven_id" :value="v.ven_id">
@@ -194,7 +194,7 @@
           </div>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="ciaenergia">CIA Energia</label>
+              <label for="ciaenergia">CIA Energia <span class="required-asterisk">*</span></label>
               <select id="ciaenergia" class="form-control" :class="{ 'is-invalid': errors.cia_energia }" v-model="form.cia_energia" @change="errors.cia_energia = ''">
                 <option disabled value="">Selecione a CIA de Energia</option>
                 <option v-for="cia in ciasEnergia" :key="cia" :value="cia">
@@ -210,16 +210,34 @@
           </div>
           <div class="row mb-2">
             <div class="col-md-6">
-              <label>Rede</label>
+              <label>Rede <span class="required-asterisk">*</span></label>
               <div>
                 <label class="me-2">
-                  <input type="radio" value="Monofásico" v-model="form.rede" /> Monofásico
+                  <input
+                    type="radio"
+                    value="Monofásico"
+                    v-model="form.rede"
+                    :class="{ 'is-invalid': errors.rede }"
+                    @change="errors.rede = ''"
+                  /> Monofásico
                 </label>
                 <label class="me-2">
-                  <input type="radio" value="Bifásico" v-model="form.rede" /> Bifásico
+                  <input
+                    type="radio"
+                    value="Bifásico"
+                    v-model="form.rede"
+                    :class="{ 'is-invalid': errors.rede }"
+                    @change="errors.rede = ''"
+                  /> Bifásico
                 </label>
                 <label>
-                  <input type="radio" value="Trifásico" v-model="form.rede" /> Trifásico
+                  <input
+                    type="radio"
+                    value="Trifásico"
+                    v-model="form.rede"
+                    :class="{ 'is-invalid': errors.rede }"
+                    @change="errors.rede = ''"
+                  /> Trifásico
                 </label>
               </div>
               <div v-if="errors.rede" class="invalid-feedback d-block">{{ errors.rede }}</div>
@@ -396,6 +414,12 @@ export default {
         'rede'
       ];
       required.forEach((field) => {
+        if (field === 'numero') {
+          if (this.form.numero === null || this.form.numero === '') {
+            this.errors.numero = 'Campo obrigatório';
+          }
+          return;
+        }
         if (!this.form[field]) {
           this.errors[field] = 'Campo obrigatório';
         }
@@ -560,5 +584,10 @@ label {
     opacity: 0;
     display: none;
   }
+}
+
+.required-asterisk {
+  color: #dc3545;
+  margin-left: 4px;
 }
 </style>
