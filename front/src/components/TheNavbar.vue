@@ -79,7 +79,13 @@
 
 <script>
 import axios from 'axios';
-import { clearAuthSession, getAuthToken, isAuthenticated as hasActiveSession } from '@/utils/auth.js';
+import {
+  clearAuthSession,
+  getAuthToken,
+  isAuthenticated as hasActiveSession,
+  isAuthorizationError,
+  onAuthChange,
+} from '@/utils/auth.js';
 
 const baseURL = import.meta.env.VITE_API_URL;
 
@@ -88,20 +94,38 @@ export default {
     return {
       user: {},
       isAuthenticated: false,
+      authUnsubscribe: null,
       dropdowns: {
         usina: false,
         consumidor: false,
       }
     };
   },
-  async created() {    
-    this.isAuthenticated = hasActiveSession();
-
-    if (this.isAuthenticated) {
-      await this.fetchAuthenticatedUser();
+  async created() {
+    await this.syncAuthState();
+  },
+  mounted() {
+    this.authUnsubscribe = onAuthChange(() => {
+      this.syncAuthState();
+    });
+  },
+  beforeUnmount() {
+    if (this.authUnsubscribe) {
+      this.authUnsubscribe();
+      this.authUnsubscribe = null;
     }
   },
   methods: {
+    async syncAuthState() {
+      this.isAuthenticated = hasActiveSession();
+
+      if (this.isAuthenticated) {
+        await this.fetchAuthenticatedUser();
+        return;
+      }
+
+      this.user = {};
+    },
     async fetchAuthenticatedUser() {
       try {
         const response = await axios.get(`${baseURL}/user`, {
@@ -112,6 +136,11 @@ export default {
         this.user = response.data;
       } catch (error) {
         console.error('Erro ao buscar dados do usuário:', error);
+        if (isAuthorizationError(error)) {
+          clearAuthSession();
+          this.isAuthenticated = false;
+          this.user = {};
+        }
       }
     },
     openDropdown(menu) {
@@ -123,10 +152,8 @@ export default {
     logout() {
       clearAuthSession();
       this.isAuthenticated = false;
-      this.user = 'Usuário';
-      this.$router.push({ name: 'Login' }).then(() => {
-        window.location.reload();
-      });
+      this.user = {};
+      this.$router.replace({ name: 'Login' });
     },
     checkMouseLeave(menu, event) {
       const related = event.relatedTarget;

@@ -67,7 +67,7 @@ export default {
 
         const token = response.data.token;
         setAuthSession(token);
-        this.$router.push({ name: 'Home' }).then(() => window.location.reload());
+        this.$router.replace({ name: 'Home' });
 
       } catch (error) {
         let mensagem = 'Erro desconhecido. Verifique suas credenciais.';

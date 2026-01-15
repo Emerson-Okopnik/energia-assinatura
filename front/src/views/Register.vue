@@ -49,7 +49,7 @@
 
           const token = response.data.token;
           setAuthSession(token);
-          this.$router.push({ name: 'Home' }).then(() => window.location.reload());
+          this.$router.replace({ name: 'Home' });
         } catch (error) {
           console.error('Erro no cadastro:', error);
           let mensagem = 'Erro desconhecido. Verifique seus dados.';

@@ -1,5 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated } from '@/utils/auth.js'
+import {
+  clearAuthSession,
+  getAuthToken,
+  isAuthenticated,
+  isTokenExpired,
+} from '@/utils/auth.js'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import Home from '@/views/Home.vue'
@@ -98,11 +103,17 @@ const router = createRouter({
 
 
 router.beforeEach((to, from, next) => {
-  if (to.meta.requiresAuth && !isAuthenticated()) {
-    next({ name: 'Login' })
-  } else {
-    next()
+  const token = getAuthToken()
+  if (token && isTokenExpired(token)) {
+    clearAuthSession()
   }
+
+  if (to.meta.requiresAuth && !isAuthenticated()) {
+    next({ name: 'Login', replace: true })
+    return
+  }
+
+  next()
 })
 
 export default router
