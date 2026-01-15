@@ -22,27 +22,67 @@
           <!-- Identificação -->
           <div class="row mb-2">
             <div class="col-md-6">
-              <label for="name">Nome</label>
-              <input id="name" type="text" class="form-control" v-model="form.nome" />
+              <label for="name">Nome <span class="required-asterisk">*</span></label>
+              <input
+                id="name"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.nome }"
+                v-model="form.nome"
+                @input="errors.nome = ''"
+              />
+              <div v-if="errors.nome" class="invalid-feedback">{{ errors.nome }}</div>
             </div>
             <div class="col-md-6">
-              <label for="cpf/cnpj">CPF/CNPJ</label>
-              <input id="cpf/cnpj" type="text" class="form-control" v-model="form.cpf_cnpj" />
+              <label for="cpf/cnpj">CPF/CNPJ <span class="required-asterisk">*</span></label>
+              <input
+                id="cpf/cnpj"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.cpf_cnpj }"
+                v-model="form.cpf_cnpj"
+                @input="errors.cpf_cnpj = ''"
+              />
+              <div v-if="errors.cpf_cnpj" class="invalid-feedback">{{ errors.cpf_cnpj }}</div>
             </div>
           </div>
           <!-- Endereço -->
           <div class="row mb-2">
             <div class="col-md-5">
-              <label for="endereco">Endereço</label>
-              <input id="endereco" type="text" class="form-control" v-model="form.rua" />
+              <label for="endereco">Endereço <span class="required-asterisk">*</span></label>
+              <input
+                id="endereco"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.rua }"
+                v-model="form.rua"
+                @input="errors.rua = ''"
+              />
+              <div v-if="errors.rua" class="invalid-feedback">{{ errors.rua }}</div>
             </div>
             <div class="col-md-1">
-              <label for="numero">Número</label>
-              <input id="numero" type="number" class="form-control" v-model="form.numero" />
+              <label for="numero">Número <span class="required-asterisk">*</span></label>
+              <input
+                id="numero"
+                type="number"
+                class="form-control"
+                :class="{ 'is-invalid': errors.numero }"
+                v-model="form.numero"
+                @input="errors.numero = ''"
+              />
+              <div v-if="errors.numero" class="invalid-feedback">{{ errors.numero }}</div>
             </div>
             <div class="col-md-3">
-              <label for="bairro">Bairro</label>
-              <input id="bairro" type="text" class="form-control" v-model="form.bairro" />
+              <label for="bairro">Bairro <span class="required-asterisk">*</span></label>
+              <input
+                id="bairro"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.bairro }"
+                v-model="form.bairro"
+                @input="errors.bairro = ''"
+              />
+              <div v-if="errors.bairro" class="invalid-feedback">{{ errors.bairro }}</div>
             </div>
             <div class="col-md-3">
               <label for="complemento">Complemento</label>
@@ -51,39 +91,86 @@
           </div>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="cidade">Cidade</label>
-              <input id="cidade" type="text" class="form-control" v-model="form.cidade" />
+              <label for="cidade">Cidade <span class="required-asterisk">*</span></label>
+              <input
+                id="cidade"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.cidade }"
+                v-model="form.cidade"
+                @input="errors.cidade = ''"
+              />
+              <div v-if="errors.cidade" class="invalid-feedback">{{ errors.cidade }}</div>
             </div>
             <div class="col-md-4">
-              <label for="estado">Estado</label>
-              <input id="estado" type="text" class="form-control" v-model="form.estado" />
+              <label for="estado">Estado <span class="required-asterisk">*</span></label>
+              <input
+                id="estado"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.estado }"
+                v-model="form.estado"
+                @input="errors.estado = ''"
+              />
+              <div v-if="errors.estado" class="invalid-feedback">{{ errors.estado }}</div>
             </div>
             <div class="col-md-4">
-              <label for="cep">CEP</label>
-              <input id="cep" type="text" class="form-control" v-model="form.cep" />
+              <label for="cep">CEP <span class="required-asterisk">*</span></label>
+              <input
+                id="cep"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.cep }"
+                v-model="form.cep"
+                @input="errors.cep = ''"
+              />
+              <div v-if="errors.cep" class="invalid-feedback">{{ errors.cep }}</div>
             </div>
           </div>
           <div class="row mb-2">
             <div class="col-md-6">
-              <label for="telefone">Telefone</label>
-              <input id="telefone" type="text" class="form-control" v-model="form.telefone" />
+              <label for="telefone">Telefone <span class="required-asterisk">*</span></label>
+              <input
+                id="telefone"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.telefone }"
+                v-model="form.telefone"
+                @input="errors.telefone = ''"
+              />
+              <div v-if="errors.telefone" class="invalid-feedback">{{ errors.telefone }}</div>
             </div>
             <div class="col-md-6">
-              <label for="email">E-mail</label>
-              <input id="email" type="email" class="form-control" v-model="form.email" />
+              <label for="email">E-mail <span class="required-asterisk">*</span></label>
+              <input
+                id="email"
+                type="email"
+                class="form-control"
+                :class="{ 'is-invalid': errors.email }"
+                v-model="form.email"
+                @input="errors.email = ''"
+              />
+              <div v-if="errors.email" class="invalid-feedback">{{ errors.email }}</div>
             </div>
           </div>
           <!-- Informações de Processo -->
           <h5 class="mt-4">Informações do Processo</h5>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="vendedor">Vendedor</label>
-              <select id="vendedor" class="form-control" v-model="form.vendedor">
+              <label for="vendedor">Vendedor <span class="required-asterisk">*</span></label>
+              <select
+                id="vendedor"
+                class="form-control"
+                :class="{ 'is-invalid': errors.vendedor }"
+                v-model="form.vendedor"
+                @change="errors.vendedor = ''"
+              >
                 <option disabled value="">Selecione o Vendedor</option>
                 <option v-for="v in vendedor" :key="v.ven_id" :value="v.ven_id">
                   {{ v.nome }}
                 </option>
               </select>
+              <div v-if="errors.vendedor" class="invalid-feedback">{{ errors.vendedor }}</div>
             </div>
             <div class="col-md-4">
               <label for="data_ass_contrato">Data Assinatura Contrato</label>
@@ -109,22 +196,36 @@
               <input id="andamento_processo" type="text" class="form-control" v-model="form.andamento_processo" />
             </div>
             <div class="col-md-3">
-              <label for="status_usina">Status da Usina</label>
-              <select id="status_usina" class="form-control" v-model="form.status">
+              <label for="status_usina">Status da Usina <span class="required-asterisk">*</span></label>
+              <select
+                id="status_usina"
+                class="form-control"
+                :class="{ 'is-invalid': errors.status }"
+                v-model="form.status"
+                @change="errors.status = ''"
+              >
                 <option disabled value="">Selecione o status</option>
                 <option v-for="valorStatus in statusUsina" :key="valorStatus" :value="valorStatus">
                     {{ valorStatus }}
                 </option>
               </select>
+              <div v-if="errors.status" class="invalid-feedback">{{ errors.status }}</div>
             </div>
             <div class="col-md-3">
-              <label for="rede_usina">Rede</label>
-              <select id="rede_usina" class="form-control" v-model="form.rede">
+              <label for="rede_usina">Rede <span class="required-asterisk">*</span></label>
+              <select
+                id="rede_usina"
+                class="form-control"
+                :class="{ 'is-invalid': errors.rede }"
+                v-model="form.rede"
+                @change="errors.rede = ''"
+              >
                 <option disabled value="">Selecione o tipo de rede</option>
                 <option v-for="valorRede in opcoesRede" :key="valorRede" :value="valorRede">
                   {{ valorRede }}
                 </option>
               </select>
+              <div v-if="errors.rede" class="invalid-feedback">{{ errors.rede }}</div>
             </div>
             <div class="col-md-3">
               <label for="uc">Unidade Consumidora</label>
@@ -153,43 +254,106 @@
           <h5>Comercialização</h5>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="valorkwh">Valor do kWh</label>
-              <input for="valorkwh" type="number" class="form-control" v-model="form.valor_kwh" />
+              <label for="valorkwh">Valor do kWh <span class="required-asterisk">*</span></label>
+              <input
+                id="valorkwh"
+                type="number"
+                class="form-control"
+                :class="{ 'is-invalid': errors.valor_kwh }"
+                v-model="form.valor_kwh"
+                @input="errors.valor_kwh = ''"
+              />
+              <div v-if="errors.valor_kwh" class="invalid-feedback">{{ errors.valor_kwh }}</div>
             </div>
             <div class="col-md-4">
-              <label for="valorfixo">Valor Fixo</label>
-              <input id="valorfixo" type="number" class="form-control" :value="valorFixoCalculado" />
+              <label for="valorfixo">Valor Fixo (R$)</label>
+              <div class="input-group">
+                <span class="input-group-text">R$</span>
+                <input
+                  id="valorfixo"
+                  type="text"
+                  class="form-control"
+                  :value="formatCurrency(valorFixoCalculado)"
+                  readonly
+                />
+              </div>
             </div>
             <div class="col-md-4">
-              <label for="ciaenergia">CIA Energia</label>
-              <select id="ciaenergia" class="form-control" v-model="form.cia_energia">
+              <label for="ciaenergia">CIA Energia <span class="required-asterisk">*</span></label>
+              <select
+                id="ciaenergia"
+                class="form-control"
+                :class="{ 'is-invalid': errors.cia_energia }"
+                v-model="form.cia_energia"
+                @change="errors.cia_energia = ''"
+              >
                 <option disabled value="">Selecione a CIA de Energia</option>
                 <option v-for="cia in ciasEnergia" :key="cia" :value="cia">
                   {{ cia }}
                 </option>
               </select>
+              <div v-if="errors.cia_energia" class="invalid-feedback">{{ errors.cia_energia }}</div>
             </div>
           </div>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="fioB">Fio B (R$)</label>
-              <input id="fioB" type="number" step="0.00001" class="form-control" v-model.number="form.fio_b" />
+              <label for="fioB">Fio B (R$) <span class="required-asterisk">*</span></label>
+              <input
+                id="fioB"
+                type="number"
+                step="0.00001"
+                class="form-control"
+                :class="{ 'is-invalid': errors.fio_b }"
+                v-model.number="form.fio_b"
+                @input="errors.fio_b = ''"
+              />
+              <div v-if="errors.fio_b" class="invalid-feedback">{{ errors.fio_b }}</div>
             </div>
             <div class="col-md-4">
-              <label for="percentualLei">Percentual Lei 14300/23 (%)</label>
-              <input id="percentualLei" type="number" step="0.01" class="form-control" v-model.number="form.percentual_lei" />
+              <label for="percentualLei">Percentual Lei 14300/23 (%) <span class="required-asterisk">*</span></label>
+              <input
+                id="percentualLei"
+                type="number"
+                step="0.01"
+                class="form-control"
+                :class="{ 'is-invalid': errors.percentual_lei }"
+                v-model.number="form.percentual_lei"
+                @input="errors.percentual_lei = ''"
+              />
+              <div v-if="errors.percentual_lei" class="invalid-feedback">{{ errors.percentual_lei }}</div>
             </div>
           </div>
           <div class="mb-3 col-md-4">
-            <label for="valorfinalmedio">Valor Final Médio Projetado</label>
-            <input id="valorfinalmedio" type="number" class="form-control" v-model="form.valor_final_medio" />
+            <label for="valorfinalmedio">Valor Final Médio Projetado (R$) <span class="required-asterisk">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text">R$</span>
+              <input
+                id="valorfinalmedio"
+                type="text"
+                inputmode="decimal"
+                class="form-control"
+                v-model="valorFinalMedioInput"
+                :class="{ 'is-invalid': errors.valor_final_medio }"
+                @input="errors.valor_final_medio = ''"
+                @blur="ajustarValorFinalMedio"
+              />
+            </div>
+            <div v-if="errors.valor_final_medio" class="invalid-feedback d-block">{{ errors.valor_final_medio }}</div>
           </div>
           <!-- Conexão -->
           <h5>Conexão</h5>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="previsaoconexao">Previsão de Conexão</label>
-              <input id="previsaoconexao" type="date" class="form-control" v-model="form.previsao_conexao" />
+              <label for="previsaoconexao">Previsão de Conexão <span class="required-asterisk">*</span></label>
+              <input
+                id="previsaoconexao"
+                type="date"
+                class="form-control"
+                :class="{ 'is-invalid': errors.previsao_conexao }"
+                v-model="form.previsao_conexao"
+                @input="errors.previsao_conexao = ''"
+              />
+              <div v-if="errors.previsao_conexao" class="invalid-feedback">{{ errors.previsao_conexao }}</div>
             </div>
             <div class="col-md-4">
               <label for="conexaofinal">Conexão Final</label>
@@ -257,7 +421,9 @@ export default {
       },
       successMessage: '',
       errorMessage: '',
-      dataLimiteErro: ''
+      errors: {},
+      dataLimiteErro: '',
+      valorFinalMedioInput: ''
     };
   },
   computed: {
@@ -357,7 +523,7 @@ export default {
             media: data.dado_geracao.media,
             valor_kwh: data.comercializacao.valor_kwh,
             valor_fixo: data.comercializacao.valor_fixo,
-            valor_final_medio: data.comercializacao.valor_final_media,
+            valor_final_medio: this.arredondarDuasCasas(data.comercializacao.valor_final_media),
             previsao_conexao: this.formatarDataISOParaDate(data.comercializacao.previsao_conexao),
             fio_b: data.comercializacao.fio_b,
             percentual_lei: data.comercializacao.percentual_lei,
@@ -369,6 +535,7 @@ export default {
             dger_id: data.dado_geracao.dger_id,
             com_id: data.comercializacao.com_id
           };
+          this.valorFinalMedioInput = this.formatCurrency(this.form.valor_final_medio);
         } catch (error) {
           this.errorMessage = "Erro ao carregar dados do consumidor.";
           console.error(error);
@@ -376,6 +543,45 @@ export default {
       },
       formatarDataISOParaDate(dataISO) {
         return dataISO ? dataISO.substring(0, 10) : '';
+      },
+      arredondarDuasCasas(valor) {
+        const numero = parseFloat(valor);
+        if (!Number.isFinite(numero)) {
+          return 0;
+        }
+        return Number(numero.toFixed(2));
+      },
+      formatCurrency(valor) {
+        const numero = this.arredondarDuasCasas(valor);
+        return new Intl.NumberFormat('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(numero);
+      },
+      parseCurrency(valor) {
+        if (valor === null || valor === undefined) {
+          return 0;
+        }
+        const texto = String(valor).trim();
+        if (!texto) {
+          return 0;
+        }
+        const limpo = texto.replace(/[^\d,.-]/g, '');
+        const temVirgula = limpo.includes(',');
+        const temPonto = limpo.includes('.');
+        let normalizado = limpo;
+        if (temVirgula && temPonto) {
+          normalizado = limpo.replace(/\./g, '').replace(',', '.');
+        } else if (temVirgula && !temPonto) {
+          normalizado = limpo.replace(',', '.');
+        }
+        const numero = parseFloat(normalizado);
+        return Number.isFinite(numero) ? numero : 0;
+      },
+      ajustarValorFinalMedio() {
+        const numero = this.parseCurrency(this.valorFinalMedioInput);
+        this.form.valor_final_medio = this.arredondarDuasCasas(numero);
+        this.valorFinalMedioInput = this.formatCurrency(this.form.valor_final_medio);
       },
       calcularDataLimiteTroca(dataAssinatura) {
         if (!dataAssinatura) {
@@ -408,9 +614,62 @@ export default {
         this.dataLimiteErro = '';
         return true;
       },
+      validateForm() {
+        this.errors = {};
+        const required = [
+          'nome',
+          'cpf_cnpj',
+          'rua',
+          'numero',
+          'bairro',
+          'cidade',
+          'estado',
+          'cep',
+          'telefone',
+          'email',
+          'vendedor',
+          'valor_kwh',
+          'fio_b',
+          'percentual_lei',
+          'cia_energia',
+          'previsao_conexao',
+          'valor_final_medio',
+          'rede',
+          'status'
+        ];
+
+        required.forEach((field) => {
+          if (field === 'numero') {
+            if (this.form.numero === null || this.form.numero === '') {
+              this.errors.numero = 'Campo obrigatório';
+            }
+            return;
+          }
+          if (field === 'valor_final_medio') {
+            if (!this.valorFinalMedioInput) {
+              this.errors.valor_final_medio = 'Campo obrigatório';
+              return;
+            }
+            const valor = this.parseCurrency(this.valorFinalMedioInput);
+            if (!valor) {
+              this.errors.valor_final_medio = 'Campo obrigatório';
+              return;
+            }
+            this.form.valor_final_medio = this.arredondarDuasCasas(valor);
+            this.valorFinalMedioInput = this.formatCurrency(this.form.valor_final_medio);
+            return;
+          }
+          if (!this.form[field]) {
+            this.errors[field] = 'Campo obrigatório';
+          }
+        });
+
+        const datasValidas = this.validarDataLimiteTroca();
+        return Object.keys(this.errors).length === 0 && datasValidas;
+      },
       async submitForm() {
-        if (!this.validarDataLimiteTroca()) {
-          this.errorMessage = 'Corrija os campos destacados antes de salvar.';
+        if (!this.validateForm()) {
+          this.errorMessage = 'Corrija os campos obrigatórios antes de salvar.';
           return;
         }
         try {
@@ -462,11 +721,14 @@ export default {
           });
 
           // Atualizar Comercialização
+          this.ajustarValorFinalMedio();
+          const valorFinalMedio = this.form.valor_final_medio;
+
           await axios.put(`${baseURL}/comercializacao/${this.form.com_id}`, {
             valor_kwh: this.form.valor_kwh,
             valor_fixo: this.valorFixoCalculado,
             cia_energia: this.form.cia_energia,
-            valor_final_media: this.form.valor_final_medio,
+            valor_final_media: valorFinalMedio,
             previsao_conexao: this.form.previsao_conexao,
             data_conexao: this.form.conexao_final,
             fio_b: this.form.fio_b,
@@ -545,6 +807,11 @@ export default {
 
 label {
   font-weight: 500;
+}
+
+.required-asterisk {
+  color: #dc3545;
+  margin-left: 4px;
 }
 
 .btn-submit{

@@ -19,7 +19,7 @@
           <!-- Identificação -->
           <div class="row mb-2">
             <div class="col-md-6">
-              <label for="name">Nome</label>
+              <label for="name">Nome <span class="required-asterisk">*</span></label>
               <input
                 id="name"
                 type="text"
@@ -31,7 +31,7 @@
               <div v-if="errors.nome" class="invalid-feedback">{{ errors.nome }}</div>
             </div>
             <div class="col-md-6">
-              <label for="cpf/cnpj">CPF/CNPJ</label>
+              <label for="cpf/cnpj">CPF/CNPJ <span class="required-asterisk">*</span></label>
               <input
                 id="cpf/cnpj"
                 type="text"
@@ -47,7 +47,7 @@
           <!-- Endereço -->
           <div class="row mb-2">
             <div class="col-md-5">
-              <label for="endereco">Endereço</label>
+              <label for="endereco">Endereço <span class="required-asterisk">*</span></label>
               <input
                 id="endereco"
                 type="text"
@@ -59,7 +59,7 @@
               <div v-if="errors.rua" class="invalid-feedback">{{ errors.rua }}</div>
             </div>
             <div class="col-md-1">
-              <label for="numero">Número</label>
+              <label for="numero">Número <span class="required-asterisk">*</span></label>
               <input
                 id="numero"
                 type="number"
@@ -71,7 +71,7 @@
               <div v-if="errors.numero" class="invalid-feedback">{{ errors.numero }}</div>
             </div>
             <div class="col-md-3">
-              <label for="bairro">Bairro</label>
+              <label for="bairro">Bairro <span class="required-asterisk">*</span></label>
               <input
                 id="bairro"
                 type="text"
@@ -97,7 +97,7 @@
           </div>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="cidade">Cidade</label>
+              <label for="cidade">Cidade <span class="required-asterisk">*</span></label>
               <input
                 id="cidade"
                 type="text"
@@ -109,7 +109,7 @@
               <div v-if="errors.cidade" class="invalid-feedback">{{ errors.cidade }}</div>
             </div>
             <div class="col-md-4">
-              <label for="estado">Estado</label>
+              <label for="estado">Estado <span class="required-asterisk">*</span></label>
               <select
                 id="estado"
                 class="form-control"
@@ -125,7 +125,7 @@
               <div v-if="errors.estado" class="invalid-feedback">{{ errors.estado }}</div>
             </div>
             <div class="col-md-4">
-              <label for="cep">CEP</label>
+              <label for="cep">CEP <span class="required-asterisk">*</span></label>
               <input
                 id="cep"
                 type="text"
@@ -140,7 +140,7 @@
 
           <div class="row mb-2">
             <div class="col-md-6">
-              <label for="telefone">Telefone</label>
+              <label for="telefone">Telefone <span class="required-asterisk">*</span></label>
               <input
                 id="telefone"
                 type="text"
@@ -152,7 +152,7 @@
               <div v-if="errors.telefone" class="invalid-feedback">{{ errors.telefone }}</div>
             </div>
             <div class="col-md-6">
-              <label for="email">E-mail</label>
+              <label for="email">E-mail <span class="required-asterisk">*</span></label>
               <input
                 id="email"
                 type="email"
@@ -169,7 +169,7 @@
           <h5 class="mt-4">Informações do Processo</h5>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="vendedor">Vendedor</label>
+              <label for="vendedor">Vendedor <span class="required-asterisk">*</span></label>
               <select id="vendedor" class="form-control" :class="{ 'is-invalid': errors.vendedor }" v-model="form.vendedor" @change="errors.vendedor = ''">
                 <option disabled value="">Selecione o Vendedor</option>
                 <option v-for="v in vendedor" :key="v.ven_id" :value="v.ven_id">
@@ -202,7 +202,7 @@
               </div>
             </div>
             <div class="col-md-3">
-              <label for="status_usina">Status da Usina</label>
+              <label for="status_usina">Status da Usina <span class="required-asterisk">*</span></label>
               <select
                 id="status_usina"
                 class="form-control"
@@ -218,7 +218,7 @@
               <div v-if="errors.status" class="invalid-feedback">{{ errors.status }}</div>
             </div>
             <div class="col-md-3">
-              <label for="rede_usina">Rede</label>
+              <label for="rede_usina">Rede <span class="required-asterisk">*</span></label>
               <select
                 id="rede_usina"
                 class="form-control"
@@ -262,7 +262,7 @@
           <h5>Comercialização</h5>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="valorkwh">Valor do kWh</label>
+              <label for="valorkwh">Valor do kWh <span class="required-asterisk">*</span></label>
               <input
                 id="valorkwh"
                 type="number"
@@ -274,11 +274,20 @@
               <div v-if="errors.valor_kwh" class="invalid-feedback">{{ errors.valor_kwh }}</div>
             </div>
             <div class="col-md-4">
-              <label for="valorfixo">Valor Fixo</label>
-              <input id="valorfixo" type="number" class="form-control" :value="valorFixoCalculado" readonly />
+              <label for="valorfixo">Valor Fixo (R$)</label>
+              <div class="input-group">
+                <span class="input-group-text">R$</span>
+                <input
+                  id="valorfixo"
+                  type="text"
+                  class="form-control"
+                  :value="formatCurrency(valorFixoCalculado)"
+                  readonly
+                />
+              </div>
             </div>
             <div class="col-md-4">
-              <label for="ciaenergia">CIA Energia</label>
+              <label for="ciaenergia">CIA Energia <span class="required-asterisk">*</span></label>
               <select
                 id="ciaenergia"
                 class="form-control"
@@ -296,7 +305,7 @@
           </div>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="fioBComercializacao">Fio B (R$)</label>
+              <label for="fioBComercializacao">Fio B (R$) <span class="required-asterisk">*</span></label>
               <input
                 id="fioBComercializacao"
                 type="number"
@@ -309,7 +318,7 @@
               <div v-if="errors.fio_b" class="invalid-feedback">{{ errors.fio_b }}</div>
             </div>
             <div class="col-md-4">
-              <label for="percentualLei">Percentual Lei 14300/23 (%)</label>
+              <label for="percentualLei">Percentual Lei 14300/23 (%) <span class="required-asterisk">*</span></label>
               <input
                 id="percentualLei"
                 type="number"
@@ -323,14 +332,18 @@
             </div>
           </div>
           <div class="mb-3 col-md-4">
-            <label for="valorfinalmedio">Valor Final Médio Projetado</label>
-            <input
-              id="valorfinalmedio"
-              type="number"
-              class="form-control"
-              :class="{ 'is-invalid': errors.valor_final_medio }"
-              :value="valorFinalMedioCalculado"
-            />
+            <label for="valorfinalmedio">Valor Final Médio Projetado (R$)</label>
+            <div class="input-group">
+              <span class="input-group-text">R$</span>
+              <input
+                id="valorfinalmedio"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': errors.valor_final_medio }"
+                :value="formatCurrency(valorFinalMedioCalculado)"
+                readonly
+              />
+            </div>
             <div v-if="errors.valor_final_medio" class="invalid-feedback">{{ errors.valor_final_medio }}</div>
           </div>
 
@@ -338,8 +351,16 @@
           <h5>Conexão</h5>
           <div class="row mb-2">
             <div class="col-md-4">
-              <label for="previsaoconexao">Previsão de Conexão</label>
-              <input id="previsaoconexao" type="date" class="form-control" v-model="form.previsao_conexao" />
+              <label for="previsaoconexao">Previsão de Conexão <span class="required-asterisk">*</span></label>
+              <input
+                id="previsaoconexao"
+                type="date"
+                class="form-control"
+                :class="{ 'is-invalid': errors.previsao_conexao }"
+                v-model="form.previsao_conexao"
+                @input="errors.previsao_conexao = ''"
+              />
+              <div v-if="errors.previsao_conexao" class="invalid-feedback">{{ errors.previsao_conexao }}</div>
             </div>
             <div class="col-md-4">
               <label for="conexaofinal">Conexão Final</label>
@@ -449,7 +470,7 @@ export default {
       const descontoLei = fioB * (percentualLei/100);
       const valorFinalMedio = mediaGeracao * (valorKwh - descontoLei);
 
-      return parseFloat(valorFinalMedio) || 0;
+      return this.arredondarDuasCasas(valorFinalMedio);
     }
   },
   mounted() {
@@ -485,6 +506,20 @@ export default {
     }
   },
   methods: {
+    arredondarDuasCasas(valor) {
+      const numero = parseFloat(valor);
+      if (!Number.isFinite(numero)) {
+        return 0;
+      }
+      return Number(numero.toFixed(2));
+    },
+    formatCurrency(valor) {
+      const numero = this.arredondarDuasCasas(valor);
+      return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(numero);
+    },
     formatCpfCnpj(value) {
       let v = (value || '').replace(/\D/g, '');
       if (v.length <= 11) {
@@ -572,6 +607,7 @@ export default {
         'fio_b',
         'percentual_lei',
         'cia_energia',
+        'previsao_conexao',
         'rede',
         'status'
       ];
@@ -852,5 +888,10 @@ export default {
 
 label {
   font-weight: 500;
+}
+
+.required-asterisk {
+  color: #dc3545;
+  margin-left: 4px;
 }
 </style>

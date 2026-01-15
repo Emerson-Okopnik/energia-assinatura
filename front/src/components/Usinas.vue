@@ -9,7 +9,7 @@
           <tr>
             <th>Nome do Cliente</th>
             <th>CPF/CNPJ</th>
-            <th>Endereço Completo</th>
+            <th>Endereço</th>
             <th>Status</th>
             <th>Rede</th>
             <th>Média Geração (kWh)</th>
@@ -27,9 +27,7 @@
               </router-link>
             </td>
             <td class="nowrap">{{ usina.cliente.cpf_cnpj }}</td>
-            <td>
-              {{ usina.cliente.endereco.rua }}, Nº {{ usina.cliente.endereco.numero }}, {{ usina.cliente.endereco.bairro }} {{ usina.cliente.endereco.complemento }} {{ usina.cliente.endereco.cidade }} - {{ usina.cliente.endereco.estado }}
-            </td>
+            <td> {{ usina.cliente.endereco.cidade }} - {{ usina.cliente.endereco.estado }} </td>
             <td>
               <span v-if="usina.status === 'Concluído'" class="badge bg-success">Conectado</span>
               <span v-else-if="usina.status === 'Aguardando troca de titularidade'" class="badge bg-danger">Não Conectado</span>

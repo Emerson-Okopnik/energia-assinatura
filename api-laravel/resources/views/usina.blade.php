@@ -570,8 +570,8 @@
                       <th>Mês</th>
                       <th>Mês de vencimento</th>
                       <th>Valor Guardado</th>
-                      <th>Creditado</th>
-                      <th>Meses utilizados</th>
+                      <th>Creditado (kWh)</th>
+                      <th>Meses Resgatados</th>
                   </tr>
               </thead>
               <tbody>
@@ -580,8 +580,8 @@
                           <td>{{ $mes }}</td>
                           <td>{{ $dados['vencimento'] ?? '-' }}</td>
                           <td>{{ number_format($dados['guardado'], 2, ',', '.') }} Kwh</td>
-                          <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
-                          <td>{{ $dados['mes_creditado'] ?? '-' }}</td>
+                          <td>{{ number_format($dados['creditado_kwh'] ?? 0, 2, ',', '.') }} kWh</td>
+                          <td>{{ $dados['meses_utilizados'] ?? '-' }}</td>
                       </tr>
                   @endforeach
               </tbody>
