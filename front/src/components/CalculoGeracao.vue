@@ -746,7 +746,11 @@ export default {
     formatarData(isoString) {
       if (!isoString) return '—';
       const d = new Date(isoString);
-      return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+      return d.toLocaleString('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: 'America/Sao_Paulo',
+      });
     },
 
     async confirmarEstorno(chaveMes) {
