@@ -22,9 +22,11 @@ use App\Http\Controllers\DadosGeracaoRealUsinaController;
 use App\Http\Controllers\DadoConsumoUsinaController;
 use App\Http\Controllers\CalculoGeracaoController;
 use App\Http\Controllers\CelescController;
+use App\Http\Controllers\NotaEmitidaTesteController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/notas/emitidas', [NotaEmitidaTesteController::class, 'store']);
 
 Route::middleware('auth:api')->group(function () {
   Route::get('/home', [AuthController::class, 'user']);
