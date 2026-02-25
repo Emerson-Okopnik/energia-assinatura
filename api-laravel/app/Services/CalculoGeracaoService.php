@@ -106,6 +106,8 @@ class CalculoGeracaoService
                 $reservaAnoAnterior->save();
             }
 
+            $valorPago += $creditoExpirado;
+
             $reservaAnterior   = max(0.0, (float) ($reserva->total ?? 0));
             $valorGuardado     = 0.0;
             $energiaCompensada = 0.0;
