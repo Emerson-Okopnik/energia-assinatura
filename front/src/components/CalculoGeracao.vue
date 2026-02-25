@@ -143,6 +143,7 @@
           <th>Valor Guardado</th>
           <th>Creditado</th>
           <th>Valor Pago</th>
+          <th v-if="ultimoRevertivel">Ação</th>
         </tr>
       </thead>
       <tbody v-if="temDadosGeracaoTabela">
@@ -153,17 +154,27 @@
             <td>{{ formatKwh(dadosFaturamentoAnual?.valor_acumulado_reserva?.[chaveMes]) }}</td>
             <td>R$ {{ formatMoeda(dadosFaturamentoAnual?.creditos_distribuidos?.[chaveMes]) }}</td>
             <td>R$ {{ formatMoeda(dadosFaturamentoAnual?.faturamento_usina?.[chaveMes]) }}</td>
+            <td v-if="ultimoRevertivel">
+              <button
+                v-if="ultimoRevertivel.mes_nome === chaveMes && ultimoRevertivel.ano === anoFaturamento"
+                class="btn btn-sm btn-outline-danger"
+                :disabled="isRevertendo"
+                @click="confirmarEstorno(chaveMes)"
+              >
+                {{ isRevertendo ? 'Revertendo...' : 'Reverter' }}
+              </button>
+            </td>
           </tr>
         </template>
       </tbody>
       <tbody v-else>
         <tr>
-          <td colspan="5" class="text-center">Nenhum dado de geração real disponível para o ano selecionado.</td>
+          <td :colspan="ultimoRevertivel ? 6 : 5" class="text-center">Nenhum dado de geração real disponível para o ano selecionado.</td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="5" class="text-center">
+          <td :colspan="ultimoRevertivel ? 6 : 5" class="text-center">
             <button class="btn btn-secondary me-2" @click="voltarAno">← Ano Anterior</button>
             <strong>{{ anoFaturamento }}</strong>
             <button class="btn btn-secondary ms-2" @click="avancarAno">Próximo Ano →</button>
@@ -173,6 +184,31 @@
       </tfoot>
     </table>
 
+    <div v-if="historicoEstorno.length" class="mb-4">
+      <button class="btn btn-link p-0 text-secondary" @click="mostrarHistorico = !mostrarHistorico">
+        {{ mostrarHistorico ? '▲ Ocultar histórico de alterações' : '▼ Ver histórico de alterações' }}
+      </button>
+      <table v-if="mostrarHistorico" class="table table-sm table-bordered mt-2">
+        <thead class="table-light">
+          <tr>
+            <th>Competência</th>
+            <th>Lançado por</th>
+            <th>Lançado em</th>
+            <th>Revertido por</th>
+            <th>Revertido em</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="h in historicoEstorno" :key="h.he_id">
+            <td>{{ ucfirst(h.mes_nome) }}/{{ h.ano }}</td>
+            <td>{{ h.lancado_por || '—' }}</td>
+            <td>{{ formatarData(h.created_at) }}</td>
+            <td>{{ h.revertido_por || '—' }}</td>
+            <td>{{ h.revertido_em ? formatarData(h.revertido_em) : '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <div class="d-flex justify-content-end mb-5">
       <button class="btn btn-success" @click="salvarValoresMensais" :disabled="isSalvandoConsumoUsina">
@@ -259,6 +295,10 @@ export default {
       observacoes: '',
       consumoUsinaMes: null,
       isSalvandoConsumoUsina: false,
+      ultimoRevertivel: null,
+      historicoEstorno: [],
+      mostrarHistorico: false,
+      isRevertendo: false,
     };
   },
   watch: {
@@ -354,25 +394,30 @@ export default {
     async carregarFaturamentoAno() {
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
       try {
-        const [faturamentoResp, geracaoResp] = await Promise.all([
-          axios.get(`${baseURL}/creditos-distribuidos-usina/usina/${this.selectedUsinaId}/ano/${this.anoFaturamento}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          axios.get(`${baseURL}/dados-geracao-real-usina/usina/${this.selectedUsinaId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
+        const [faturamentoResp, geracaoResp, revertivelResp, historicoResp] = await Promise.all([
+          axios.get(`${baseURL}/creditos-distribuidos-usina/usina/${this.selectedUsinaId}/ano/${this.anoFaturamento}`, { headers }),
+          axios.get(`${baseURL}/dados-geracao-real-usina/usina/${this.selectedUsinaId}`, { headers }),
+          axios.get(`${baseURL}/usinas/${this.selectedUsinaId}/ultimo-revertivel`, { headers }),
+          axios.get(`${baseURL}/usinas/${this.selectedUsinaId}/historico-estorno`, { headers }),
         ]);
 
         this.dadosFaturamentoAnual = faturamentoResp.data[0];
-        const geracaoDados = Array.isArray(geracaoResp.data) ? geracaoResp.data : [];
-        const geracaoAnoSelecionado = geracaoDados.find(item => Number(item.ano) === Number(this.anoFaturamento));
-        this.dadosGeracaoRealMensal = geracaoAnoSelecionado?.dados_geracao_real || {};
 
+        const geracaoDados = Array.isArray(geracaoResp.data) ? geracaoResp.data : [];
+        const geracaoAno = geracaoDados.find(item => Number(item.ano) === Number(this.anoFaturamento));
+        this.dadosGeracaoRealMensal = geracaoAno?.dados_geracao_real || {};
+
+        this.ultimoRevertivel = revertivelResp.data;
+        this.historicoEstorno = Array.isArray(historicoResp.data) ? historicoResp.data : [];
       } catch (error) {
         console.error('Erro ao carregar dados de faturamento ou geração:', error);
         this.dadosFaturamentoAnual = null;
         this.dadosGeracaoRealMensal = {};
+        this.ultimoRevertivel = null;
+        this.historicoEstorno = [];
       }
     },
     avancarAno() {
@@ -690,6 +735,64 @@ export default {
           confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
+      }
+    },
+
+    ucfirst(str) {
+      if (!str) return '';
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    },
+
+    formatarData(isoString) {
+      if (!isoString) return '—';
+      const d = new Date(isoString);
+      return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    },
+
+    async confirmarEstorno(chaveMes) {
+      const label = this.meses[chaveMes];
+      const result = await Swal.fire({
+        icon: 'warning',
+        title: `Reverter ${label}/${this.anoFaturamento}?`,
+        html: 'Esta ação desfaz o lançamento e limpa o cache do PDF deste mês.<br>O lançamento poderá ser feito novamente após a reversão.',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sim, reverter',
+        cancelButtonText: 'Cancelar',
+      });
+
+      if (result.isConfirmed) {
+        await this.executarEstorno(chaveMes);
+      }
+    },
+
+    async executarEstorno(chaveMes) {
+      const baseURL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem('token');
+      const mesIndex = Object.keys(this.meses).indexOf(chaveMes) + 1;
+
+      this.isRevertendo = true;
+      try {
+        await axios.post(
+          `${baseURL}/usinas/${this.selectedUsinaId}/faturamento/${this.anoFaturamento}/mes/${mesIndex}/estorno`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Revertido!',
+          text: 'O lançamento foi desfeito. Você pode lançar novamente.',
+          confirmButtonColor: '#3085d6',
+        });
+
+        await this.carregarFaturamentoAno();
+      } catch (error) {
+        const msg = error.response?.data?.error || 'Não foi possível reverter o lançamento.';
+        Swal.fire({ icon: 'error', title: 'Erro ao reverter', text: msg, confirmButtonColor: '#d33' });
+      } finally {
+        this.isRevertendo = false;
       }
     },
 

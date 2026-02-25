@@ -124,6 +124,9 @@ Route::middleware('auth:api')->group(function () {
   Route::delete('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'destroy']);
 
   Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'calcular']);
+  Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/estorno', [\App\Http\Controllers\EstornoGeracaoController::class, 'estornar']);
+  Route::get('/usinas/{usi_id}/historico-estorno', [\App\Http\Controllers\EstornoGeracaoController::class, 'historico']);
+  Route::get('/usinas/{usi_id}/ultimo-revertivel', [\App\Http\Controllers\EstornoGeracaoController::class, 'ultimoRevertivel']);
 
   Route::post('/dados-geracao-real-usina', [DadosGeracaoRealUsinaController::class, 'store']);
   Route::get('/dados-geracao-real-usina', [DadosGeracaoRealUsinaController::class, 'index']);
