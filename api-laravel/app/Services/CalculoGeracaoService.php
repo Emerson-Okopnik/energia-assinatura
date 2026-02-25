@@ -10,7 +10,6 @@ use App\Models\{
     FaturamentoUsina,
     DadosGeracaoReal,
     DadosGeracaoRealUsina,
-    DadoConsumoUsina,
     HistoricoEstorno,
 };
 use Illuminate\Support\Facades\DB;
@@ -50,7 +49,7 @@ class CalculoGeracaoService
                 ->first();
 
             if (!$vinculo || !$dgrVinculo) {
-                [$vinculo, $dgrVinculo] = $this->criarPacoteAnual($usina, $ano, $mesNome, $payload['mesGeracao_kwh']);
+                [$vinculo, $dgrVinculo] = $this->criarPacoteAnual($usina, $ano);
             }
 
             $credito    = CreditosDistribuidos::findOrFail($vinculo->cd_id);
@@ -81,14 +80,8 @@ class CalculoGeracaoService
                 'snapshot_geracao_mes'      => (float) ($geracao->$mesNome ?? 0),
             ]);
 
-            $tarifa = (float) $payload['tarifa_kwh'];
-
-            $consumoUsina = DadoConsumoUsina::where('usi_id', $usina->usi_id)
-                ->where('ano', $ano)
-                ->with('dadoConsumo')
-                ->first();
-
-            $geracaoMes    = (float) $payload['mesGeracao_kwh'];
+            $tarifa     = (float) $payload['tarifa_kwh'];
+            $geracaoMes = (float) $payload['mesGeracao_kwh'];
             $media         = (float) $payload['mediaGeracao_kwh'];
             $adicionalCuo  = (float) ($payload['adicional_cuo'] ?? 0);
             $valorPago     = (float) $payload['valorPago_mes'] + $adicionalCuo;
@@ -180,12 +173,12 @@ class CalculoGeracaoService
         });
     }
 
-    private function criarPacoteAnual(Usina $usina, int $ano, string $mesNome, float $geracao): array
+    private function criarPacoteAnual(Usina $usina, int $ano): array
     {
         $cd  = CreditosDistribuidos::create();
         $var = ValorAcumuladoReserva::create(['total' => 0]);
         $fa  = FaturamentoUsina::create();
-        $dgr = DadosGeracaoReal::create([$mesNome => $geracao]);
+        $dgr = DadosGeracaoReal::create();
 
         $vinculo = CreditosDistribuidosUsina::create([
             'usi_id' => $usina->usi_id,

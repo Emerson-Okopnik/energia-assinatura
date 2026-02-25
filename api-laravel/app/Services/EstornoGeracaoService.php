@@ -44,17 +44,29 @@ class EstornoGeracaoService
 
             $vinculo = CreditosDistribuidosUsina::where('usi_id', $usina->usi_id)
                 ->where('ano', $ano)
+                ->lockForUpdate()
                 ->firstOrFail();
 
-            $reserva     = ValorAcumuladoReserva::findOrFail($vinculo->var_id);
-            $credito     = CreditosDistribuidos::findOrFail($vinculo->cd_id);
-            $faturamento = FaturamentoUsina::findOrFail($vinculo->fa_id);
+            $reserva = ValorAcumuladoReserva::where('var_id', $vinculo->var_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $credito = CreditosDistribuidos::where('cd_id', $vinculo->cd_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $faturamento = FaturamentoUsina::where('fa_id', $vinculo->fa_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
             $dgrVinculo = DadosGeracaoRealUsina::where('usi_id', $usina->usi_id)
                 ->where('ano', $ano)
+                ->lockForUpdate()
                 ->firstOrFail();
 
-            $geracao = DadosGeracaoReal::findOrFail($dgrVinculo->dgr_id);
+            $geracao = DadosGeracaoReal::where('dgr_id', $dgrVinculo->dgr_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
             $this->restaurarReserva($reserva, $snapshot->snapshot_reserva_atual);
 

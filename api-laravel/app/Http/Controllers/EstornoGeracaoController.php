@@ -43,6 +43,7 @@ class EstornoGeracaoController extends Controller
                 'usuarioEstorno:id,name',
             ])
             ->orderByDesc('he_id')
+            ->limit(50)
             ->get()
             ->map(fn ($r) => [
                 'he_id'        => $r->he_id,

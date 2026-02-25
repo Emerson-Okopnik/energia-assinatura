@@ -416,6 +416,8 @@ export default {
         console.error('Erro ao carregar dados de faturamento ou geração:', error);
         this.dadosFaturamentoAnual = null;
         this.dadosGeracaoRealMensal = {};
+        this.ultimoRevertivel = null;
+        this.historicoEstorno = [];
       }
     },
     avancarAno() {
