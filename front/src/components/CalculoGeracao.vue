@@ -428,8 +428,8 @@ export default {
 
       if (valor < media && reservaTotal > 0) {
         const faltante = media - valor;
-        const valorCredito = faltante * kwh;
-        return Math.min(valorCredito, reservaTotal);
+        const energiaCompensada = Math.min(faltante, reservaTotal);
+        return energiaCompensada * kwh;
       } else {
         return 0;
       }
