@@ -73,6 +73,9 @@ Route::middleware('auth:api')->group(function () {
 
   Route::post('/usina', [UsinaController::class, 'store']);
   Route::get('/usina', [UsinaController::class, 'index']);
+  Route::get('/usinas', [UsinaController::class, 'indexPaginated']);
+  Route::get('/usinas/listagem', [UsinaController::class, 'indexListagem']);
+  Route::get('/usina/busca', [UsinaController::class, 'buscarPorNomeCliente']);
   Route::get('/usina/{id}', [UsinaController::class, 'show']);
   Route::put('/usina/{id}', [UsinaController::class, 'update']);
   Route::delete('/usina/{id}', [UsinaController::class, 'destroy']);
@@ -124,6 +127,7 @@ Route::middleware('auth:api')->group(function () {
   Route::delete('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'destroy']);
 
   Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'calcular']);
+  Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/reverter', [\App\Http\Controllers\CalculoGeracaoController::class, 'reverter']);
 
   Route::post('/dados-geracao-real-usina', [DadosGeracaoRealUsinaController::class, 'store']);
   Route::get('/dados-geracao-real-usina', [DadosGeracaoRealUsinaController::class, 'index']);

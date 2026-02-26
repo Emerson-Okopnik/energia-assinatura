@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Services\UsinaService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class UsinaController extends Controller {
 
@@ -13,9 +13,72 @@ class UsinaController extends Controller {
     $this->usinaService = $usinaService;
   }
 
-  public function index(): JsonResponse {
-    $usinas = $this->usinaService->findAll();
-    return response()->json($usinas);
+  public function index(Request $request): JsonResponse {
+    $shouldPaginate = $request->boolean('paginate')
+      || $request->has('page')
+      || $request->has('per_page');
+
+    if (!$shouldPaginate) {
+      $usinas = $this->usinaService->findAll();
+      return response()->json($usinas);
+    }
+
+    $validated = $request->validate([
+      'page' => 'sometimes|integer|min:1',
+      'per_page' => 'sometimes|integer|min:1|max:100',
+    ]);
+
+    $page = (int) ($validated['page'] ?? 1);
+    $perPage = (int) ($validated['per_page'] ?? 10);
+
+    $usinas = $this->usinaService->findPaginated($perPage, $page);
+    return $this->paginatedResponse($usinas);
+  }
+
+  public function indexPaginated(Request $request): JsonResponse {
+    $validated = $request->validate([
+      'page' => 'sometimes|integer|min:1',
+      'per_page' => 'sometimes|integer|min:1|max:100',
+    ]);
+
+    $page = (int) ($validated['page'] ?? 1);
+    $perPage = (int) ($validated['per_page'] ?? 10);
+
+    $usinas = $this->usinaService->findPaginated($perPage, $page);
+    return $this->paginatedResponse($usinas);
+  }
+
+  public function indexListagem(Request $request): JsonResponse {
+    $validated = $request->validate([
+      'page' => 'sometimes|integer|min:1',
+      'per_page' => 'sometimes|integer|min:1|max:100',
+    ]);
+
+    $page = (int) ($validated['page'] ?? 1);
+    $perPage = (int) ($validated['per_page'] ?? 10);
+
+    $usinas = $this->usinaService->findListagemPaginated($perPage, $page);
+    return $this->paginatedResponse($usinas);
+  }
+
+  public function buscarPorNomeCliente(Request $request): JsonResponse {
+    $validated = $request->validate([
+      'nome_cliente' => 'required|string|min:2|max:255',
+      'page' => 'sometimes|integer|min:1',
+      'per_page' => 'sometimes|integer|min:1|max:100',
+    ]);
+
+    $nomeCliente = trim($validated['nome_cliente']);
+    $page = (int) ($validated['page'] ?? 1);
+    $perPage = (int) ($validated['per_page'] ?? 10);
+
+    $usinas = $this->usinaService->searchByClienteNomePaginated(
+      $nomeCliente,
+      $perPage,
+      $page
+    );
+
+    return $this->paginatedResponse($usinas);
   }
 
   public function store(Request $request): JsonResponse {
@@ -90,6 +153,15 @@ class UsinaController extends Controller {
     }
 
     return response()->json(['anos' => $anos]);
+  }
+
+  private function paginatedResponse(LengthAwarePaginator $paginator): JsonResponse {
+    return response()->json([
+      'data' => $paginator->items(),
+      'current_page' => $paginator->currentPage(),
+      'last_page' => $paginator->lastPage(),
+      'total' => $paginator->total(),
+    ]);
   }
 
 }

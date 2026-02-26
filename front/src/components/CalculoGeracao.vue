@@ -1,14 +1,33 @@
 <template>
   <div class="container mt-5">
     <h3 class="mb-4">Gestão de Faturamento Usina</h3>
-    <div class="mb-5">
-      <label for="usinaSelect">Selecione a Usina:</label>
-      <select id="usinaSelect" v-model="selectedUsinaId" @change="carregarDados" class="form-select">
-        <option disabled value="">Selecione uma usina</option>
-        <option v-for="usina in usinas" :key="usina.usi_id" :value="usina.usi_id">
-          {{ usina.cliente.nome }} - {{ usina.dado_geracao?.media ?? 0 }} kWh
-        </option>
-      </select>
+    <div class="mb-5 usina-autocomplete">
+      <label for="usinaSearch">Selecione a Usina:</label>
+      <input
+        id="usinaSearch"
+        v-model.trim="usinaSearchTerm"
+        class="form-control"
+        placeholder="Digite para pesquisar e selecionar a usina"
+        autocomplete="off"
+        @focus="showUsinaOptions = true"
+        @input="onUsinaSearchInput"
+        @keydown.down.prevent="highlightNextUsina"
+        @keydown.up.prevent="highlightPrevUsina"
+        @keydown.enter.prevent="selectHighlightedUsina"
+        @blur="onUsinaSearchBlur"
+      />
+      <ul v-if="showUsinaOptions && usinasFiltradas.length" class="list-group usina-autocomplete-list">
+        <li
+          v-for="(usina, index) in usinasFiltradas"
+          :key="usina.usi_id"
+          class="list-group-item usina-autocomplete-item"
+          :class="{ active: index === highlightedUsinaIndex }"
+          @mousedown.prevent="selectUsina(usina)"
+        >
+          {{ usina.nome_cliente }} - {{ usina.media_geracao_kwh ?? 0 }} kWh
+        </li>
+      </ul>
+      <small class="text-muted d-block mt-1">{{ usinasFiltradas.length }} usina(s) encontrada(s)</small>
     </div>
 
     <h4 class="my-4">Cálculo de Geração da Usina - Expectativa</h4>
@@ -143,6 +162,7 @@
           <th>Valor Guardado</th>
           <th>Creditado</th>
           <th>Valor Pago</th>
+          <th>Acoes</th>
         </tr>
       </thead>
       <tbody v-if="temDadosGeracaoTabela">
@@ -153,17 +173,26 @@
             <td>{{ formatKwh(dadosFaturamentoAnual?.valor_acumulado_reserva?.[chaveMes]) }}</td>
             <td>R$ {{ formatMoeda(dadosFaturamentoAnual?.creditos_distribuidos?.[chaveMes]) }}</td>
             <td>R$ {{ formatMoeda(dadosFaturamentoAnual?.faturamento_usina?.[chaveMes]) }}</td>
+            <td class="text-center">
+              <button
+                class="btn btn-sm btn-outline-danger"
+                :disabled="mesRevertendo === chaveMes || isSalvandoConsumoUsina"
+                @click="reverterGeracaoMes(chaveMes, labelMes)"
+              >
+                {{ mesRevertendo === chaveMes ? 'Revertendo...' : 'Reverter' }}
+              </button>
+            </td>
           </tr>
         </template>
       </tbody>
       <tbody v-else>
         <tr>
-          <td colspan="5" class="text-center">Nenhum dado de geração real disponível para o ano selecionado.</td>
+          <td colspan="6" class="text-center">Nenhum dado de geração real disponível para o ano selecionado.</td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="5" class="text-center">
+          <td colspan="6" class="text-center">
             <button class="btn btn-secondary me-2" @click="voltarAno">← Ano Anterior</button>
             <strong>{{ anoFaturamento }}</strong>
             <button class="btn btn-secondary ms-2" @click="avancarAno">Próximo Ano →</button>
@@ -175,7 +204,7 @@
 
 
     <div class="d-flex justify-content-end mb-5">
-      <button class="btn btn-success" @click="salvarValoresMensais" :disabled="isSalvandoConsumoUsina">
+      <button class="btn btn-success" @click="salvarValoresMensais" :disabled="isSalvandoConsumoUsina || Boolean(mesRevertendo)">
         {{ isSalvandoConsumoUsina ? 'Salvando consumo...' : 'Salvar Valores' }}
       </button>
     </div>
@@ -222,6 +251,9 @@ export default {
     return {
       usinas: [],
       selectedUsinaId: '',
+      usinaSearchTerm: '',
+      showUsinaOptions: false,
+      highlightedUsinaIndex: -1,
       fioB: 0.13,
       faturaEnergia: 0,
       adicionalCuo: 0,
@@ -259,6 +291,7 @@ export default {
       observacoes: '',
       consumoUsinaMes: null,
       isSalvandoConsumoUsina: false,
+      mesRevertendo: '',
     };
   },
   watch: {
@@ -313,8 +346,67 @@ export default {
     temDadosGeracaoTabela() {
       return Object.keys(this.meses).some((mes) => this.temDadosMes(mes));
     },
+    usinasFiltradas() {
+      const termo = this.normalizeText(this.usinaSearchTerm);
+      if (!termo) return this.usinas;
+
+      return this.usinas.filter((usina) => {
+        const nome = this.normalizeText(usina.nome_cliente);
+        const label = this.normalizeText(this.formatUsinaLabel(usina));
+        return nome.includes(termo) || label.includes(termo);
+      });
+    },
   },
   methods: {
+    normalizeText(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    },
+    formatUsinaLabel(usina) {
+      return `${usina.nome_cliente} - ${usina.media_geracao_kwh ?? 0} kWh`;
+    },
+    onUsinaSearchInput() {
+      this.selectedUsinaId = '';
+      this.usina = null;
+      this.showUsinaOptions = true;
+      this.highlightedUsinaIndex = -1;
+    },
+    onUsinaSearchBlur() {
+      setTimeout(() => {
+        this.showUsinaOptions = false;
+        this.highlightedUsinaIndex = -1;
+      }, 120);
+    },
+    highlightNextUsina() {
+      if (!this.usinasFiltradas.length) return;
+      this.showUsinaOptions = true;
+      this.highlightedUsinaIndex = Math.min(
+        this.highlightedUsinaIndex + 1,
+        this.usinasFiltradas.length - 1
+      );
+    },
+    highlightPrevUsina() {
+      if (!this.usinasFiltradas.length) return;
+      this.showUsinaOptions = true;
+      this.highlightedUsinaIndex = Math.max(this.highlightedUsinaIndex - 1, 0);
+    },
+    selectHighlightedUsina() {
+      if (!this.usinasFiltradas.length) return;
+      const index = this.highlightedUsinaIndex >= 0 ? this.highlightedUsinaIndex : 0;
+      const usina = this.usinasFiltradas[index];
+      if (!usina) return;
+      this.selectUsina(usina);
+    },
+    selectUsina(usina) {
+      this.selectedUsinaId = String(usina.usi_id);
+      this.usinaSearchTerm = this.formatUsinaLabel(usina);
+      this.showUsinaOptions = false;
+      this.highlightedUsinaIndex = -1;
+      this.carregarDados();
+    },
     formatKwh(value) {
       const numero = Number(value) || 0;
       return `${numero.toFixed(2)} kWh`;
@@ -343,10 +435,35 @@ export default {
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
       try {
-        const response = await axios.get(`${baseURL}/usina`, {
+        const response = await axios.get(`${baseURL}/usinas/listagem`, {
+          params: {
+            page: 1,
+            per_page: 100
+          },
           headers: { Authorization: `Bearer ${token}` }
         });
-        this.usinas = response.data;
+
+        const payload = response.data;
+        const lista = Array.isArray(payload) ? payload : (payload.data || []);
+
+        this.usinas = lista.map(item => ({
+          usi_id: item.usi_id,
+          nome_cliente: item.nome_cliente || '-',
+          media_geracao_kwh: item.media_geracao_kwh ?? 0
+        }));
+
+        if (this.selectedUsinaId) {
+          const selecionada = this.usinas.find(
+            (item) => String(item.usi_id) === String(this.selectedUsinaId)
+          );
+          if (!selecionada) {
+            this.selectedUsinaId = '';
+            this.usina = null;
+            this.usinaSearchTerm = '';
+          } else {
+            this.usinaSearchTerm = this.formatUsinaLabel(selecionada);
+          }
+        }
       } catch (err) {
         console.error('Erro ao buscar usinas:', err);
       }
@@ -543,7 +660,7 @@ export default {
           title: 'Dados insuficientes',
           text: 'Selecione a usina, mês e ano antes de salvar o consumo.',
         });
-        return false;
+        return null;
       }
 
       if (this.consumoUsinaMes === null || Number.isNaN(this.consumoUsinaMes)) {
@@ -552,7 +669,7 @@ export default {
           title: 'Consumo obrigatório',
           text: 'Informe o consumo da usina para o mês selecionado.',
         });
-        return false;
+        return null;
       }
 
       const cliId = this.usina?.cli_id || this.usina?.cliente?.cli_id;
@@ -562,7 +679,7 @@ export default {
           title: 'Cliente não encontrado',
           text: 'Não foi possível identificar o cliente da usina para salvar o consumo.',
         });
-        return false;
+        return null;
       }
 
       this.isSalvandoConsumoUsina = true;
@@ -581,12 +698,13 @@ export default {
         const consumoResponse = await axios.post(`${baseURL}/consumo`, consumoPayload, { headers });
         const dcon_id = consumoResponse.data?.id;
 
-        await axios.post(`${baseURL}/dados-consumo-usina`, {
+        const consumoUsinaResponse = await axios.post(`${baseURL}/dados-consumo-usina`, {
           usi_id: this.usina.usi_id,
           cli_id: cliId,
           dcon_id,
           ano: this.anoFaturamento,
         }, { headers });
+        const dcu_id = consumoUsinaResponse.data?.id;
 
         if (!silencioso) {
           Swal.fire({
@@ -596,7 +714,7 @@ export default {
           });
         }
 
-        return true;
+        return { dcon_id, dcu_id };
       } catch (error) {
         console.error('Erro ao salvar consumo da usina:', error);
         Swal.fire({
@@ -604,7 +722,7 @@ export default {
           title: 'Falha ao salvar',
           text: 'Não foi possível registrar o consumo da usina. Tente novamente.',
         });
-        return false;
+        return null;
       } finally {
         this.isSalvandoConsumoUsina = false;
       }
@@ -633,6 +751,24 @@ export default {
           return;
         }
 
+        const faturamentoMesAtual = Number(
+          this.dadosFaturamentoAnual?.faturamento_usina?.[this.mesSelecionado] || 0
+        );
+        const geracaoMesAtual = Number(
+          this.dadosGeracaoRealMensal?.[this.mesSelecionado] || 0
+        );
+
+        if (Math.abs(faturamentoMesAtual) > 0.000001 || Math.abs(geracaoMesAtual) > 0.000001) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Mes ja faturado',
+            text: 'Nao e possivel salvar novamente um faturamento para este mes.',
+            confirmButtonColor: '#f28c1f',
+            confirmButtonText: 'Entendi'
+          });
+          return;
+        }
+
         const consumoSalvo = await this.salvarConsumoUsina({ silencioso: true });
         
         if (!consumoSalvo) {
@@ -649,7 +785,9 @@ export default {
           reservaTotalAnterior_kwh: parseFloat(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total || 0),
           tarifa_kwh: parseFloat(this.valor_kwh || 0),
           valorPago_mes: parseFloat(this.valorFinalBase(geracaoLiquida) || 0),
-          adicional_cuo: parseFloat(this.adicionalCuo || 0)
+          adicional_cuo: parseFloat(this.adicionalCuo || 0),
+          dcon_id: consumoSalvo.dcon_id ?? null,
+          dcu_id: consumoSalvo.dcu_id ?? null
         };
 
         const resp = await axios.post(
@@ -683,13 +821,109 @@ export default {
 
       } catch (error) {
         console.error('Erro ao salvar valores mensais:', error);
+        const mensagemErro = error?.response?.data?.error
+          || 'Verifique se os dados estao corretos ou se a usina foi carregada.';
+        const tituloErro = error?.response?.status === 409 ? 'Mes ja faturado' : 'Erro ao salvar';
         Swal.fire({
           icon: 'error',
-          title: 'Erro ao salvar',
-          text: 'Verifique se os dados estão corretos ou se a usina foi carregada.',
+          title: tituloErro,
+          text: mensagemErro,
           confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
+      }
+    },
+
+    async reverterGeracaoMes(chaveMes, labelMes) {
+      if (!this.usina?.usi_id || !this.anoFaturamento) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Dados insuficientes',
+          text: 'Selecione uma usina antes de reverter o mes.',
+          confirmButtonColor: '#f28c1f',
+          confirmButtonText: 'Entendi'
+        });
+        return;
+      }
+
+      const mesIndex = Object.keys(this.meses).indexOf(chaveMes) + 1;
+      if (mesIndex < 1) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Mes invalido',
+          text: 'Nao foi possivel identificar o mes para reversao.',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
+        return;
+      }
+
+      const confirmacao = await Swal.fire({
+        icon: 'warning',
+        title: 'Reverter geracao?',
+        text: `Essa acao vai desfazer o faturamento de ${labelMes}/${this.anoFaturamento}.`,
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sim, reverter',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!confirmacao.isConfirmed) {
+        return;
+      }
+
+      this.mesRevertendo = chaveMes;
+
+      try {
+        const token = localStorage.getItem('token');
+        const baseURL = import.meta.env.VITE_API_URL;
+
+        await axios.post(
+          `${baseURL}/usinas/${this.usina.usi_id}/faturamento/${this.anoFaturamento}/mes/${mesIndex}/reverter`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (this.mesSelecionado === chaveMes) {
+          this.mesGeracao = 0;
+          this.valorGeracaoMes = 0;
+          this.credito = 0;
+          this.valorGuardado = 0;
+          this.valorTotal = 0;
+          this.co2Evitado = 0;
+          this.arvoresPlantadas = 0;
+          this.consumoUsinaMes = null;
+          this.adicionalCuo = 0;
+        }
+
+        await this.carregarFaturamentoAno();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Geracao revertida',
+          text: `A geracao de ${labelMes}/${this.anoFaturamento} foi revertida com sucesso.`,
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: 'OK'
+        });
+      } catch (error) {
+        console.error('Erro ao reverter geracao:', error);
+        const mensagemErro = error?.response?.data?.error
+          || 'Nao foi possivel reverter a geracao deste mes.';
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro na reversao',
+          text: mensagemErro,
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Entendi'
+        });
+      } finally {
+        this.mesRevertendo = '';
       }
     },
 
@@ -800,5 +1034,25 @@ label {
   display: flex;
   align-items: center;
   font-weight: 600;
+}
+
+.usina-autocomplete {
+  position: relative;
+}
+
+.usina-autocomplete-list {
+  margin-top: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.usina-autocomplete-item {
+  cursor: pointer;
+}
+
+.usina-autocomplete-item.active {
+  background-color: #f28c1f;
+  border-color: #f28c1f;
+  color: #fff;
 }
 </style>

@@ -46,6 +46,8 @@ class CalculoGeracaoController extends Controller
 
         try {
             $data = $this->service->process($usina, $ano, $mes, $payload);
+        } catch (\DomainException $e) {
+            return response()->json(['error' => $e->getMessage()], 409);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         } catch (\Exception $e) {
@@ -59,6 +61,29 @@ class CalculoGeracaoController extends Controller
             'user_id' => $user->id,
             'response' => $data,
         ]);
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function reverter(Request $request, int $usi_id, int $ano, int $mes): JsonResponse
+    {
+        $user = $request->user();
+        $usina = Usina::find($usi_id);
+
+        if (!$usina || ($user->cli_id ?? $usina->cli_id) !== $usina->cli_id) {
+            return response()->json(['error' => 'Usina nao encontrada'], 404);
+        }
+
+        try {
+            $data = $this->service->reverter($usina, $ano, $mes);
+        } catch (\DomainException $e) {
+            return response()->json(['error' => $e->getMessage()], 409);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Erro ao reverter geracao', ['exception' => $e]);
+            return response()->json(['error' => 'Erro interno'], 500);
+        }
 
         return response()->json(['success' => true, 'data' => $data]);
     }

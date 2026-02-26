@@ -22,6 +22,8 @@ class CalculoGeracaoRequest extends FormRequest
             'tarifa_kwh' => 'required|numeric|min:0',
             'valorPago_mes' => 'required|numeric|min:0',
             'adicional_cuo' => 'nullable|numeric',
+            'dcon_id' => 'nullable|integer|exists:dados_consumo,dcon_id',
+            'dcu_id' => 'nullable|integer|exists:dados_consumo_usina,dcu_id',
         ];
     }
 

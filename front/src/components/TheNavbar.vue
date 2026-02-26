@@ -1,80 +1,49 @@
 <template>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-    <div class="container-fluid px-4">
-      <a class="navbar-brand" href="/Home"><img src="/src/assets/logo-branco.png" alt="logo-branco" width="180px"></a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
+  <div v-if="isAuthenticated" class="navigation-shell">
+    <header class="topbar">
+      <button
+        type="button"
+        class="menu-toggle"
+        aria-label="Abrir menu lateral"
+        @click="toggleSidebar"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
       </button>
 
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav me-auto">
-          <!-- Itens visíveis apenas se autenticado -->
-          <li class="nav-item" v-if="isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/calculo-geracao">Faturar Usina</router-link>
-          </li>
+      <router-link to="/Home" class="brand">
+        <img src="/src/assets/logo-branco.png" alt="Logo Lider Energy" />
+      </router-link>
 
-          <li class="nav-item dropdown position-relative" v-if="isAuthenticated">
-            <div class="nav-link dropdown-toggle text-white" @mouseover="dropdowns.usina = true"
-              @mouseleave="checkMouseLeave('usina', $event)">
-              <router-link class="text-white route-principal" to="/cadastro-usina">Cadastrar Usina</router-link>
-              <ul class="dropdown-menu" :class="{ show: dropdowns.usina }" @mouseenter="dropdowns.usina = true"
-                @mouseleave="dropdowns.usina = false">
-                <li><router-link class="dropdown-item route-secundaria" to="/cadastro-usina">Cadastrar
-                    Usina</router-link></li>
-                <li><router-link class="dropdown-item route-secundaria" to="/usinas">Usinas</router-link></li>
-              </ul>
-            </div>
-          </li>
-
-          <li class="nav-item dropdown position-relative" v-if="isAuthenticated">
-            <div class="nav-link dropdown-toggle text-white" @mouseover="dropdowns.consumidor = true"
-              @mouseleave="checkMouseLeave('consumidor', $event)">
-              <router-link class="text-white route-principal" to="/cadastro-consumidor">Cadastrar
-                Consumidor</router-link>
-              <ul class="dropdown-menu" :class="{ show: dropdowns.consumidor }"
-                @mouseenter="dropdowns.consumidor = true" @mouseleave="dropdowns.consumidor = false">
-                <li><router-link class="dropdown-item route-secundaria" to="/cadastro-consumidor">Cadastrar
-                    Consumidor</router-link></li>
-                <li><router-link class="dropdown-item route-secundaria" to="/consumidores">Consumidores</router-link>
-                </li>
-              </ul>
-            </div>
-          </li>
-
-          <li class="nav-item" v-if="isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/distribuicao">Distribuir
-              Créditos</router-link>
-          </li>
-          <li class="nav-item" v-if="isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/relatorio">Relatórios</router-link>
-          </li>
-        </ul>
-
-        <ul class="navbar-nav align-items-center">
-          <!-- Se autenticado, mostra nome e botão de sair -->
-          <li class="nav-item dropdown" v-if="isAuthenticated">
-            <a class="nav-link dropdown-toggle text-white route-principal" href="#" id="userDropdown" role="button"
-              data-bs-toggle="dropdown" aria-expanded="false">
-             <span class="navbar-text text-white">{{ user.name }}</span>
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-              <li><button class="dropdown-item route-secundaria" @click="logout">Sair</button></li>
-            </ul>
-          </li>
-
-          <!-- Se NÃO autenticado, mostra Login e Register -->
-          <li class="nav-item" v-if="!isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/Login">Login</router-link>
-          </li>
-          <!--<li class="nav-item" v-if="!isAuthenticated">
-            <router-link class="nav-link text-white route-principal" to="/Register">Register</router-link>
-          </li>-->
-        </ul>
-
+      <div class="topbar-actions">
+        <span class="user-name">{{ user.name || 'Usuario' }}</span>
+        <button type="button" class="logout-btn" @click="logout">Sair</button>
       </div>
-    </div>
-  </nav>
+    </header>
+
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
+      <nav class="sidebar-nav">
+        <router-link
+          v-for="item in menuItems"
+          :key="item.to"
+          :to="item.to"
+          class="sidebar-link"
+          @click="closeSidebar"
+        >
+          {{ item.label }}
+        </router-link>
+      </nav>
+    </aside>
+
+    <button
+      v-if="sidebarOpen"
+      type="button"
+      class="sidebar-overlay"
+      aria-label="Fechar menu lateral"
+      @click="closeSidebar"
+    />
+  </div>
 </template>
 
 <script>
@@ -84,10 +53,11 @@ import {
   getAuthToken,
   isAuthenticated as hasActiveSession,
   isAuthorizationError,
-  onAuthChange,
+  onAuthChange
 } from '@/utils/auth.js';
 
 const baseURL = import.meta.env.VITE_API_URL;
+const DESKTOP_BREAKPOINT = 992;
 
 export default {
   data() {
@@ -95,24 +65,38 @@ export default {
       user: {},
       isAuthenticated: false,
       authUnsubscribe: null,
-      dropdowns: {
-        usina: false,
-        consumidor: false,
-      }
+      sidebarOpen: false,
+      menuItems: [
+        { to: '/calculo-geracao', label: 'Faturar Usina' },
+        { to: '/cadastro-usina', label: 'Cadastrar Usina' },
+        { to: '/usinas', label: 'Listagem de Usinas' },
+        { to: '/cadastro-consumidor', label: 'Cadastrar Consumidor' },
+        { to: '/consumidores', label: 'Listagem de Consumidores' },
+        { to: '/distribuicao', label: 'Distribuir Creditos' },
+        { to: '/relatorio', label: 'Relatorios' }
+      ]
     };
   },
   async created() {
     await this.syncAuthState();
   },
   mounted() {
+    this.handleResize();
+    window.addEventListener('resize', this.handleResize);
     this.authUnsubscribe = onAuthChange(() => {
       this.syncAuthState();
     });
   },
   beforeUnmount() {
+    window.removeEventListener('resize', this.handleResize);
     if (this.authUnsubscribe) {
       this.authUnsubscribe();
       this.authUnsubscribe = null;
+    }
+  },
+  watch: {
+    $route() {
+      this.closeSidebar();
     }
   },
   methods: {
@@ -121,142 +105,228 @@ export default {
 
       if (this.isAuthenticated) {
         await this.fetchAuthenticatedUser();
+        this.handleResize();
         return;
       }
 
       this.user = {};
+      this.sidebarOpen = false;
     },
     async fetchAuthenticatedUser() {
       try {
         const response = await axios.get(`${baseURL}/user`, {
           headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
+            Authorization: `Bearer ${getAuthToken()}`
+          }
         });
         this.user = response.data;
       } catch (error) {
-        console.error('Erro ao buscar dados do usuário:', error);
+        console.error('Erro ao buscar dados do usuario:', error);
         if (isAuthorizationError(error)) {
           clearAuthSession();
           this.isAuthenticated = false;
           this.user = {};
+          this.sidebarOpen = false;
         }
       }
     },
-    openDropdown(menu) {
-      this.dropdowns[menu] = true;
+    handleResize() {
+      if (window.innerWidth >= DESKTOP_BREAKPOINT) {
+        this.sidebarOpen = true;
+        return;
+      }
+      this.sidebarOpen = false;
     },
-    closeDropdown(menu) {
-      this.dropdowns[menu] = false;
+    toggleSidebar() {
+      if (window.innerWidth >= DESKTOP_BREAKPOINT) return;
+      this.sidebarOpen = !this.sidebarOpen;
+    },
+    closeSidebar() {
+      if (window.innerWidth < DESKTOP_BREAKPOINT) {
+        this.sidebarOpen = false;
+      }
     },
     logout() {
       clearAuthSession();
       this.isAuthenticated = false;
       this.user = {};
+      this.sidebarOpen = false;
       this.$router.replace({ name: 'Login' });
-    },
-    checkMouseLeave(menu, event) {
-      const related = event.relatedTarget;
-      if (!event.currentTarget.contains(related)) {
-        this.dropdowns[menu] = false;
-      }
     }
-  },
+  }
 };
 </script>
 
 <style scoped>
-/* --- NAVBAR CLEAN DARK STYLE COM HOVER LARANJA --- */
-
-.navbar {
-  background-color: #1f1f1f !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+.navigation-shell {
+  position: relative;
+  z-index: 1200;
+  --topbar-bg-start: #101010;
+  --topbar-bg-end: #1a1a1a;
+  --topbar-border: rgba(242, 140, 31, 0.35);
+  --sidebar-bg: #0b0b0b;
+  --sidebar-border: #262626;
+  --sidebar-link: #f3f4f6;
+  --sidebar-hover-bg: rgba(242, 140, 31, 0.22);
+  --sidebar-active-bg: #f28c1f;
+  --sidebar-active-text: #111827;
+  --text-strong: #f8fafc;
 }
 
-.navbar-brand img {
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  background: linear-gradient(90deg, var(--topbar-bg-start), var(--topbar-bg-end));
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.3);
+  border-bottom: 1px solid var(--topbar-border);
+  z-index: 1202;
+}
+
+.menu-toggle {
+  width: 40px;
   height: 40px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.menu-toggle span {
+  width: 18px;
+  height: 2px;
+  background-color: #f8fafc;
+  border-radius: 10px;
+}
+
+.brand {
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.brand img {
+  height: 32px;
   width: auto;
 }
 
-/* Link principal */
-.nav-link.route-principal {
-  color: #ffffff;
-  font-weight: 500;
-  padding: 8px 16px;
-  transition: background-color 0.3s, color 0.3s;
-  border-radius: 6px;
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.nav-link.route-principal:hover {
-  color: #f28c1f !important;
-  background-color: rgba(242, 140, 31, 0.1);
-  border-radius: 8px;
-}
-
-/* Dropdown */
-.dropdown-menu {
-  background-color: #2b2b2b;
-  border-radius: 8px;
-  padding: 0.5rem 0;
-  border: none;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
-  min-width: 180px;
-}
-
-.dropdown-item.route-secundaria {
-  color: #f1f1f1;
-  padding: 8px 16px;
+.user-name {
+  color: var(--text-strong);
   font-size: 0.9rem;
-  transition: background-color 0.2s ease, color 0.2s;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.dropdown-item.route-secundaria:hover {
+.logout-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 12px;
   background-color: #f28c1f;
-  color: white;
+  color: #111827;
+  font-weight: 600;
+  font-size: 0.86rem;
+  transition: background-color 0.2s ease;
 }
 
-/* Hover dropdown trigger */
-.navbar-nav .dropdown:hover > .dropdown-menu {
-  display: block;
+.logout-btn:hover {
+  background-color: #d97706;
 }
 
-/* Toggler ícone responsivo */
-.navbar-toggler {
-  border: none;
-  color: #fff;
+.sidebar {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  width: 260px;
+  height: calc(100vh - 64px);
+  background: linear-gradient(180deg, var(--sidebar-bg), #171717);
+  border-right: 1px solid var(--sidebar-border);
+  padding: 14px 10px 18px;
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  z-index: 1201;
 }
 
-.navbar-toggler:focus {
-  box-shadow: none;
+.sidebar.open {
+  transform: translateX(0);
 }
 
-/* Nome do usuário */
-.navbar-text {
-  font-weight: 500;
-  color: #ffffff;
-  margin-right: 8px;
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 228px;
+  margin: 0 auto;
 }
 
-a {
+.sidebar-link {
   text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--sidebar-link);
+  font-size: 0.93rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Estilo responsivo */
-@media (max-width: 992px) {
-  .navbar-nav .nav-item {
-    margin-bottom: 0.5rem;
+.sidebar-link:hover {
+  background-color: var(--sidebar-hover-bg);
+  color: #ffffff;
+}
+
+.sidebar-link.router-link-active {
+  background-color: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 700;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 64px 0 0 0;
+  border: 0;
+  background-color: rgba(15, 23, 42, 0.45);
+  z-index: 1200;
+}
+
+@media (min-width: 992px) {
+  .menu-toggle {
+    display: none;
   }
 
-  .dropdown-menu {
-    position: static;
-    box-shadow: none;
-    border-radius: 0;
+  .topbar {
+    padding-left: 22px;
+    padding-right: 18px;
   }
 
-  .dropdown-menu.show {
-    display: block;
+  .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: none;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .user-name {
+    display: none;
   }
 }
 </style>
