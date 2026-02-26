@@ -219,13 +219,8 @@ class PDFController extends Controller {
             $valorBaseCuo   = $faturaEnergia + ($valor * $valorFinalFioB);
             $cuo            = ($mesesInfo[$mesNome]['coluna'] ?? null) === $colunaMes ? $valorBaseCuo + $adicionalCuo : $valorBaseCuo;
 
-            $creditado = 0;
-            if ($valor < $mediaGeracao) {
-                $reservaTotal = (float) ($faturamento?->valorAcumuladoReserva?->total ?? 0);
-                if ($reservaTotal > 0) {
-                    $creditado = ($mediaGeracao - $valor) * $valorKwh;
-                }
-            }
+            $coluna = $mesesInfo[$mesNome]['coluna'];
+            $creditado = (float) ($faturamento?->creditosDistribuidos?->$coluna ?? 0);
             //$cuo       =  ($faturaEnergia + ($fioB * $valor * ($percentualLei / 100)));
             $valorFinal = ($fixo + $injetado + $creditado) - $cuo;
 
