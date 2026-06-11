@@ -15,11 +15,9 @@ use App\Domain\Faturamento\ValueObject\Kwh;
  * mais próximo do vencimento. Nunca consome mais que o saldo de cada lote nem
  * mais que o faltante. Função pura: não muta os lotes de entrada.
  *
- * TODO (Fase de Expiração — §7): este motor ainda NÃO aplica expiração de crédito.
- * Lotes com vencimento anterior à competência do evento (`$evento`) deveriam ser
- * expirados ANTES do consumo e virar receita no mês do vencimento. Hoje um lote
- * vencido (>180 dias) permanece consumível, o que superestima o crédito e subestima
- * a receita de expiração. O parâmetro `$evento` é recebido justamente para essa fase.
+ * Ordem (§7): o consumo FIFO acontece PRIMEIRO; a expiração do que sobrou é
+ * aplicada DEPOIS pelo {@see ServicoExpiracao} (só expira o crédito não usado).
+ * O parâmetro `$evento` é mantido para auditoria do mês do consumo.
  */
 final class MotorFifo
 {
@@ -30,7 +28,7 @@ final class MotorFifo
      *
      * @return array{
      *     consumidoKwh: Kwh,
-     *     consumos: array<int, array{origem: Competencia, kwh: Kwh}>,
+     *     consumos: array<int, array{origem: Competencia, evento: Competencia, kwh: Kwh}>,
      *     naoAtendidoKwh: Kwh
      * }
      */
@@ -54,6 +52,7 @@ final class MotorFifo
 
             $consumos[] = [
                 'origem' => $lote->competenciaOrigem,
+                'evento' => $evento,
                 'kwh' => Kwh::de($consumir),
             ];
 

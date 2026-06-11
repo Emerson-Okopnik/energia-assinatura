@@ -127,6 +127,12 @@ return new class extends Migration
      */
     private function indexExists(string $indexName): bool
     {
+        // pg_indexes é específico do Postgres. Em outros drivers (sqlite/testes)
+        // a base é nova a cada execução, então o índice ainda não existe.
+        if (DB::getDriverName() !== 'pgsql') {
+            return false;
+        }
+
         $result = DB::selectOne("
             SELECT 1
             FROM pg_indexes

@@ -151,6 +151,61 @@ class CalculadoraGeracaoGoldenTest extends TestCase
 
         $this->assertSame(0.0, $r->credito->emReais(), 'Crédito deve ser 0,00 (NÃO 7080) sem déficit');
         $this->assertSame([], $r->consumosFifo, 'Nenhum lote consumido sem faltante');
+
+        // §7 — O lote ago/2025 (vence ago/2025 + 180d = 2026-01-28) já passou do fim de fev/2026
+        // e NÃO foi consumido (faltante 0) -> expira inteiro e vira receita: 11800 × 0,51 = 6018,00.
+        $this->assertSame(601800, $r->receitaExpiracao->emCentavos(), 'Receita de expiração (11800 × 0,51)');
+        $this->assertNotEmpty($r->expiracoes, 'Deve haver expiração do lote ago/2025');
+        $this->assertCount(1, $r->expiracoes);
+        $this->assertTrue($r->expiracoes[0]['origem']->ehIgualA(Competencia::de(2025, 8)));
+        $this->assertEqualsWithDelta(11800.0, $r->expiracoes[0]['kwh']->valor(), 1e-9);
+
+        // A receita de expiração é somada ao resultado (§2): Fixo+Variável+Crédito−CUO+Receita.
+        $this->assertSame(
+            $r->valorFixo->emCentavos()
+                + $r->valorVariavel->emCentavos()
+                + $r->credito->emCentavos()
+                - $r->cuo->emCentavos()
+                + $r->receitaExpiracao->emCentavos(),
+            $r->valorFinal->emCentavos(),
+            'Receita de expiração entra no valor final',
+        );
+    }
+
+    /**
+     * §7 — Eder, Maio/2026: os lotes nov/25..mar/26 são consumidos pelos mais antigos
+     * ANTES de vencerem, então NADA sobra para expirar -> receita_expiracao = 0 e o
+     * total permanece 5700,65 (golden preservado mesmo com a expiração implementada).
+     */
+    #[Test]
+    public function eder_maio_2026_sem_expiracao_total_preservado(): void
+    {
+        $entrada = EntradaCalculoMes::deArray([
+            'geracao_liquida_kwh' => 9850,
+            'media_kwh' => 12911,
+            'menor_geracao_kwh' => 7636,
+            'geracao_bruta_kwh' => 9858,
+            'tarifa' => 0.51,
+            'fio_b' => 0.13275,
+            'percentual_lei' => 60.0,
+            'fatura_energia' => 98.77,
+            'adicional_cuo' => 0,
+            'competencia' => Competencia::de(2026, 5),
+        ]);
+
+        $reserva = [
+            $this->lote(2025, 11, 124),
+            $this->lote(2025, 12, 1192),
+            $this->lote(2026, 1, 2178),
+            $this->lote(2026, 2, 1040),
+            $this->lote(2026, 3, 1761),
+        ];
+
+        $r = $this->calculadora()->calcular($entrada, $reserva);
+
+        $this->assertSame(0, $r->receitaExpiracao->emCentavos(), 'Receita de expiração deve ser 0');
+        $this->assertSame([], $r->expiracoes, 'Nada expira (consumido antes de vencer)');
+        $this->assertSame(570065, $r->valorFinal->emCentavos(), 'Total preservado em 5700,65');
     }
 
     /**

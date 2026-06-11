@@ -6,7 +6,9 @@ namespace App\Domain\Faturamento\Calculo;
 
 use App\Domain\Faturamento\DTO\EntradaCalculoMes;
 use App\Domain\Faturamento\DTO\ResultadoCalculoMes;
+use App\Domain\Faturamento\Ledger\LoteReserva;
 use App\Domain\Faturamento\Ledger\MotorFifo;
+use App\Domain\Faturamento\Ledger\ServicoExpiracao;
 use App\Domain\Faturamento\ValueObject\Kwh;
 use App\Domain\Faturamento\ValueObject\Reais;
 
@@ -25,6 +27,7 @@ final class CalculadoraGeracaoLinear
     public function __construct(
         private readonly MotorFifo $motorFifo = new MotorFifo(),
         private readonly ValidadorEntrada $validador = new ValidadorEntrada(),
+        private readonly ServicoExpiracao $servicoExpiracao = new ServicoExpiracao(),
     ) {
     }
 
@@ -55,14 +58,22 @@ final class CalculadoraGeracaoLinear
         $consumido = $fifo['consumidoKwh'];
         $credito = $consumido->vezesTarifa($e->tarifa);
 
+        // §7 — Expiração: PRIMEIRO consome (FIFO acima), DEPOIS expira o que SOBROU.
+        // Reduz o saldo de cada lote pelo que foi consumido neste mês e delega ao
+        // ServicoExpiracao; o crédito expirado vira receita UMA vez (não soma ao termo Crédito).
+        $lotesAposConsumo = $this->reduzirSaldoPorConsumo($lotesReserva, $fifo['consumos']);
+        $expiracao = $this->servicoExpiracao->aplicar($lotesAposConsumo, $e->competencia, $e->tarifa);
+        /** @var Reais $receitaExpiracao */
+        $receitaExpiracao = $expiracao['receita'];
+
         // §5 — CUO (subtraído).
         $fioBReais = Reais::deReais(
             $e->geracaoBrutaKwh->valor() * $e->fioB * $e->percentualLei / 100
         );
         $cuo = $e->faturaEnergia->mais($fioBReais)->mais($e->adicionalCuo);
 
-        // §2 — Valor Final.
-        $valorFinal = $fixo->mais($variavel)->mais($credito)->menos($cuo);
+        // §2 — Valor Final (com a receita situacional de expiração somada, §7).
+        $valorFinal = $fixo->mais($variavel)->mais($credito)->menos($cuo)->mais($receitaExpiracao);
 
         // §6 (acúmulo) — excedente guardado quando geração >= média.
         $guardado = $atingiuMedia
@@ -77,6 +88,36 @@ final class CalculadoraGeracaoLinear
             valorFinal: $valorFinal,
             guardadoKwh: $guardado,
             consumosFifo: $fifo['consumos'],
+            receitaExpiracao: $receitaExpiracao,
+            expiracoes: $expiracao['expirados'],
+        );
+    }
+
+    /**
+     * Reconstrói os lotes com o saldo reduzido pelo consumo FIFO do mês.
+     * Puro: gera novos LoteReserva imutáveis, preservando origem e vencimento.
+     *
+     * @param LoteReserva[]                                              $lotes
+     * @param array<int, array{origem: Competencia, kwh: Kwh}>           $consumos
+     *
+     * @return LoteReserva[]
+     */
+    private function reduzirSaldoPorConsumo(array $lotes, array $consumos): array
+    {
+        $consumidoPorOrigem = [];
+        foreach ($consumos as $consumo) {
+            $chave = (string) $consumo['origem'];
+            $consumidoPorOrigem[$chave] = ($consumidoPorOrigem[$chave] ?? 0.0) + $consumo['kwh']->valor();
+        }
+
+        return array_map(
+            static function (LoteReserva $lote) use ($consumidoPorOrigem): LoteReserva {
+                $consumido = $consumidoPorOrigem[(string) $lote->competenciaOrigem] ?? 0.0;
+                $saldoRestante = $lote->saldoKwh->menos(Kwh::de($consumido))->max(Kwh::zero());
+
+                return new LoteReserva($lote->competenciaOrigem, $saldoRestante, $lote->vencimento);
+            },
+            $lotes,
         );
     }
 }
