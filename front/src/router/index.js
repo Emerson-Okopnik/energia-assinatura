@@ -16,7 +16,7 @@ import Usinas from '@/components/Usinas.vue'
 import Distribuicao from '@/components/Distribuicao.vue'
 import AtualizarUsina from '@/components/AtualizarUsina.vue'
 import Relatorios from '@/components/Relatorios.vue'
-import CalculoGeracao from '@/components/CalculoGeracao.vue'
+import FaturarUsina from '@/views/FaturarUsina.vue'
 
 
 const routes = [
@@ -85,10 +85,15 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/calculo-geracao',
-    name: 'calculo-geracao',
-    component: CalculoGeracao,
+    // Estado (usina/ano/mês) vive na rota: F5, deep-link e voltar funcionam.
+    path: '/faturar/:usinaId?/:ano?/:mes?',
+    name: 'faturar',
+    component: FaturarUsina,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/calculo-geracao',
+    redirect: '/faturar',
   },
   {
     path: '/:pathMatch(.*)*',
