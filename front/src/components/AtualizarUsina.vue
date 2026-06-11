@@ -372,6 +372,7 @@
 </template>
 <script>
 import axios from "axios";
+import { formatNumero } from "../utils/formatters.js";
 
 export default {
   data() {
@@ -552,11 +553,7 @@ export default {
         return Number(numero.toFixed(2));
       },
       formatCurrency(valor) {
-        const numero = this.arredondarDuasCasas(valor);
-        return new Intl.NumberFormat('pt-BR', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        }).format(numero);
+        return formatNumero(valor);
       },
       parseCurrency(valor) {
         if (valor === null || valor === undefined) {

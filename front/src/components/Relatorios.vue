@@ -24,20 +24,20 @@
       <!-- Card: Geração Média Total -->
       <div class="p-4 rounded shadow bg-white text-center mt-4" style="width: 300px;">
         <h5 class="mb-2">Geração Média Total</h5>
-        <h2 class="text-success">{{ geracaoMediaTotal.toFixed(2) }} kWh</h2>
+        <h2 class="text-success">{{ formatKwh(geracaoMediaTotal) }}</h2>
       </div>
 
       <!-- Card: Consumo Total -->
       <div class="p-4 rounded shadow bg-white text-center mt-4" style="width: 300px;">
         <h5 class="mb-2">Consumo Total</h5>
-        <h2 class="text-primary">{{ consumoTotal.toFixed(2) }} kWh</h2>
+        <h2 class="text-primary">{{ formatKwh(consumoTotal) }}</h2>
       </div>
 
       <!-- Card: Saldo Disponível -->
       <div class="p-4 rounded shadow bg-white text-center mt-4" style="width: 300px;">
         <h5 class="mb-2">Saldo Disponível</h5>
         <h2 :class="saldoDisponivel >= 0 ? 'text-success' : 'text-danger'">
-          {{ saldoDisponivel.toFixed(2) }} kWh
+          {{ formatKwh(saldoDisponivel) }}
         </h2>
       </div>
     </div>
@@ -112,6 +112,7 @@
     Filler
   } from 'chart.js'
   import { Line, Bar } from 'vue-chartjs'
+  import { formatKwh } from '../utils/formatters.js'
 
   ChartJS.register(Title, Tooltip, Legend, LineElement, PointElement, BarElement, CategoryScale, LinearScale)
 

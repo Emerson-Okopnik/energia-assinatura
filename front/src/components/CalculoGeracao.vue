@@ -15,15 +15,15 @@
     <div class="row mb-3">
       <div class="col-md-4">
         <label for="fatura">Fatura de Energia da Usina (R$)</label>
-        <input id="fatura" type="number" step="0.01" class="form-control" v-model.number="faturaEnergia" />
+        <input id="fatura" type="number" step="0.01" class="form-control" v-model.number="faturaEnergia" @input="agendarPreview" />
       </div>
       <div class="col-md-4">
         <label>Fio B (R$)</label>
-        <div class="campo-info">R$ {{ formatCurrency(fioB) }}</div>
+        <div class="campo-info">{{ formatReais(fioB) }}</div>
       </div>
       <div class="col-md-4">
         <label>Percentual Lei 14300/23 (%)</label>
-        <div class="campo-info">{{ formatPercent(percentualLei) }}%</div>
+        <div class="campo-info">{{ formatNumero(percentualLei) }}%</div>
       </div>
     </div>
 
@@ -40,16 +40,23 @@
           <th>Valor Final a Receber</th>
         </tr>
       </thead>
-      <tbody>
-        <tr v-for="(valor, mes) in mesesGeracao" :key="mes">
-          <td>{{ mes }}</td>
-          <td :class="{ 'text-danger': valor == menorGeracao }">{{ valor.toFixed(2) }} kWh</td>
-          <td>{{ mediaGeracao }} kWh</td>
-          <td>R$ {{ fixo.toFixed(2) }}</td>
-          <td>R$ {{ injetado(valor).toFixed(2) }}</td>
-          <td>R$ {{ creditadoTabela(valor).toFixed(2) }}</td>
-          <td>R$ {{ cuo(valor).toFixed(2) }}</td>
-          <td>R$ {{ valorFinalTabela(valor).toFixed(2) }}</td>
+      <tbody v-if="previewMes">
+        <tr>
+          <td>{{ meses[mesSelecionado] }}</td>
+          <td>{{ formatKwh(previewMes.geracao?.liquida_kwh) }}</td>
+          <td>{{ formatKwh(previewMes.parametros?.media_kwh) }}</td>
+          <td>{{ formatReais(previewMes.termos?.valor_fixo_reais) }}</td>
+          <td>{{ formatReais(previewMes.termos?.valor_variavel_reais) }}</td>
+          <td>{{ formatReais(previewMes.termos?.credito_reais) }}</td>
+          <td>{{ formatReais(previewMes.termos?.cuo_reais) }}</td>
+          <td>{{ formatReais(previewMes.termos?.valor_final_reais) }}</td>
+        </tr>
+      </tbody>
+      <tbody v-else>
+        <tr>
+          <td colspan="8" class="text-center text-muted">
+            Informe geração e consumo do mês para visualizar o cálculo.
+          </td>
         </tr>
       </tbody>
     </table>
@@ -74,11 +81,11 @@
       </div>
       <div class="col-md-3">
         <label for="mesGeracao">Geração de {{ meses[mesSelecionado] }}:</label>
-        <input id="mesGeracao" type="number" step="0.01" class="form-control" v-model.number="mesGeracao" @input="atualizarValores" />
+        <input id="mesGeracao" type="number" step="0.01" class="form-control" v-model.number="mesGeracao" @input="agendarPreview" />
       </div>
       <div class="col-md-4">
         <label for="valorGeracaoMes">Valor Gerado (R$):</label>
-        <input id="valorGeracaoMes" type="number" step="0.01" class="form-control" v-model.number="valorGeracaoMes" readonly />
+        <div class="campo-info">{{ formatReais(previewMes?.termos?.valor_variavel_reais) }}</div>
       </div>
     </div>
 
@@ -105,36 +112,99 @@
           v-model.number="adicionalCuo"
           placeholder="Ex: 15,00 ou -10,00"
           :disabled="!mesSelecionado || !usina"
+          @input="agendarPreview"
         />
       </div>
     </div>
 
     <div class="row mb-5">
       <div class="col-md-4">
-        <label for="credito">Valor em Créditos (R$):</label>
-        <input id="credito" type="number" step="0.01" class="form-control" v-model.number="credito" readonly />
+        <label>Valor em Créditos (R$):</label>
+        <div class="campo-info">{{ formatReais(previewMes?.termos?.credito_reais) }}</div>
       </div>
       <div class="col-md-4">
-        <label for="valorGuardado">Energia acumulada (kWh):</label>
-        <input id="valorGuardado" type="number" step="0.01" class="form-control" v-model.number="valorGuardado"
-          readonly />
+        <label>Energia acumulada (kWh):</label>
+        <div class="campo-info">{{ formatKwh(previewMes?.reserva?.guardado_kwh) }}</div>
       </div>
       <div class="col-md-4">
-        <label for="valorTotal">Valor Total a Ser pago (R$):</label>
-        <input id="valorTotal" type="number" step="0.01" class="form-control" v-model.number="valorTotal" readonly />
+        <label>Valor Total a Ser pago (R$):</label>
+        <div class="campo-info">{{ formatReais(previewMes?.termos?.valor_final_reais) }}</div>
       </div>
     </div>
 
     <div class="row mb-5">
       <div class="col-md-6">
-        <label for="co2Evitado">Emissão de CO₂ evitada (kg):</label>
-        <input id="co2Evitado" type="number" step="0.01" class="form-control" v-model.number="co2Evitado" readonly />
+        <label>Emissão de CO₂ evitada (kg):</label>
+        <div class="campo-info">{{ formatNumero(previewMes?.parametros?.co2_evitado_kg) }}</div>
       </div>
       <div class="col-md-6">
-        <label for="arvoresPlantadas">Árvores equivalentes:</label>
-        <input id="arvoresPlantadas" type="number" step="0.01" class="form-control" v-model.number="arvoresPlantadas" readonly />
+        <label>Árvores equivalentes:</label>
+        <div class="campo-info">{{ formatNumero(previewMes?.parametros?.arvores_equivalentes) }}</div>
       </div>
     </div>
+
+    <!-- Breakdown de auditoria (REGRAS_DE_CALCULO.md §8/§9) -->
+    <div v-if="previewMes" class="card mb-5">
+      <div class="card-header fw-bold">Detalhamento de Auditoria</div>
+      <div class="card-body">
+        <h6 class="text-muted">Geração Líquida (§9)</h6>
+        <table class="table table-sm table-bordered mb-4">
+          <tbody>
+            <tr>
+              <th>Geração bruta</th>
+              <td>{{ formatKwh(previewMes.geracao?.bruta_kwh) }}</td>
+            </tr>
+            <tr>
+              <th>Desconto de rede ({{ previewMes.geracao?.rede || '—' }})</th>
+              <td>− {{ formatKwh(previewMes.geracao?.desconto_rede_kwh) }}</td>
+            </tr>
+            <tr>
+              <th>Consumo do mês</th>
+              <td>{{ formatKwh(previewMes.geracao?.consumo_kwh) }}</td>
+            </tr>
+            <tr class="table-light fw-bold">
+              <th>Geração líquida</th>
+              <td>{{ formatKwh(previewMes.geracao?.liquida_kwh) }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h6 class="text-muted">Crédito Resgatado por Origem — FIFO (§6)</h6>
+        <table v-if="consumoFifo.length" class="table table-sm table-bordered mb-4">
+          <thead class="table-light">
+            <tr>
+              <th>Mês de origem</th>
+              <th>Energia consumida</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, idx) in consumoFifo" :key="`fifo-${idx}`">
+              <td>{{ item.origem }}</td>
+              <td>{{ formatKwh(item.kwh) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="text-muted mb-4">Nenhum crédito resgatado neste mês.</p>
+
+        <h6 class="text-muted">Crédito Expirado (§7)</h6>
+        <table v-if="expiracao.length" class="table table-sm table-bordered mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Mês de origem</th>
+              <th>Energia expirada</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, idx) in expiracao" :key="`exp-${idx}`">
+              <td>{{ item.origem }}</td>
+              <td>{{ formatKwh(item.kwh) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="text-muted mb-0">Nenhum crédito expirou neste mês.</p>
+      </div>
+    </div>
+
     <table class="table table-bordered mt-4">
       <thead class="table-dark">
         <tr>
@@ -152,8 +222,8 @@
             <td>{{ labelMes }}</td>
             <td>{{ formatKwh(dadosGeracaoRealMensal[chaveMes]) }}</td>
             <td>{{ formatKwh(dadosFaturamentoAnual?.valor_acumulado_reserva?.[chaveMes]) }}</td>
-            <td>R$ {{ formatMoeda(dadosFaturamentoAnual?.creditos_distribuidos?.[chaveMes]) }}</td>
-            <td>R$ {{ formatMoeda(dadosFaturamentoAnual?.faturamento_usina?.[chaveMes]) }}</td>
+            <td>{{ formatReais(dadosFaturamentoAnual?.creditos_distribuidos?.[chaveMes]) }}</td>
+            <td>{{ formatReais(dadosFaturamentoAnual?.faturamento_usina?.[chaveMes]) }}</td>
             <td v-if="ultimoRevertivel">
               <button
                 v-if="ultimoRevertivel.mes_nome === chaveMes && ultimoRevertivel.ano === anoFaturamento"
@@ -219,7 +289,7 @@
     <div class="mb-4">
       <h5>Reserva Total Acumulada</h5>
       <p :class="['fs-5 fw-bold p-2 rounded', reservaClasse]">
-        {{ reservaTotal }} kWh
+        {{ formatKwh(reservaTotal) }}
       </p>
     </div>
 
@@ -246,6 +316,7 @@ import {
   BarElement, CategoryScale, LinearScale
 } from 'chart.js';
 import { Bar } from 'vue-chartjs';
+import { formatKwh, formatNumero, formatReais } from '../utils/formatters.js';
 
 ChartJS.register(
   Title, Tooltip, Legend, BarElement, LineElement,
@@ -262,10 +333,6 @@ export default {
       faturaEnergia: 0,
       adicionalCuo: 0,
       percentualLei: 45,
-      valor_kwh: 0,
-      valor_fixo: 0,
-      mediaGeracao: 0,
-      menorGeracao: 0,
       mesesGeracao: {},
       chartData: null,
       chartOptions: {
@@ -282,12 +349,9 @@ export default {
       },
       mesSelecionado: '',
       mesGeracao: 0,
-      valorGeracaoMes: 0,
-      credito: 0,
-      valorGuardado: 0,
-      valorTotal: 0,
-      co2Evitado: 0,
-      arvoresPlantadas: 0,
+      // Resposta do GET .../preview — fonte ÚNICA de exibição do mês.
+      previewMes: null,
+      previewTimer: null,
       usina: null,
       anoFaturamento: new Date().getFullYear(),
       dadosFaturamentoAnual: null,
@@ -304,65 +368,36 @@ export default {
   watch: {
     mesSelecionado() {
       this.mesGeracao = 0;
-      this.valorGeracaoMes = 0;
-      this.credito = 0;
-      this.valorGuardado = 0;
-      this.valorTotal = 0;
-      this.co2Evitado = 0;
-      this.arvoresPlantadas = 0;
       this.consumoUsinaMes = null;
       this.adicionalCuo = 0;
+      this.previewMes = null;
+      this.chartData = null;
     },
     consumoUsinaMes() {
-      if (this.mesGeracao !== null && this.mesGeracao !== undefined) {
-        this.atualizarValores();
-      }
+      this.agendarPreview();
     },
-    adicionalCuo() {
-      if (this.mesGeracao !== null && this.mesGeracao !== undefined) {
-        this.atualizarValores();
-      }
-    }
   },
   computed: {
-    valorFinalFioB() {
-      return this.fioB * (this.percentualLei / 100);
+    consumoFifo() {
+      return Array.isArray(this.previewMes?.consumo_fifo) ? this.previewMes.consumo_fifo : [];
     },
-    fixo() {
-      return this.menorGeracao * this.valor_kwh;
-    },
-    adicionalCuoNumero() {
-      return Number(this.adicionalCuo) || 0;
-    },
-    mesesComValorPago() {
-      if (!this.usina || !this.usina.creditos_distribuidos_usina) return [];
-
-      return Object.entries(this.mesesGeracao).filter(([mesExibicao, _]) => {
-        const mesKey = Object.keys(this.meses).find(key => this.meses[key] === mesExibicao);
-        const valorPago = this.usina.creditos_distribuidos_usina.faturamento_usina[mesKey];
-        return valorPago && valorPago > 0;
-      });
+    expiracao() {
+      return Array.isArray(this.previewMes?.expiracao) ? this.previewMes.expiracao : [];
     },
     reservaTotal() {
-      const total = this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total ?? 0;
-      return parseFloat(total).toFixed(2);
+      return this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total ?? 0;
     },
     reservaClasse() {
-      return this.reservaTotal >= 0 ? 'text-success' : 'text-danger';
+      return Number(this.reservaTotal) >= 0 ? 'text-success' : 'text-danger';
     },
     temDadosGeracaoTabela() {
       return Object.keys(this.meses).some((mes) => this.temDadosMes(mes));
     },
   },
   methods: {
-    formatKwh(value) {
-      const numero = Number(value) || 0;
-      return `${numero.toFixed(2)} kWh`;
-    },
-    formatMoeda(value) {
-      const numero = Number(value) || 0;
-      return numero.toFixed(2);
-    },
+    formatReais,
+    formatKwh,
+    formatNumero,
     temDadosMes(chaveMes) {
       const geracao = Number(this.dadosGeracaoRealMensal?.[chaveMes] || 0);
       const faturamento = Number(this.dadosFaturamentoAnual?.faturamento_usina?.[chaveMes] || 0);
@@ -370,14 +405,6 @@ export default {
       const creditado = Number(this.dadosFaturamentoAnual?.creditos_distribuidos?.[chaveMes] || 0);
 
       return geracao > 0 || faturamento > 0 || reserva > 0 || creditado > 0;
-    },
-    formatCurrency(value) {
-      const numero = Number(value) || 0;
-      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
-    },
-    formatPercent(value) {
-      const numero = Number(value) || 0;
-      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     },
     async fetchUsinas() {
       const baseURL = import.meta.env.VITE_API_URL;
@@ -389,6 +416,50 @@ export default {
         this.usinas = response.data;
       } catch (err) {
         console.error('Erro ao buscar usinas:', err);
+      }
+    },
+    mesIndexAtual() {
+      return Object.keys(this.meses).indexOf(this.mesSelecionado) + 1;
+    },
+    // Agenda (debounce) a busca do preview no backend.
+    agendarPreview() {
+      if (this.previewTimer) {
+        clearTimeout(this.previewTimer);
+      }
+      this.previewTimer = setTimeout(() => this.carregarPreview(), 300);
+    },
+    // O frontend NÃO calcula nada: só lê o preview do backend.
+    async carregarPreview() {
+      if (!this.usina?.usi_id || !this.mesSelecionado || !this.anoFaturamento) {
+        this.previewMes = null;
+        this.chartData = null;
+        return;
+      }
+
+      const baseURL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem('token');
+      const mesIndex = this.mesIndexAtual();
+
+      try {
+        const response = await axios.get(
+          `${baseURL}/usinas/${this.usina.usi_id}/faturamento/${this.anoFaturamento}/mes/${mesIndex}/preview`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            params: {
+              geracao_bruta_kwh: Number(this.mesGeracao) || 0,
+              consumo: Number(this.consumoUsinaMes) || 0,
+              fatura_energia: Number(this.faturaEnergia) || 0,
+              adicional_cuo: Number(this.adicionalCuo) || 0,
+            },
+          }
+        );
+
+        this.previewMes = response.data?.data ?? response.data ?? null;
+        this.gerarGrafico();
+      } catch (error) {
+        console.error('Erro ao carregar preview do faturamento:', error);
+        this.previewMes = null;
+        this.chartData = null;
       }
     },
     async carregarFaturamentoAno() {
@@ -423,116 +494,33 @@ export default {
     avancarAno() {
       this.anoFaturamento++;
       this.carregarFaturamentoAno();
+      this.agendarPreview();
     },
     voltarAno() {
       if (this.anoFaturamento > 2024) { // limite inferior
         this.anoFaturamento--;
         this.carregarFaturamentoAno();
+        this.agendarPreview();
       }
     },
-    atualizarValores() {
-      const geracao = this.calcularGeracaoLiquida(this.mesGeracao);
-      const media = Number(this.mediaGeracao);
-      const kwh = Number(this.valor_kwh);
-      const reservaTotal = parseFloat(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total || 0);
-
-      this.valorGeracaoMes = +(geracao * kwh).toFixed(2);
-      this.valorGuardado = 0;
-      this.credito = 0;
-
-      if (geracao >= media) {
-        const excedente = geracao - media;
-        this.valorGuardado = +excedente.toFixed(2);
-      } else if (reservaTotal > 0) {
-        const faltante = media - geracao;
-        const energiaCompensada = Math.min(faltante, reservaTotal);
-
-        this.credito = +(energiaCompensada * kwh).toFixed(2);
-      }
-
-      this.valorTotal = this.valorFinal(geracao).toFixed(2);
-
-      this.co2Evitado = +(geracao * 0.4).toFixed(2);
-      this.arvoresPlantadas = +(this.co2Evitado / 20).toFixed(2);
-    },
-    injetado(valor) {
-      const media = this.mediaGeracao;
-      const menor = this.menorGeracao;
-      const kwh = this.valor_kwh;
-
-      if (valor >= media) {
-        return (media - menor) * kwh;
-      } else {
-        return (valor - menor) * kwh;
-      }
-    },
-    creditado(valor) {
-      const media = this.mediaGeracao;
-      const kwh = this.valor_kwh;
-      const reservaTotal = parseFloat(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total || 0);
-
-      if (valor < media && reservaTotal > 0) {
-        const faltante = media - valor;
-        const energiaCompensada = Math.min(faltante, reservaTotal);
-        return energiaCompensada * kwh;
-      } else {
-        return 0;
-      }
-    },
-    creditadoTabela(valor) {
-      const media = this.mediaGeracao;
-      const kwh = this.valor_kwh;
-
-      if (valor < media) {
-        return (media - valor) * kwh;
-      } else {
-        return 0;
-      }
-    },
-    cuoBase(valor) {
-      return -1 * (this.faturaEnergia + (valor * this.valorFinalFioB));
-    },
-    cuo(valor) {
-      return this.cuoBase(valor) + this.adicionalCuoNumero;
-    },
-    valorFinal(valor) {
-      return this.valorFinalBase(valor) + this.adicionalCuoNumero;
-    },
-    valorFinalBase(valor) {
-      return this.fixo + this.injetado(valor) + this.creditado(valor) + this.cuoBase(valor);
-    },
-    valorFinalTabela(valor) {
-      return this.fixo + this.injetado(valor) + this.creditadoTabela(valor) + this.cuo(valor);
-    },
-    calcularGeracaoLiquida(geracaoBruta) {
-      const consumoMes = Number(this.consumoUsinaMes) || 0;
-      const geracaoInformada = Number(geracaoBruta) || 0;
-      const descontoRede = this.getDescontoRede();
-
-      const consumoDescontavel = Math.max(consumoMes - descontoRede, 0);
-      const geracaoLiquida = geracaoInformada - consumoDescontavel;
-      return Math.max(geracaoLiquida, 0);
-    },
-    getDescontoRede() {
-      const rede = (this.usina?.rede || '').toLowerCase();
-
-      if (rede.startsWith('trifásico')) return 100;
-      if (rede.startsWith('bifásico')) return 50;
-      if (rede.startsWith('monofásico')) return 30;
-      return 0;
-    },
+    // O gráfico LÊ os termos do preview do mês (sem cálculo local).
     gerarGrafico() {
-      const meses = Object.keys(this.mesesGeracao);
-      if (!meses.length) return;
+      if (!this.previewMes?.termos) {
+        this.chartData = null;
+        return;
+      }
+
+      const t = this.previewMes.termos;
+      const label = this.meses[this.mesSelecionado] || 'Mês';
 
       this.chartData = {
-        labels: meses,
+        labels: [label],
         datasets: [
-          { type: 'bar', label: 'Fixo', data: meses.map(() => this.fixo), backgroundColor: '#60a5fa', stack: 'montagem', order: 2 },
-          { type: 'bar', label: 'Injetado', data: meses.map(m => this.injetado(this.mesesGeracao[m])), backgroundColor: '#FFA500', stack: 'montagem', order: 3 },
-          { type: 'bar', label: 'Creditado', data: meses.map(m => this.creditadoTabela(this.mesesGeracao[m])), backgroundColor: '#4ade80', stack: 'montagem', order: 4 },
-          { type: 'bar', label: 'CUO', data: meses.map(m => this.cuo(this.mesesGeracao[m])), backgroundColor: '#f87171', stack: 'montagem', order: 5 },
-          { type: 'line', label: 'Valor Final a Receber', data: meses.map(m => this.valorFinalTabela(this.mesesGeracao[m])), borderColor: '#1e40af', borderWidth: 2, fill: false, pointRadius: 3, tension: 0.3, order: 1 }
+          { type: 'bar', label: 'Fixo', data: [Number(t.valor_fixo_reais) || 0], backgroundColor: '#60a5fa', stack: 'montagem', order: 2 },
+          { type: 'bar', label: 'Injetado', data: [Number(t.valor_variavel_reais) || 0], backgroundColor: '#FFA500', stack: 'montagem', order: 3 },
+          { type: 'bar', label: 'Creditado', data: [Number(t.credito_reais) || 0], backgroundColor: '#4ade80', stack: 'montagem', order: 4 },
+          { type: 'bar', label: 'CUO', data: [Number(t.cuo_reais) || 0], backgroundColor: '#f87171', stack: 'montagem', order: 5 },
+          { type: 'line', label: 'Valor Final a Receber', data: [Number(t.valor_final_reais) || 0], borderColor: '#1e40af', borderWidth: 2, fill: false, pointRadius: 3, tension: 0.3, order: 1 }
         ]
       };
     },
@@ -542,6 +530,8 @@ export default {
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
       this.consumoUsinaMes = null;
+      this.previewMes = null;
+      this.chartData = null;
       try {
         const response = await axios.get(`${baseURL}/usina/${this.selectedUsinaId}`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -551,17 +541,11 @@ export default {
         const g = usina.dado_geracao || {};
         const comercializacao = usina.comercializacao || {};
 
-        this.valor_kwh = parseFloat(comercializacao.valor_kwh) || 0;
-        this.valor_fixo = parseFloat(comercializacao.valor_fixo) || 0;
-
         const fioB = parseFloat(comercializacao.fio_b);
         const percentualLei = parseFloat(comercializacao.percentual_lei);
 
         this.fioB = Number.isFinite(fioB) && fioB > 0 ? fioB : 0.13;
         this.percentualLei = Number.isFinite(percentualLei) && percentualLei > 0 ? percentualLei : 45;
-
-        this.mediaGeracao = g.media || 0;
-        this.menorGeracao = g.menor_geracao || 0;
 
         this.mesesGeracao = {
           Janeiro: g.janeiro, Fevereiro: g.fevereiro, Março: g.marco,
@@ -570,7 +554,6 @@ export default {
           Outubro: g.outubro, Novembro: g.novembro, Dezembro: g.dezembro
         };
 
-        this.gerarGrafico();
         this.usina = response.data;
         await this.carregarFaturamentoAno();
       } catch (error) {
@@ -654,7 +637,7 @@ export default {
         this.isSalvandoConsumoUsina = false;
       }
     },
-    
+
     async salvarValoresMensais() {
       const token = localStorage.getItem('token');
       const baseURL = import.meta.env.VITE_API_URL;
@@ -679,42 +662,26 @@ export default {
         }
 
         const consumoSalvo = await this.salvarConsumoUsina({ silencioso: true });
-        
+
         if (!consumoSalvo) {
           throw new Error('Falha ao salvar consumo da usina');
         }
 
-        const mesIndex = Object.keys(this.meses).indexOf(this.mesSelecionado) + 1;
+        const mesIndex = this.mesIndexAtual();
 
-        const geracaoLiquida = this.calcularGeracaoLiquida(this.mesGeracao);
-
+        // O payload envia somente INPUTS; o backend calcula e persiste.
         const payload = {
-          mesGeracao_kwh: parseFloat(geracaoLiquida || 0),
-          mediaGeracao_kwh: parseFloat(this.mediaGeracao || 0),
-          reservaTotalAnterior_kwh: parseFloat(this.dadosFaturamentoAnual?.valor_acumulado_reserva?.total || 0),
-          tarifa_kwh: parseFloat(this.valor_kwh || 0),
-          valorPago_mes: parseFloat(this.valorFinalBase(geracaoLiquida) || 0),
-          adicional_cuo: parseFloat(this.adicionalCuo || 0)
+          geracao_bruta_kwh: parseFloat(this.mesGeracao || 0),
+          consumo: parseFloat(this.consumoUsinaMes || 0),
+          fatura_energia: parseFloat(this.faturaEnergia || 0),
+          adicional_cuo: parseFloat(this.adicionalCuo || 0),
         };
 
-        const resp = await axios.post(
+        await axios.post(
           `${baseURL}/usinas/${this.usina.usi_id}/faturamento/${this.anoFaturamento}/mes/${mesIndex}/calculo`,
           payload,
           { headers }
         );
-
-        const respData = resp.data?.data || {};
-        this.credito = parseFloat(respData.credito_gerado_reais ?? 0);
-        this.valorGuardado = parseFloat(respData.valor_guardado_kwh ?? 0);
-        
-        const pagamentoAtualizado = parseFloat(respData.faturamento_mes_reais ?? this.valorTotal);
-        this.valorTotal = pagamentoAtualizado.toFixed(2);
-        if (this.dadosFaturamentoAnual?.faturamento_usina) {
-          this.dadosFaturamentoAnual.faturamento_usina[this.mesSelecionado] = pagamentoAtualizado;
-        }
-        
-        this.co2Evitado = +parseFloat(respData.co2_evitado_kg ?? this.co2Evitado).toFixed(2);
-        this.arvoresPlantadas = +parseFloat(respData.arvores_equivalentes ?? this.arvoresPlantadas).toFixed(2);
 
         Swal.fire({
           icon: 'success',
@@ -725,6 +692,7 @@ export default {
         });
 
         await this.carregarFaturamentoAno();
+        await this.carregarPreview();
 
       } catch (error) {
         console.error('Erro ao salvar valores mensais:', error);
@@ -833,7 +801,7 @@ export default {
             mes: mesGeracao,
             ano: anoGeracao,
             fatura: this.faturaEnergia,
-            adicional_cuo: this.adicionalCuoNumero,
+            adicional_cuo: Number(this.adicionalCuo) || 0,
           },
           responseType: 'blob'
         });

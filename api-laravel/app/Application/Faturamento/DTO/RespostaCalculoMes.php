@@ -17,6 +17,10 @@ use App\Domain\Faturamento\DTO\ResultadoCalculoMes;
  */
 final readonly class RespostaCalculoMes
 {
+    /** Fatores ambientais (mesmos do sistema legado / Blade). */
+    private const FATOR_CO2_KG_POR_KWH = 0.4;
+    private const KG_CO2_POR_ARVORE = 20;
+
     /**
      * @param int[] $ledgerLancamentoIds cl_id dos lançamentos criados (vazio no preview)
      */
@@ -73,6 +77,12 @@ final readonly class RespostaCalculoMes
                 'percentual_lei' => $e->percentualLei,
                 'fatura_energia_reais' => $e->faturaEnergia->emReais(),
                 'adicional_cuo_reais' => $e->adicionalCuo->emReais(),
+                // Indicadores ambientais (fatores do sistema: 0,4 kg CO2/kWh; 20 kg/árvore).
+                'co2_evitado_kg' => round($e->geracaoBrutaKwh->valor() * self::FATOR_CO2_KG_POR_KWH, 2),
+                'arvores_equivalentes' => round(
+                    ($e->geracaoBrutaKwh->valor() * self::FATOR_CO2_KG_POR_KWH) / self::KG_CO2_POR_ARVORE,
+                    2
+                ),
             ],
 
             // §2 — Fórmula de 4 termos (+ receita situacional de expiração).
