@@ -141,8 +141,13 @@ mais próximo do vencimento; consumi-lo primeiro evita expiração desnecessári
 
 - **Prazo:** o crédito guardado expira em **180 dias** a partir do mês de origem (regra do consórcio).
 - **Ordem:** a expiração é avaliada **após** o consumo FIFO do mês — só expira o que **sobrou** sem uso.
-- **Destino:** o crédito expirado **vira receita em dinheiro** (`kwh_expirado × tarifa`) no mês do vencimento,
-  exibido em linha própria. **Não** é contado em dobro (não soma ao termo Crédito e ao faturamento simultaneamente).
+- **Destino (operação normal, indo pra frente):** o crédito expirado **vira receita em dinheiro**
+  (`kwh_expirado × tarifa`) no mês do vencimento, somado ao Valor a Receber (linha própria do demonstrativo).
+  **Não** é contado em dobro (não soma ao termo Crédito e ao faturamento simultaneamente).
+- **Exceção — backfill retroativo (§12):** crédito que **já venceu no passado**, ao reconstruir o histórico,
+  é apenas **removido da reserva (lançamento `EXPIRACAO` no ledger) SEM pagamento** — não geramos receita
+  retroativa. O backfill escreve só no `credito_ledger`, nunca em `faturamento_usina`. Assim, créditos vencidos
+  antes do go-live não são pagos; apenas os que vencerem **a partir** do go-live geram receita.
 
 ---
 
