@@ -8,11 +8,34 @@
 input:focus {
   border-color: var(--color-primary);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(243, 147, 37, 0.2);
+  box-shadow: var(--shadow-focus);
 }
 
 a {
   text-decoration: none;
   color: var(--color-primary-deep);
   transition: color var(--dur-hover) var(--ease-standard);
+}
+
+/* Swal — ícones de estado na paleta do DS (success / error / warning) */
+.swal2-icon.swal2-success {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+.swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgba(63, 161, 74, 0.30);
+}
+.swal2-icon.swal2-success [class^='swal2-success-line'] {
+  background-color: var(--color-success);
+}
+.swal2-icon.swal2-error {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+.swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+  background-color: var(--color-danger);
+}
+.swal2-icon.swal2-warning {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
 }

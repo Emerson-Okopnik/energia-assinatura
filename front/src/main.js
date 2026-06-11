@@ -1,5 +1,8 @@
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './assets/tokens.css'
 import './assets/main.css'
+import './assets/bootstrap-overrides.css'
 
 import { createApp } from 'vue'
 import App from './App.vue'
@@ -14,8 +17,6 @@ import {
   onAuthChange,
 } from './utils/auth.js'
 import swal from './utils/swal.js'
-import 'bootstrap/dist/css/bootstrap.min.css'
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
 const token = getAuthToken()
 if (token && isTokenExpired(token)) {

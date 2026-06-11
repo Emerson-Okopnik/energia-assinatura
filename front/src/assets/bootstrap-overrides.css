@@ -1,0 +1,161 @@
+/* ===================================================================
+   Líder Energy — Bootstrap → Design System bridge
+   Carregado por ÚLTIMO (depois de tokens.css/main.css) para mapear as
+   variáveis do Bootstrap aos tokens do DS. Sem isto o Bootstrap força
+   --bs-body-bg:#fff e os cards Paper somem no fundo Linen (raiz de F9).
+   Objetivo: corrigir cores/bg/rádios. NÃO alterar o layout de telas
+   existentes (Login, cadastros).
+=================================================================== */
+
+:root {
+  /* ---------- Superfície / corpo ---------- */
+  --bs-body-bg:            var(--color-linen);
+  --bs-body-bg-rgb:        250, 246, 241;
+  --bs-body-color:         var(--color-ink);
+  --bs-body-color-rgb:     61, 61, 61;
+  --bs-body-font-family:   var(--font-body);
+  --bs-emphasis-color:     var(--color-ink);
+  --bs-secondary-color:    var(--color-graphite);
+  --bs-tertiary-color:     var(--color-slate);
+  --bs-tertiary-bg:        var(--color-linen);
+
+  /* ---------- Bordas / raios ---------- */
+  --bs-border-color:           var(--color-mist);
+  --bs-border-color-translucent: var(--color-mist);
+  --bs-border-radius:          var(--radius-md);
+  --bs-border-radius-sm:       var(--radius-sm);
+  --bs-border-radius-lg:       var(--radius-lg);
+  --bs-border-radius-xl:       var(--radius-lg);
+  --bs-border-radius-xxl:      var(--radius-xl);
+  --bs-border-radius-pill:     var(--radius-pill);
+
+  /* ---------- Links ---------- */
+  --bs-link-color:         var(--color-primary-deep);
+  --bs-link-color-rgb:     217, 118, 19;
+  --bs-link-hover-color:   var(--color-primary-deep);
+
+  /* ---------- Primary (paleta laranja Líder) ---------- */
+  --bs-primary:            #F39325;
+  --bs-primary-rgb:        243, 147, 37;
+  --bs-primary-text-emphasis: var(--color-primary-deep);
+  --bs-primary-bg-subtle:  var(--color-primary-soft);
+  --bs-primary-border-subtle: var(--color-primary-warm);
+
+  /* ---------- Semânticos alinhados ao DS ---------- */
+  --bs-success:            #3FA14A;
+  --bs-success-rgb:        63, 161, 74;
+  --bs-warning:            #E0A41C;
+  --bs-warning-rgb:        224, 164, 28;
+  --bs-danger:             #C53B2F;
+  --bs-danger-rgb:         197, 59, 47;
+  --bs-info:               #2F7CC5;
+  --bs-info-rgb:           47, 124, 197;
+}
+
+/* ---------- Garantir fundo Linen na app inteira ---------- */
+html,
+body {
+  background-color: var(--color-linen);
+}
+
+/* ===================================================================
+   Cards — Paper, sem borda dura, raio amplo, sombra charcoal suave
+=================================================================== */
+.card {
+  --bs-card-bg: var(--color-paper);
+  --bs-card-border-width: 0;
+  --bs-card-border-radius: var(--radius-lg);
+  --bs-card-inner-border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  background: var(--color-paper);
+}
+
+/* ===================================================================
+   Botões — primário na paleta laranja, raio do DS
+=================================================================== */
+.btn {
+  --bs-btn-border-radius: var(--radius-md);
+  border-radius: var(--radius-md);
+}
+
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--color-primary);
+  --bs-btn-border-color: var(--color-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--color-primary-deep);
+  --bs-btn-hover-border-color: var(--color-primary-deep);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--color-primary-deep);
+  --bs-btn-active-border-color: var(--color-primary-deep);
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: var(--color-primary-warm);
+  --bs-btn-disabled-border-color: var(--color-primary-warm);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--color-primary-deep);
+  --bs-btn-border-color: var(--color-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--color-primary);
+  --bs-btn-hover-border-color: var(--color-primary);
+  --bs-btn-active-bg: var(--color-primary-deep);
+  --bs-btn-active-border-color: var(--color-primary-deep);
+}
+
+/* Foco dos botões usa o ring laranja do DS */
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* ===================================================================
+   Tabelas — suavizar; eliminar o cinza frio default do Bootstrap
+=================================================================== */
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--color-ink);
+  --bs-table-border-color: var(--color-mist);
+  --bs-table-striped-bg: var(--color-linen);
+  --bs-table-striped-color: var(--color-ink);
+  --bs-table-hover-bg: var(--color-primary-soft);
+  --bs-table-hover-color: var(--color-ink);
+}
+
+/* Remover o azul-escuro frio do .table-dark (#212529) — usar charcoal do DS */
+.table-dark {
+  --bs-table-bg: var(--color-ink);
+  --bs-table-color: var(--color-paper);
+  --bs-table-border-color: var(--color-graphite);
+}
+
+/* ===================================================================
+   Badges — suavizar para tons do DS
+=================================================================== */
+.badge {
+  --bs-badge-border-radius: var(--radius-pill);
+  border-radius: var(--radius-pill);
+  font-weight: var(--fw-semibold);
+}
+
+.badge.bg-primary { background-color: var(--color-primary) !important; color: #fff; }
+.badge.bg-success { background-color: var(--color-success) !important; color: #fff; }
+.badge.bg-warning { background-color: var(--color-warning) !important; color: var(--color-ink); }
+.badge.bg-danger  { background-color: var(--color-danger)  !important; color: #fff; }
+.badge.bg-info    { background-color: var(--color-info)    !important; color: #fff; }
+
+/* ===================================================================
+   Form controls — foco na paleta laranja
+=================================================================== */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.form-control,
+.form-select {
+  border-radius: var(--radius-md);
+}
