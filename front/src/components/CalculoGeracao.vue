@@ -367,11 +367,17 @@ export default {
   },
   watch: {
     mesSelecionado() {
-      this.mesGeracao = 0;
+      // Pré-preenche a geração com o valor já cadastrado do mês (se houver) e dispara
+      // o preview, para a "Expectativa" aparecer automaticamente ao trocar de mês.
+      const geracaoCadastrada = Number(this.dadosGeracaoRealMensal?.[this.mesSelecionado]) || 0;
+      this.mesGeracao = geracaoCadastrada;
       this.consumoUsinaMes = null;
       this.adicionalCuo = 0;
       this.previewMes = null;
       this.chartData = null;
+      if (this.usina?.usi_id && this.mesSelecionado && geracaoCadastrada > 0) {
+        this.agendarPreview();
+      }
     },
     consumoUsinaMes() {
       this.agendarPreview();
@@ -440,17 +446,23 @@ export default {
       const token = localStorage.getItem('token');
       const mesIndex = this.mesIndexAtual();
 
+      // Só envia consumo quando o usuário digitou um — senão o backend usa o consumo
+      // já cadastrado do mês (dados_consumo_usina), mantendo a expectativa coerente.
+      const params = {
+        geracao_bruta_kwh: Number(this.mesGeracao) || 0,
+        fatura_energia: Number(this.faturaEnergia) || 0,
+        adicional_cuo: Number(this.adicionalCuo) || 0,
+      };
+      if (this.consumoUsinaMes !== null && this.consumoUsinaMes !== '') {
+        params.consumo = Number(this.consumoUsinaMes) || 0;
+      }
+
       try {
         const response = await axios.get(
           `${baseURL}/usinas/${this.usina.usi_id}/faturamento/${this.anoFaturamento}/mes/${mesIndex}/preview`,
           {
             headers: { Authorization: `Bearer ${token}` },
-            params: {
-              geracao_bruta_kwh: Number(this.mesGeracao) || 0,
-              consumo: Number(this.consumoUsinaMes) || 0,
-              fatura_energia: Number(this.faturaEnergia) || 0,
-              adicional_cuo: Number(this.adicionalCuo) || 0,
-            },
+            params,
           }
         );
 
