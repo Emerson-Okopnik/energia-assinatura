@@ -18,7 +18,7 @@
 /* Lado esquerdo com ilustração e cor institucional */
 .login-illustration {
   flex: 1;
-  background-color: #f28c1f;
+  background-color: var(--color-primary);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -80,7 +80,7 @@ form input {
 }
 
 form input:focus {
-  border-color: #f28c1f;
+  border-color: var(--color-primary);
   outline: none;
   box-shadow: 0 0 0 2px rgba(242, 140, 31, 0.2);
 }
@@ -93,7 +93,7 @@ form input:focus {
 
 .options a {
   font-size: 0.8rem;
-  color: #f28c1f;
+  color: var(--color-primary);
   text-decoration: none;
 }
 
@@ -102,7 +102,7 @@ form input:focus {
 }
 
 button[type="submit"] {
-  background-color: #f28c1f;
+  background-color: var(--color-primary);
   color: white;
   border: none;
   margin-top: 1.5rem;
@@ -114,7 +114,7 @@ button[type="submit"] {
 }
 
 button[type="submit"]:hover {
-  background-color: #d97706;
+  background-color: var(--color-primary-deep);
 }
 
 .create-account {
@@ -125,7 +125,7 @@ button[type="submit"]:hover {
 }
 
 .create-account a {
-  color: #f28c1f;
+  color: var(--color-primary);
   font-weight: 500;
   text-decoration: none;
 }

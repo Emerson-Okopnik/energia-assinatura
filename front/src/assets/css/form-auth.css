@@ -41,13 +41,13 @@
 }
 
 .auth-form input:focus {
-  border-color: #f28c1f;
+  border-color: var(--color-primary);
   outline: none;
   box-shadow: 0 0 0 2px rgba(242, 140, 31, 0.2);
 }
 
 .auth-button {
-  background-color: #f28c1f;
+  background-color: var(--color-primary);
   color: white;
   border: none;
   padding: 12px;
@@ -60,7 +60,7 @@
 }
 
 .auth-button:hover {
-  background-color: #d97706;
+  background-color: var(--color-primary-deep);
 }
 
 .auth-footer {
@@ -71,7 +71,7 @@
 }
 
 .auth-footer a {
-  color: #f28c1f;
+  color: var(--color-primary);
   text-decoration: none;
   font-weight: 500;
 }

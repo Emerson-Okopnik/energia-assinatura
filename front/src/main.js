@@ -1,3 +1,4 @@
+import './assets/tokens.css'
 import './assets/main.css'
 
 import { createApp } from 'vue'
@@ -12,6 +13,7 @@ import {
   isTokenExpired,
   onAuthChange,
 } from './utils/auth.js'
+import swal from './utils/swal.js'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
@@ -98,5 +100,6 @@ axios.interceptors.response.use(
 const app = createApp(App)
 
 app.use(router)
+app.provide('swal', swal)
 
 app.mount('#app')
