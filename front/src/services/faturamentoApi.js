@@ -25,6 +25,16 @@ export async function obterUsina(usiId) {
   return data
 }
 
+/**
+ * DELETE /usina/{id} — exclui a usina.
+ * Mesmo endpoint/método já usados pela antiga Usinas.vue (gestão de usinas);
+ * não introduz contrato novo no backend.
+ */
+export async function excluirUsina(usiId) {
+  const { data } = await axios.delete(`${baseURL}/usina/${usiId}`, { headers: authHeaders() })
+  return data
+}
+
 /** GET /creditos-distribuidos-usina/usina/{id}/ano/{ano} — faturamento anual consolidado. */
 export async function obterFaturamentoAnual(usiId, ano) {
   const { data } = await axios.get(

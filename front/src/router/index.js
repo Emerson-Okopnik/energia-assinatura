@@ -12,11 +12,11 @@ import CadastroConsumidor from '@/components/CadastroConsumidor.vue'
 import CadastroUsina from '@/components/CadastroUsina.vue'
 import Consumidores from '@/components/Consumidores.vue'
 import AtualizarConsumidor from '@/components/AtualizarConsumidor.vue'
-import Usinas from '@/components/Usinas.vue'
 import Distribuicao from '@/components/Distribuicao.vue'
 import AtualizarUsina from '@/components/AtualizarUsina.vue'
 import Relatorios from '@/components/Relatorios.vue'
 import FaturarUsina from '@/views/FaturarUsina.vue'
+import UsinasFaturamento from '@/views/UsinasFaturamento.vue'
 
 
 const routes = [
@@ -46,13 +46,13 @@ const routes = [
     path: '/cadastro-usina',
     name: 'cadastro-usina',
     component: CadastroUsina,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, titulo: 'Cadastrar usina' },
   },
   {
     path: '/consumidores',
     name: 'consumidores',
     component: Consumidores,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, titulo: 'Consumidores' },
   },
   {
     path: '/consumidor/:id',
@@ -63,14 +63,14 @@ const routes = [
   {
     path: '/usinas',
     name: 'usinas',
-    component: Usinas,
-    meta: { requiresAuth: true },
+    component: UsinasFaturamento,
+    meta: { requiresAuth: true, titulo: 'Lista de usinas' },
   },
   {
     path: '/distribuicao',
     name: 'distribuicao',
     component: Distribuicao,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, titulo: 'Distribuir créditos' },
   },
   {
     path: '/usina/:id',
@@ -82,14 +82,19 @@ const routes = [
     path: '/relatorio',
     name: 'relatorio',
     component: Relatorios,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, titulo: 'Relatórios' },
   },
   {
     // Estado (usina/ano/mês) vive na rota: F5, deep-link e voltar funcionam.
+    // Sem :usinaId, o índice de faturamento é a própria lista de usinas (§2).
     path: '/faturar/:usinaId?/:ano?/:mes?',
     name: 'faturar',
     component: FaturarUsina,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, titulo: 'Faturar' },
+    beforeEnter: (to) => {
+      if (!to.params.usinaId) return { name: 'usinas' }
+      return true
+    },
   },
   {
     path: '/calculo-geracao',
