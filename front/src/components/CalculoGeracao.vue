@@ -15,7 +15,7 @@
     <div class="row mb-3">
       <div class="col-md-4">
         <label for="fatura">Fatura de Energia da Usina (R$)</label>
-        <input id="fatura" type="number" step="0.01" class="form-control" v-model.number="faturaEnergia" @input="agendarPreview" />
+        <input id="fatura" type="number" step="0.01" class="form-control" v-model.number="faturaEnergia" @input="agendarProjecao(); agendarPreview()" />
       </div>
       <div class="col-md-4">
         <label>Fio B (R$)</label>
@@ -40,22 +40,22 @@
           <th>Valor Final a Receber</th>
         </tr>
       </thead>
-      <tbody v-if="previewMes">
-        <tr>
-          <td>{{ meses[mesSelecionado] }}</td>
-          <td>{{ formatKwh(previewMes.geracao?.liquida_kwh) }}</td>
-          <td>{{ formatKwh(previewMes.parametros?.media_kwh) }}</td>
-          <td>{{ formatReais(previewMes.termos?.valor_fixo_reais) }}</td>
-          <td>{{ formatReais(previewMes.termos?.valor_variavel_reais) }}</td>
-          <td>{{ formatReais(previewMes.termos?.credito_reais) }}</td>
-          <td>{{ formatReais(previewMes.termos?.cuo_reais) }}</td>
-          <td>{{ formatReais(previewMes.termos?.valor_final_reais) }}</td>
+      <tbody v-if="projecaoAnual.length">
+        <tr v-for="linha in projecaoAnual" :key="linha.mes">
+          <td>{{ linha.mes_nome ? (linha.mes_nome.charAt(0).toUpperCase() + linha.mes_nome.slice(1)) : '' }}</td>
+          <td :class="{ 'text-danger': linha.geracao_kwh === menorGeracao }">{{ formatKwh(linha.geracao_kwh) }}</td>
+          <td>{{ formatKwh(linha.media_kwh) }}</td>
+          <td>{{ formatReais(linha.fixo_reais) }}</td>
+          <td>{{ formatReais(linha.injetado_reais) }}</td>
+          <td>{{ formatReais(linha.creditado_reais) }}</td>
+          <td>{{ formatReais(linha.cuo_reais) }}</td>
+          <td>{{ formatReais(linha.valor_final_reais) }}</td>
         </tr>
       </tbody>
       <tbody v-else>
         <tr>
           <td colspan="8" class="text-center text-muted">
-            Informe geração e consumo do mês para visualizar o cálculo.
+            Selecione uma usina para ver a projeção anual.
           </td>
         </tr>
       </tbody>
@@ -352,6 +352,10 @@ export default {
       // Resposta do GET .../preview — fonte ÚNICA de exibição do mês.
       previewMes: null,
       previewTimer: null,
+      // Projeção anual (Expectativa) — 12 meses do GET .../projecao.
+      projecaoAnual: [],
+      projecaoTimer: null,
+      menorGeracao: 0,
       usina: null,
       anoFaturamento: new Date().getFullYear(),
       dadosFaturamentoAnual: null,
@@ -467,7 +471,7 @@ export default {
         );
 
         this.previewMes = response.data?.data ?? response.data ?? null;
-        this.gerarGrafico();
+        // O gráfico e a tabela de Expectativa vêm da projeção anual (não do preview do mês).
       } catch (error) {
         console.error('Erro ao carregar preview do faturamento:', error);
         this.previewMes = null;
@@ -506,35 +510,65 @@ export default {
     avancarAno() {
       this.anoFaturamento++;
       this.carregarFaturamentoAno();
+      this.carregarProjecao();
       this.agendarPreview();
     },
     voltarAno() {
       if (this.anoFaturamento > 2024) { // limite inferior
         this.anoFaturamento--;
         this.carregarFaturamentoAno();
+        this.carregarProjecao();
         this.agendarPreview();
       }
     },
     // O gráfico LÊ os termos do preview do mês (sem cálculo local).
     gerarGrafico() {
-      if (!this.previewMes?.termos) {
+      if (!this.projecaoAnual.length) {
         this.chartData = null;
         return;
       }
 
-      const t = this.previewMes.termos;
-      const label = this.meses[this.mesSelecionado] || 'Mês';
+      const p = this.projecaoAnual;
+      const labels = p.map(l => (l.mes_nome ? l.mes_nome.charAt(0).toUpperCase() + l.mes_nome.slice(1) : ''));
 
       this.chartData = {
-        labels: [label],
+        labels,
         datasets: [
-          { type: 'bar', label: 'Fixo', data: [Number(t.valor_fixo_reais) || 0], backgroundColor: '#60a5fa', stack: 'montagem', order: 2 },
-          { type: 'bar', label: 'Injetado', data: [Number(t.valor_variavel_reais) || 0], backgroundColor: '#FFA500', stack: 'montagem', order: 3 },
-          { type: 'bar', label: 'Creditado', data: [Number(t.credito_reais) || 0], backgroundColor: '#4ade80', stack: 'montagem', order: 4 },
-          { type: 'bar', label: 'CUO', data: [Number(t.cuo_reais) || 0], backgroundColor: '#f87171', stack: 'montagem', order: 5 },
-          { type: 'line', label: 'Valor Final a Receber', data: [Number(t.valor_final_reais) || 0], borderColor: '#1e40af', borderWidth: 2, fill: false, pointRadius: 3, tension: 0.3, order: 1 }
+          { type: 'bar', label: 'Fixo', data: p.map(l => Number(l.fixo_reais) || 0), backgroundColor: '#60a5fa', stack: 'montagem', order: 2 },
+          { type: 'bar', label: 'Injetado', data: p.map(l => Number(l.injetado_reais) || 0), backgroundColor: '#FFA500', stack: 'montagem', order: 3 },
+          { type: 'bar', label: 'Creditado', data: p.map(l => Number(l.creditado_reais) || 0), backgroundColor: '#4ade80', stack: 'montagem', order: 4 },
+          { type: 'bar', label: 'CUO', data: p.map(l => Number(l.cuo_reais) || 0), backgroundColor: '#f87171', stack: 'montagem', order: 5 },
+          { type: 'line', label: 'Valor Final a Receber', data: p.map(l => Number(l.valor_final_reais) || 0), borderColor: '#1e40af', borderWidth: 2, fill: false, pointRadius: 3, tension: 0.3, order: 1 }
         ]
       };
+    },
+    agendarProjecao() {
+      if (this.projecaoTimer) clearTimeout(this.projecaoTimer);
+      this.projecaoTimer = setTimeout(() => this.carregarProjecao(), 300);
+    },
+    async carregarProjecao() {
+      if (!this.usina?.usi_id || !this.anoFaturamento) {
+        this.projecaoAnual = [];
+        this.chartData = null;
+        return;
+      }
+      const baseURL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem('token');
+      try {
+        const response = await axios.get(
+          `${baseURL}/usinas/${this.usina.usi_id}/projecao/${this.anoFaturamento}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { fatura_energia: Number(this.faturaEnergia) || 0 },
+          }
+        );
+        this.projecaoAnual = response.data?.data ?? [];
+        this.gerarGrafico();
+      } catch (error) {
+        console.error('Erro ao carregar projeção anual:', error);
+        this.projecaoAnual = [];
+        this.chartData = null;
+      }
     },
     async carregarDados() {
       if (!this.selectedUsinaId) return;
@@ -558,6 +592,7 @@ export default {
 
         this.fioB = Number.isFinite(fioB) && fioB > 0 ? fioB : 0.13;
         this.percentualLei = Number.isFinite(percentualLei) && percentualLei > 0 ? percentualLei : 45;
+        this.menorGeracao = Number(g.menor_geracao) || 0;
 
         this.mesesGeracao = {
           Janeiro: g.janeiro, Fevereiro: g.fevereiro, Março: g.marco,
@@ -568,6 +603,7 @@ export default {
 
         this.usina = response.data;
         await this.carregarFaturamentoAno();
+        await this.carregarProjecao();
       } catch (error) {
         console.error('Erro ao carregar dados da usina:', error);
       }

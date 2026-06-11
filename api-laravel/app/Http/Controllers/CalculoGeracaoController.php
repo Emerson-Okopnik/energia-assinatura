@@ -47,6 +47,30 @@ class CalculoGeracaoController extends Controller
     }
 
     /**
+     * PROJEÇÃO ANUAL (Expectativa) — os 12 meses com a geração PROJETADA da usina,
+     * simulados pelo motor único (reserva construída do zero). Não toca o ledger real.
+     */
+    public function projecao(\Illuminate\Http\Request $request, int $usi_id, int $ano): JsonResponse
+    {
+        $user  = $request->user();
+        $usina = Usina::with(['comercializacao', 'dadoGeracao'])->find($usi_id);
+
+        if (!$usina || ($user->cli_id ?? $usina->cli_id) !== $usina->cli_id) {
+            return response()->json(['error' => 'Usina não encontrada'], 404);
+        }
+
+        $fatura = (float) $request->query('fatura_energia', 0);
+
+        try {
+            $meses = $this->faturamento->projetarAno($usina, $ano, $fatura);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['success' => true, 'data' => $meses]);
+    }
+
+    /**
      * CÁLCULO ÚNICO + PERSISTÊNCIA (núcleo único) — Fase 4.
      *
      * Aceita o input atual do front (inclusive valorPago_mes), mas IGNORA

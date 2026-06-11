@@ -125,6 +125,7 @@ Route::middleware('auth:api')->group(function () {
 
   // Cálculo ÚNICO (núcleo de domínio): preview (não grava) e calculo (grava).
   // .../calculo agora usa o motor novo (FaturamentoService) — o frontend salva aqui.
+  Route::get('/usinas/{usi_id}/projecao/{ano}', [\App\Http\Controllers\CalculoGeracaoController::class, 'projecao']);
   Route::get('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/preview', [\App\Http\Controllers\CalculoGeracaoController::class, 'preview']);
   Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'processar']);
   Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/estorno', [\App\Http\Controllers\EstornoGeracaoController::class, 'estornar']);

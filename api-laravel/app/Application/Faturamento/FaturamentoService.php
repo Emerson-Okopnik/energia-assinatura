@@ -10,6 +10,7 @@ use App\Domain\Faturamento\Calculo\DescontoRede;
 use App\Domain\Faturamento\Contracts\LedgerRepository;
 use App\Domain\Faturamento\DTO\EntradaCalculoMes;
 use App\Domain\Faturamento\DTO\ResultadoCalculoMes;
+use App\Domain\Faturamento\Ledger\ReconstrutorLedger;
 use App\Domain\Faturamento\ValueObject\Competencia;
 use App\Domain\Faturamento\ValueObject\Kwh;
 use App\Domain\Faturamento\ValueObject\Reais;
@@ -141,6 +142,66 @@ final class FaturamentoService
             saldoReservaAntesKwh: $saldoAntes,
             saldoReservaDepoisKwh: $saldoDepois,
         );
+    }
+
+    /**
+     * Projeção anual (Expectativa): simula os 12 meses com a GERAÇÃO PROJETADA
+     * (dados_geracao), reusando o ReconstrutorLedger (mesmo motor único). A reserva
+     * é construída do zero ao longo do ano projetado — não toca o ledger real.
+     *
+     * @return array<int, array<string, float|int|string>> uma linha por mês com geração,
+     *         média, fixo, injetado, creditado, cuo (negativo p/ exibição) e valor final.
+     */
+    public function projetarAno(Usina $usina, int $ano, float $faturaEnergia = 0.0): array
+    {
+        $comercializacao = $usina->comercializacao;
+        $dadoGeracao = $usina->dadoGeracao;
+
+        if ($comercializacao === null || $dadoGeracao === null) {
+            throw new \InvalidArgumentException('Usina sem comercialização ou dados de geração projetada.');
+        }
+
+        $mesesRaw = [];
+        foreach (self::MESES as $num => $nome) {
+            $geracao = (float) ($dadoGeracao->$nome ?? 0);
+            if ($geracao <= 0.0) {
+                continue;
+            }
+            $mesesRaw[] = [
+                'ano' => $ano,
+                'mes' => $num,
+                'geracao_bruta_kwh' => $geracao,
+                'consumo_kwh' => 0.0, // projeção: sem consumo real
+                'rede' => $usina->rede,
+                'media_kwh' => (float) $dadoGeracao->media,
+                'menor_geracao_kwh' => (float) $dadoGeracao->menor_geracao,
+                'tarifa' => (float) $comercializacao->valor_kwh,
+                'fio_b' => (float) $comercializacao->fio_b,
+                'percentual_lei' => (float) $comercializacao->percentual_lei,
+                'fatura_energia' => $faturaEnergia,
+                'adicional_cuo' => 0.0,
+            ];
+        }
+
+        $rec = (new ReconstrutorLedger())->reconstruir($mesesRaw, []);
+
+        $linhas = [];
+        foreach ($rec['meses'] as $mz) {
+            $r = $mz['resultado'];
+            $linhas[] = [
+                'mes' => $mz['mes'],
+                'mes_nome' => self::MESES[$mz['mes']],
+                'geracao_kwh' => $mz['entrada']->geracaoBrutaKwh->valor(),
+                'media_kwh' => $mz['entrada']->mediaKwh->valor(),
+                'fixo_reais' => $r->valorFixo->emReais(),
+                'injetado_reais' => $r->valorVariavel->emReais(),
+                'creditado_reais' => $r->credito->emReais(),
+                'cuo_reais' => -$r->cuo->emReais(),
+                'valor_final_reais' => $r->valorFinal->emReais(),
+            ];
+        }
+
+        return $linhas;
     }
 
     /**
