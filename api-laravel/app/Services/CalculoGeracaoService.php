@@ -80,11 +80,14 @@ class CalculoGeracaoService
                 'snapshot_geracao_mes'      => (float) ($geracao->$mesNome ?? 0),
             ]);
 
-            $tarifa     = (float) $payload['tarifa_kwh'];
-            $geracaoMes = (float) $payload['mesGeracao_kwh'];
-            $media         = (float) $payload['mediaGeracao_kwh'];
+            // Acesso resiliente: o Request marca estes campos como nullable (para o
+            // fluxo novo via FaturamentoService), então o motor antigo não pode
+            // assumir presença — usa ?? 0 para não emitir "Undefined array key".
+            $tarifa     = (float) ($payload['tarifa_kwh'] ?? 0);
+            $geracaoMes = (float) ($payload['mesGeracao_kwh'] ?? 0);
+            $media         = (float) ($payload['mediaGeracao_kwh'] ?? 0);
             $adicionalCuo  = (float) ($payload['adicional_cuo'] ?? 0);
-            $valorPago     = (float) $payload['valorPago_mes'] + $adicionalCuo;
+            $valorPago     = (float) ($payload['valorPago_mes'] ?? 0) + $adicionalCuo;
 
             $referencia       = Carbon::create($ano, $mes, 1)->endOfMonth();
             $reservasExpiradas = [];
