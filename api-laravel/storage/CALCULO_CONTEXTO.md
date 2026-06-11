@@ -149,6 +149,32 @@ Legado mantém 10700. Muitas das 37 divergências vêm disso. PERGUNTA AO CLIENT
 As divergências (ledger vs legado) são o ANTES×DEPOIS esperado (legado corrompido) — não são erro.
 Reconciliação NÃO precisa "fechar"; ela QUANTIFICA a correção.
 
+## >>> CONCLUSÃO FINAL: NÃO EXISTEM SALDOS MIGRADOS (investigação do cadastro) <<<
+Investigado o cadastramento: a reserva SEMPRE começa em ZERO. Evidências:
+- CadastroUsina.vue:772 cria valor-acumulado-reserva com corpo VAZIO {}.
+- CalculoGeracaoService.php:181 -> ValorAcumuladoReserva::create(['total' => 0]).
+- NÃO há campo de saldo inicial/sobra/crédito migrado em nenhum lugar do cadastro.
+- criarPacoteAnual carrega o total do ano anterior, mas ano 1 começa em 0.
+REGRA ORIGINAL (CalculoGeracaoService.php:118-124): geração < média SEM reserva -> déficit é PAGO à concessionária
+(valorPago += deficit*tarifa), NÃO compensado. Reserva nunca fica negativa (max 0).
+=> NÃO EXISTEM "sobras"/crédito migrado. As 21 usinas "déficit>excedente" apenas PAGARAM os déficits.
+=> O SALDO_INICIAL do comando é SUPOSIÇÃO ERRADA. CORREÇÃO: backfill NÃO injeta SALDO_INICIAL para ninguém;
+   reserva começa em 0, compensa só o que há, déficit restante é pago (sem lançamento de crédito).
+(Isto SUBSTITUI a análise "Grupo 1 legítimo" abaixo — estava errada antes de investigar o cadastro.)
+
+## >>> [SUPERADO] ANÁLISE SALDO_INICIAL (verificação própria) — comando SUPER-INJETA <<<
+O comando injeta SALDO_INICIAL para QUALQUER déficit não atendido no replay (44 usinas). Mas há 2 grupos:
+- GRUPO 1 — CRÉDITO MIGRADO REAL (21 usinas, total 124.897 kWh): déficit_total > excedente_total na história inteira
+  -> impossível sem crédito pré-sistema. Ex: Edo Eloi 29961 (legado 0), Eliane 18900 (legado 0), Rodrigo 8843 (legado 0).
+  Dessas: 13 o sistema zerou (perdeu crédito), 8 mantêm algo. SALDO_INICIAL LEGÍTIMO.
+- GRUPO 2 — DÉFICIT DE 1º MÊS (~23 usinas): primeiro mês abaixo da média, mas no total geram excedente de sobra.
+  Ex: Nereu (1º mês ago/25: 39190 vs média 43005, déficit 3815, mas resto sobra). Pela regra, déficit SEM reserva
+  deve ser PAGO à concessionária, NÃO compensado inventando crédito. Comando dá compensação grátis indevida.
+  CORREÇÃO NECESSÁRIA: NÃO injetar SALDO_INICIAL para déficit de início; tratar como déficit pago. SALDO_INICIAL só
+  onde há evidência de crédito migrado (déficit líquido > excedente, OU registro de migração do cliente).
+PERGUNTA FACTUAL AO CLIENTE: existe registro de migração com os saldos iniciais reais dessas usinas? Se sim, usar.
+Se não, GRUPO 1 usa o déficit líquido (lower bound) e GRUPO 2 não recebe SALDO_INICIAL.
+
 ## >>> STATUS ACESSO BANCO <<<
 - ACESSO RESOLVIDO: do bastion, chave /home/ubuntu/KeyliderEnergy.pem entra no app (ubuntu@10.0.2.2, host App-LiderEnergy).
   Banco via `sudo -u postgres psql -d energia_assinatura` (peer auth, sem senha). Release real NÃO é /var/www/energia-assinatura/repo (esse é clone sem vendor); usar psql direto.

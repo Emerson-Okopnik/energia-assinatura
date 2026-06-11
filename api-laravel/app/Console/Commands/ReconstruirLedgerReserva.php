@@ -112,16 +112,11 @@ final class ReconstruirLedgerReserva extends Command
             return $this->linhaReconciliacao($usina, 0.0, 0.0, 0, false);
         }
 
-        // PASSE 1: mede o déficit não atendido sem saldo de abertura.
-        $passe1 = $this->replay($timeline, $media, $tarifa, Kwh::zero());
-        $saldoInicial = $passe1['naoAtendidoTotal'];
-
-        // PASSE 2: se houve déficit pré-sistema, injeta o SALDO_INICIAL no começo
-        // e re-roda limpo, para que os CONSUMO referenciem o saldo de abertura (§12).
-        $temSaldoInicial = $saldoInicial->valor() > 1e-6;
-        $resultado = $temSaldoInicial
-            ? $this->replay($timeline, $media, $tarifa, $saldoInicial, $timeline[0]['competencia'])
-            : $passe1;
+        // Reserva começa em ZERO — fiel ao cadastro (não há saldo inicial: a reserva
+        // sempre nasce em 0, ver CalculoGeracaoService::criarPacoteAnual). Um déficit
+        // sem reserva é PAGO à concessionária (não compensado), então o "não atendido"
+        // não gera lançamento de crédito — não existe SALDO_INICIAL/crédito migrado.
+        $resultado = $this->replay($timeline, $media, $tarifa, Kwh::zero());
 
         $lancamentos = $resultado['lancamentos'];
         $saldoFinalLedger = $this->saldoFinal($lancamentos);
@@ -131,13 +126,14 @@ final class ReconstruirLedgerReserva extends Command
         }
 
         $legado = $this->saldoLegado($usiId);
+        $deficitPagoKwh = $resultado['naoAtendidoTotal']->valor();
 
         return $this->linhaReconciliacao(
             $usina,
             $saldoFinalLedger,
             $legado,
             count($lancamentos),
-            $temSaldoInicial,
+            $deficitPagoKwh > 1e-6,
         );
     }
 
@@ -540,7 +536,7 @@ final class ReconstruirLedgerReserva extends Command
         $handle = fopen($caminho, 'w');
         fputcsv($handle, [
             'UC', 'Cliente', 'Saldo_Final_Ledger_kWh', 'Saldo_Legado_kWh',
-            'Diferenca_kWh', 'Bate', 'Tem_Saldo_Inicial', 'Lancamentos',
+            'Diferenca_kWh', 'Bate', 'Teve_Deficit_Pago', 'Lancamentos',
         ]);
 
         $batem = 0;
@@ -579,7 +575,7 @@ final class ReconstruirLedgerReserva extends Command
         $this->line('Usinas processadas: ' . count($reconciliacao));
         $this->line('Batem com o legado: ' . $batem);
         $this->line('Divergem do legado: ' . $divergem);
-        $this->line('Com SALDO_INICIAL:  ' . count(array_filter($reconciliacao, static fn ($l) => $l['tem_saldo_inicial'])));
+        $this->line('Tiveram déficit pago: ' . count(array_filter($reconciliacao, static fn ($l) => $l['tem_saldo_inicial'])));
 
         if ($divergencias !== []) {
             $this->newLine();

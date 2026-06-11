@@ -144,31 +144,11 @@ foreach ($usinas as $u) {
     }
     if (!$mesesRaw) { continue; }
 
-    // ---- saldo inicial migrado: déficit histórico (líquido) > excedente ----
+    // ---- reserva começa em ZERO (fiel ao cadastro: não há saldo inicial/crédito migrado) ----
+    // Um déficit sem reserva é PAGO à concessionária, não compensado. Por isso NÃO
+    // injetamos lote inicial: a reserva é construída só a partir dos excedentes da geração.
     usort($mesesRaw, fn($a,$b)=>[$a['ano'],$a['mes']]<=>[$b['ano'],$b['mes']]);
-    $totExced = 0.0; $totDefic = 0.0;
-    foreach ($mesesRaw as $m) {
-        $liq = DescontoRede::liquida(Kwh::de($m['geracao_bruta_kwh']), Kwh::de($m['consumo_kwh']), $m['rede'])->valor();
-        $totExced += max($liq - $media, 0.0);
-        $totDefic += max($media - $liq, 0.0);
-    }
-    $migrada = $totDefic > $totExced;
     $lotesIniciais = [];
-    if ($migrada) {
-        $menorAno = $mesesRaw[0]['ano'];
-        $saldoIni = $reservaPorAno[$menorAno] ?? 0.0;
-        if ($saldoIni > 0.0) {
-            // origem = mês anterior ao primeiro da timeline (estritamente mais antigo => FIFO o consome 1º)
-            $primeiroMes = $mesesRaw[0]['mes'];
-            $origAno = $primeiroMes === 1 ? $menorAno - 1 : $menorAno;
-            $origMes = $primeiroMes === 1 ? 12 : $primeiroMes - 1;
-            $orig = Competencia::de($origAno, $origMes);
-            $lotesIniciais[] = new LoteReserva($orig, Kwh::de($saldoIni), $orig->vencimentoEmDias(180));
-            $dq['saldo_inicial'][] = ['uc'=>$uc, 'cliente'=>$u['cliente'], 'ano'=>$menorAno, 'kwh'=>$saldoIni];
-        } else {
-            $dq['saldo_inicial'][] = ['uc'=>$uc, 'cliente'=>$u['cliente'], 'ano'=>$menorAno, 'kwh'=>0.0];
-        }
-    }
 
     // ---- reconstrução (motor único) ----
     $rec = $reconstrutor->reconstruir($mesesRaw, $lotesIniciais);
@@ -254,7 +234,7 @@ foreach ($usinas as $u) {
     }
 
     $usinasReport[$uc] = [
-        'cliente'=>$u['cliente'] ?? '-', 'rede'=>$u['rede'], 'migrada'=>$migrada,
+        'cliente'=>$u['cliente'] ?? '-', 'rede'=>$u['rede'], 'migrada'=>false,
         'tarifa'=>$tarifa, 'media'=>$media, 'menor'=>(float)$u['menor_geracao'],
         'timeline'=>$timeline,
         'diff_credito'=>array_sum(array_map(fn($t)=>$t['diff'], $timeline)),

@@ -77,31 +77,25 @@ class ReconstruirLedgerReservaTest extends TestCase
         $this->assertEqualsWithDelta(1870.0, $this->saldoLedger($usiId), 0.001);
     }
 
-    public function test_deficit_maior_que_excedente_gera_saldo_inicial(): void
+    public function test_deficit_sem_reserva_e_pago_nao_gera_credito(): void
     {
-        // Nunca houve excedente; jan/2026 déficit 800 -> precisa SALDO_INICIAL 800.
+        // A reserva sempre começa em ZERO (fiel ao cadastro). Nunca houve excedente;
+        // jan/2025 déficit (geração 1200 < média 2000) -> o déficit é PAGO à
+        // concessionária, NÃO compensado. NÃO existe SALDO_INICIAL/crédito migrado.
         $uc = $this->criarUsina(media: 2000, geracaoPorAno: [
-            2026 => ['janeiro' => 1200],
+            2025 => ['janeiro' => 1200],
         ]);
 
         $this->artisan('ledger:reconstruir', ['--usina' => $uc])->assertOk();
 
         $usiId = $this->usiId($uc);
-        $saldoInicial = CreditoLedger::doUsina($usiId)
-            ->porTipo(CreditoLedger::TIPO_SALDO_INICIAL)->get();
 
-        $this->assertCount(1, $saldoInicial);
-        $this->assertEqualsWithDelta(800.0, (float) $saldoInicial->first()->kwh, 0.001);
+        // Nenhum lançamento de crédito de qualquer tipo: não há reserva e o déficit é pago.
+        $this->assertCount(0, CreditoLedger::doUsina($usiId)->porTipo(CreditoLedger::TIPO_SALDO_INICIAL)->get());
+        $this->assertCount(0, CreditoLedger::doUsina($usiId)->porTipo(CreditoLedger::TIPO_CONSUMO)->get());
+        $this->assertCount(0, CreditoLedger::doUsina($usiId)->porTipo(CreditoLedger::TIPO_CREDITO)->get());
 
-        // Abertura no mês anterior à 1ª geração (dez/2025).
-        $this->assertSame('2025-12-01', $saldoInicial->first()->competencia_origem->format('Y-m-d'));
-
-        // CONSUMO de jan/2026 referencia o SALDO_INICIAL.
-        $consumo = CreditoLedger::doUsina($usiId)->porTipo(CreditoLedger::TIPO_CONSUMO)->first();
-        $this->assertEqualsWithDelta(-800.0, (float) $consumo->kwh, 0.001);
-        $this->assertSame((int) $saldoInicial->first()->cl_id, (int) $consumo->ref_lancamento_id);
-
-        // Saldo final zero: o saldo migrado foi todo consumido.
+        // Saldo final zero: nunca houve crédito.
         $this->assertEqualsWithDelta(0.0, $this->saldoLedger($usiId), 0.001);
     }
 
