@@ -3,28 +3,26 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Application\Faturamento\FaturamentoService;
+use App\Http\ViewModels\UsinaPdfViewModel;
 use App\Services\CelescApiService;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\View;
 use App\Models\Usina;
 use App\Models\UsinaConsumidor;
 use Spatie\Browsershot\Browsershot;
 use Illuminate\Support\Facades\Response;
-use App\Models\CreditosDistribuidosUsina;
 use App\Models\DadosGeracaoRealUsina;
-use App\Models\DemonstrativoCreditosPdf;
-use App\Models\GeracaoFaturamentoPdf;
 use Carbon\Carbon;
 use Symfony\Component\Process\Process;
 
 class PDFController extends Controller {
 
   private const TRANSPARENT_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
-  private CelescApiService $celescApiService;
 
-  public function __construct(CelescApiService $celescApiService)
-  {
-      $this->celescApiService = $celescApiService;
+  public function __construct(
+      private CelescApiService $celescApiService,
+      private FaturamentoService $faturamentoService,
+  ) {
   }
 
   public function gerarUsinaPDF(Request $request, $id) {
@@ -75,364 +73,16 @@ class PDFController extends Controller {
         $ano = is_numeric($anoInformado) ? (int) $anoInformado : (int) (DadosGeracaoRealUsina::where('usi_id', $id)->max('ano') ?? now()->year);
         $observacoes = (string) $request->query('observacoes', '');
 
-        // Mapa de colunas no banco
-        $nomesMeses = [
-            1=>'janeiro',2=>'fevereiro',3=>'marco',4=>'abril',5=>'maio',6=>'junho', 7=>'julho',8=>'agosto',9=>'setembro',10=>'outubro',11=>'novembro',12=>'dezembro',
-        ];
-        $colunaMes = $nomesMeses[$mes];
-
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
-        $formatarCompetencia = function (Carbon $data) use ($nomesMeses): string {
-            return Str::ucfirst($nomesMeses[$data->month]) . '/' . substr((string) $data->year, -2);
-        };
         $celescInvoiceBase64 = '';
         $celescInvoiceId = '';
         $celescBillingPeriod = $anchorData->format('Y/m');
 
-        // Meses: atual + últimos 11 (12 no total), mais antigos primeiro
-        $datasRange = collect();
-        for ($i = 11; $i >= 0; $i--) {
-            $datasRange->push($anchorData->copy()->subMonths($i));
-        }
-
-        $anosBusca = $datasRange->map->year->unique()->values();
-
-        $geracoesReais = DadosGeracaoRealUsina::select(['dgru_id', 'dgr_id', 'usi_id', 'cli_id', 'ano'])
-            ->where('usi_id', $id)
-            ->whereIn('ano', $anosBusca->toArray())
-            ->with(['DadosGeracaoReal' => function ($query) {
-                $query->select('dgr_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
-                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
-            }])
-            ->get()
-            ->keyBy('ano');
-
-        $janelaMeses = $datasRange->mapWithKeys(function ($dataMes) use ($nomesMeses) {
-            $competencia = $dataMes->copy()->startOfMonth()->toDateString();
-            return [
-                $dataMes->format('Y-m') => [
-                    'ano' => (int) $dataMes->year,
-                    'coluna' => $nomesMeses[$dataMes->month],
-                    'mes' => (int) $dataMes->month,
-                    'label' => Str::ucfirst($nomesMeses[$dataMes->month]) . '/' . substr((string) $dataMes->year, -2),
-                    'competencia' => $dataMes->format('Y-m-01'),
-                ],
-            ];
-        });
-
-        $geracaoRealAnoSelecionado = $geracoesReais->get($ano);
-
-        $faturamento = CreditosDistribuidosUsina::select([
-            'cdu_id', 'cd_id', 'usi_id', 'cli_id', 'fa_id', 'var_id', 'ano'
-        ])
-        ->where('usi_id', $id)
-        ->where('ano', $ano)
-        ->with([
-            'creditosDistribuidos' => function ($query) {
-                $query->select('cd_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
-                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
-            },
-            'valorAcumuladoReserva' => function ($query) {
-                $query->select('var_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
-                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro', 'total');
-            },
-            'faturamentoUsina' => function ($query) {
-                $query->select('fa_id', 'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
-                    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro');
-            }
-        ])
-        ->first();
-
-        $geracaoMensalReal = [];
-        $meses = [];
-        $mesesInfo = [];
-        
-        foreach ($janelaMeses as $chave => $infoMes) {
-            if ((int) $infoMes['ano'] !== $ano || (int) $infoMes['mes'] > $mes) {
-                continue;
-            }
-            $registroAno = $geracoesReais->get($infoMes['ano']);
-            $valor = optional($registroAno?->DadosGeracaoReal)->{$infoMes['coluna']};
-
-            if ($valor === null || (float) $valor === 0.0) {
-                continue;
-            }
-
-            $valorFloat = (float) $valor;
-            $geracaoMensalReal[$infoMes['label']] = $valorFloat;
-            $meses[$infoMes['label']] = $valorFloat;
-            $mesesInfo[$infoMes['label']] = $infoMes;
-        }
-
-        $valoresGeracao = array_values($meses);
-        $maxGeracao = count($valoresGeracao) ? max($valoresGeracao) : 0;
-
-        $fioB = (float) ($usina->comercializacao->fio_b ?? 0);
-        $percentualLei = (float) ($usina->comercializacao->percentual_lei ?? 0);
-        $faturaEnergia = (float) $request->query('fatura', 0);
-        $adicionalCuo = (float) $request->query('adicional_cuo', 0);
-        $valorFinalFioB = $fioB * ($percentualLei / 100);
-        $valorKwh = (float) ($usina->comercializacao->valor_kwh ?? 0);
-        $mediaGeracao = (float) ($usina->dadoGeracao->media ?? 0);
-        $menorGeracao = (float) ($usina->dadoGeracao->menor_geracao ?? 0);
-
-        // Tabela mensal de valores (apenas meses com geração informada)
-        $mesSelecionadoLabel = ucfirst($nomesMeses[$mes]) . '/' . substr((string) $ano, -2);
-        $dadosMensais = [];
-        $competencias = [];
-        foreach ($meses as $mesNome => $valor) {
-            $competencias[] = $mesesInfo[$mesNome]['competencia'];
-        }
-
-        $competencias = array_values(array_unique($competencias));
-
-        $dadosPersistidos = count($competencias)
-            ? GeracaoFaturamentoPdf::where('usi_id', $id)
-                ->whereIn('competencia', $competencias)
-                ->get()
-                ->keyBy(function ($registro) {
-                    return $registro->competencia instanceof Carbon
-                        ? $registro->competencia->toDateString()
-                        : (string) $registro->competencia;
-                })
-            : collect();
-
-        $novosRegistros = [];
-        foreach ($meses as $mesNome => $valor) {
-            $competencia = $mesesInfo[$mesNome]['competencia'];
-            $registroPersistido = $dadosPersistidos->get($competencia);
-
-            if ($registroPersistido) {
-                $dadosMensais[$mesNome] = [
-                    'geracao_kwh' => (float) $registroPersistido->geracao_kwh,
-                    'fixo' => (float) $registroPersistido->valor_fixo,
-                    'injetado' => (float) $registroPersistido->injetado,
-                    'creditado' => (float) $registroPersistido->creditado,
-                    'cuo' => (float) $registroPersistido->cuo,
-                    'valor_final' => (float) $registroPersistido->valor_final,
-                ];
-                continue;
-            }
-
-            $fixo           = (float) ($usina->comercializacao->valor_fixo ?? 0);
-            $injetado       = ($valor >= $mediaGeracao) ? ($mediaGeracao - $menorGeracao) * $valorKwh : ($valor - $menorGeracao) * $valorKwh;
-            $valorBaseCuo   = $faturaEnergia + ($valor * $valorFinalFioB);
-            $cuo            = ($mesesInfo[$mesNome]['coluna'] ?? null) === $colunaMes ? $valorBaseCuo + $adicionalCuo : $valorBaseCuo;
-
-            $coluna = $mesesInfo[$mesNome]['coluna'];
-            $creditado = (float) ($faturamento?->creditosDistribuidos?->$coluna ?? 0);
-            //$cuo       =  ($faturaEnergia + ($fioB * $valor * ($percentualLei / 100)));
-            $valorFinal = ($fixo + $injetado + $creditado) - $cuo;
-
-            $dadosMensais[$mesNome] = [
-                'geracao_kwh' => $valor,
-                'fixo' => $fixo,
-                'injetado' => $injetado,
-                'creditado' => $creditado,
-                'cuo' => $cuo,
-                'valor_final' => $valorFinal,
-            ];
-            
-            $novosRegistros[] = [
-                'usi_id' => $id,
-                'competencia' => $competencia,
-                'geracao_kwh' => $valor,
-                'valor_fixo' => $fixo,
-                'injetado' => $injetado,
-                'creditado' => $creditado,
-                'cuo' => $cuo,
-                'valor_final' => $valorFinal,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-
-        if (count($novosRegistros)) {
-            GeracaoFaturamentoPdf::insertOrIgnore($novosRegistros);
-        }
-
-        $dadosFaturamento = [];
-        if (
-            $faturamento && $geracaoRealAnoSelecionado &&
-            $faturamento->creditosDistribuidos &&
-            $faturamento->valorAcumuladoReserva &&
-            $faturamento->faturamentoUsina &&
-            $geracaoRealAnoSelecionado->DadosGeracaoReal
-        ) {
-            $creditos = $faturamento->creditosDistribuidos;
-            $reserva  = $faturamento->valorAcumuladoReserva;
-            $pago     = $faturamento->faturamentoUsina;
-            $geracaoMensalRealObj = $geracaoRealAnoSelecionado->DadosGeracaoReal;
-            $mesesUtilizadosPorMes = [];
-            $reservaSimulada = array_fill_keys(array_values($nomesMeses), 0.0);
-
-            // Simula o uso da reserva para listar os meses utilizados em cada credito.
-            foreach ($nomesMeses as $indiceMes => $chave) {
-                if ($indiceMes > $mes) {
-                    continue;
-                }
-                $pagoVal = (float) ($pago?->$chave ?? 0);
-                if ($pagoVal <= 0) {
-                    continue;
-                }
-
-                $referencia = Carbon::createFromDate($ano, $indiceMes, 1)->endOfMonth();
-                foreach ($nomesMeses as $num => $nome) {
-                    $saldo = (float) ($reservaSimulada[$nome] ?? 0);
-                    if ($saldo <= 0) {
-                        continue;
-                    }
-                    $dataMes = Carbon::createFromDate($ano, $num, 1)->endOfMonth();
-                    if ($dataMes->lessThan($referencia) && $dataMes->diffInDays($referencia) > 180) {
-                        $reservaSimulada[$nome] = 0.0;
-                    }
-                }
-
-                $geracaoMes = (float) ($geracaoMensalRealObj?->$chave ?? 0);
-                if ($mediaGeracao <= 0) {
-                    $mesesUtilizadosPorMes[$chave] = [];
-                    continue;
-                }
-
-                if ($geracaoMes >= $mediaGeracao) {
-                    $valorGuardado = $geracaoMes - $mediaGeracao;
-                    if ($valorGuardado > 0) {
-                        $reservaSimulada[$chave] = ($reservaSimulada[$chave] ?? 0) + $valorGuardado;
-                    }
-                    $mesesUtilizadosPorMes[$chave] = [];
-                    continue;
-                }
-
-                $faltante = $mediaGeracao - $geracaoMes;
-                $energiaParaDescontar = min($faltante, array_sum($reservaSimulada));
-                $mesesUsados = [];
-
-                if ($energiaParaDescontar > 0) {
-                    foreach ($nomesMeses as $num => $nome) {
-                        $saldo = (float) ($reservaSimulada[$nome] ?? 0);
-                        if ($saldo <= 0) {
-                            continue;
-                        }
-                        $retirar = min($saldo, $energiaParaDescontar);
-                        if ($retirar > 0) {
-                            $reservaSimulada[$nome] = $saldo - $retirar;
-                            $energiaParaDescontar -= $retirar;
-                            $mesesUsados[] = $formatarCompetencia(Carbon::createFromDate($ano, $num, 1));
-                        }
-                        if ($energiaParaDescontar <= 0) {
-                            break;
-                        }
-                    }
-                }
-
-                $mesesUtilizadosPorMes[$chave] = $mesesUsados;
-            }
-
-            $competenciasDemonstrativo = [];
-            foreach ($nomesMeses as $indiceMes => $chave) {
-                if ($indiceMes > $mes) {
-                    continue;
-                }
-                $pagoVal = (float) ($pago?->$chave ?? 0);
-                if ($pagoVal <= 0) {
-                    continue;
-                }
-                $dataBaseCredito = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
-                $competenciasDemonstrativo[] = $dataBaseCredito->toDateString();
-            }
-
-            $demonstrativosPersistidos = count($competenciasDemonstrativo)
-                ? DemonstrativoCreditosPdf::where('usi_id', $id)
-                    ->whereIn('competencia', $competenciasDemonstrativo)
-                    ->get()
-                    ->keyBy(function ($registro) {
-                        return $registro->competencia instanceof Carbon
-                            ? $registro->competencia->toDateString()
-                            : (string) $registro->competencia;
-                    })
-                : collect();
-
-            $novosDemonstrativos = [];
-
-            foreach ($nomesMeses as $indiceMes => $chave) {
-                if ($indiceMes > $mes) {
-                    continue;
-                }
-                $pagoVal = (float) ($pago?->$chave ?? 0);
-                if ($pagoVal > 0) {
-                    $dataBaseCredito = Carbon::createFromDate($ano, $indiceMes, 1)->startOfMonth();
-                    $dataVencimento = $dataBaseCredito->copy()->addDays(210);
-                    $creditado = (float) ($creditos?->$chave ?? 0);
-                    $creditadoKwh = $valorKwh > 0 ? ($creditado / $valorKwh) : 0;
-                    $guardadoMes = (float) ($reserva?->$chave ?? 0);
-                    $competencia = $dataBaseCredito->toDateString();
-                    $registroDemonstrativo = $demonstrativosPersistidos->get($competencia);
-
-                    $mesesUtilizados = '-';
-                    $vencimentoLabel = $formatarCompetencia($dataVencimento);
-                    if ($registroDemonstrativo) {
-                        $guardadoMes = (float) ($registroDemonstrativo->guardado_kwh ?? 0);
-                        $creditadoKwh = (float) ($registroDemonstrativo->creditado_kwh ?? 0);
-                        $mesesUtilizados = $registroDemonstrativo->meses_utilizados ?: '-';
-                        $vencimentoData = $registroDemonstrativo->vencimento;
-                        if ($vencimentoData instanceof Carbon) {
-                            $vencimentoLabel = $formatarCompetencia($vencimentoData);
-                        } elseif ($vencimentoData) {
-                            $vencimentoLabel = $formatarCompetencia(Carbon::parse($vencimentoData));
-                        }
-                    } else {
-                        if ($creditadoKwh > 0) {
-                            $mesesUsados = $mesesUtilizadosPorMes[$chave] ?? [];
-                            $mesesUtilizados = count($mesesUsados) ? implode(', ', $mesesUsados) : '-';
-                        }
-
-                        $novosDemonstrativos[] = [
-                            'usi_id' => $id,
-                            'competencia' => $competencia,
-                            'vencimento' => $dataVencimento->toDateString(),
-                            'guardado_kwh' => $guardadoMes,
-                            'creditado_kwh' => $creditadoKwh,
-                            'meses_utilizados' => $mesesUtilizados === '-' ? null : $mesesUtilizados,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-                    $mesCreditado = $creditado > 0
-                        ? $formatarCompetencia($dataBaseCredito)
-                        : '-';
-
-                    $dadosFaturamento[$formatarCompetencia($dataBaseCredito)] = [
-                        'competencia'      => $formatarCompetencia($dataBaseCredito),
-                        'geracao'          => (float) ($geracaoMensalRealObj?->$chave ?? 0),
-                        'guardado'         => $guardadoMes,
-                        'creditado'        => $creditado,
-                        'creditado_kwh'    => $creditadoKwh,
-                        'pago'             => $pagoVal,
-                        'vencimento'       => $vencimentoLabel,
-                        'mes_creditado'    => $mesCreditado,
-                        'meses_utilizados' => $mesesUtilizados,
-                    ];
-                }
-            }
-
-            if (count($novosDemonstrativos)) {
-                DemonstrativoCreditosPdf::insertOrIgnore($novosDemonstrativos);
-            }
-        }
-
-        $totalGuardado = (array_sum(array_column($dadosFaturamento, 'guardado')) * $valorKwh);
-        $totalPago      = array_sum(array_column($dadosFaturamento, 'pago'));
-        $totalCuos      = array_sum(array_column($dadosMensais, 'cuo'));
-
-        $totalEnergiaReceber       = (float) ($faturamento?->valorAcumuladoReserva?->total ?? 0);
-        $totalFaturaConcessionaria = $totalCuos;
-        $totalFaturasEmitidas      = $totalPago;
-        $saldo                     = $totalFaturasEmitidas;
-
-        $chaveMesSelecionado = $formatarCompetencia($anchorData);
-        $valorReceber = $dadosMensais[$mesSelecionadoLabel]['valor_final']
-            ?? ($dadosFaturamento[$chaveMesSelecionado]['pago'] ?? 0);
-        $geracaoMes = $geracaoMensalReal[$mesSelecionadoLabel] ?? 0;
+        // Fase 6: o PDF LÊ do motor único (FaturamentoService). Toda a montagem do
+        // ViewModel — termos, demonstrativo, auditoria — vive em UsinaPdfViewModel,
+        // que apenas orquestra o serviço. ZERO recálculo aqui (DRY).
+        $viewModel = (new UsinaPdfViewModel($this->faturamentoService))
+            ->montar($usina, $ano, $mes, $observacoes);
 
         // UC: prioriza a UC da própria usina, depois a primeira do cliente (se houver)
         $uc = $usina->uc ?: optional(optional(optional($usina->cliente)->consumidores)->first())->uc ?: 'N/A';
@@ -477,14 +127,9 @@ class PDFController extends Controller {
             return [$chave => $this->inlinePublicImage($path)];
         });
 
-        $mesAnoSelecionado = $formatarCompetencia($anchorData);
-
-        $html = View::file(resource_path('views/usina.blade.php'), [
-            'usina' => $usina,
-            'dadosMensais' => $dadosMensais,
-            'valoresGeracao' => $valoresGeracao,
-            'nomesMeses' => array_keys($meses),
-            'maxGeracao' => $maxGeracao,
+        // Dados de cálculo vêm PRONTOS do motor (UsinaPdfViewModel); aqui o
+        // controller só agrega o que é de apresentação (imagens, UC, Celesc).
+        $dados = array_merge($viewModel, [
             'logo' => $imagensInline['logo'],
             'iconeSol' => $imagensInline['iconeSol'],
             'iconeRelogio' => $imagensInline['iconeRelogio'],
@@ -498,20 +143,12 @@ class PDFController extends Controller {
             'iconeLampada' => $imagensInline['iconeLampada'],
             'iconeInstagram' => $imagensInline['iconeInstagram'],
             'iconeLinkedin' => $imagensInline['iconeLinkedin'],
-            'valorReceber' => $valorReceber,
-            'mesAnoSelecionado' => $mesAnoSelecionado,
-            'geracaoMes' => $geracaoMes,
-            'dadosFaturamento' => $dadosFaturamento,
-            'observacoes' => $observacoes,
-            'totalEnergiaReceber' => $totalEnergiaReceber,
-            'totalFaturaConcessionaria' => $totalFaturaConcessionaria,
-            'totalFaturasEmitidas' => $totalFaturasEmitidas,
-            'saldo' => $saldo,
             'uc' => $uc,
-            'geracaoMensalReal' => $geracaoMensalReal,
             'celescInvoiceBase64' => $celescInvoiceBase64,
             'celescInvoiceId' => $celescInvoiceId,
-        ])->render();
+        ]);
+
+        $html = View::file(resource_path('views/usina.blade.php'), $dados)->render();
 
         $pdf = $this->configureBrowsershot(Browsershot::html($html))
             ->format('A4')

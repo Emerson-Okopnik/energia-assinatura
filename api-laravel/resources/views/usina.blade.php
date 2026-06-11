@@ -448,7 +448,7 @@
               </div>
               <div class="details-2">
                 <img src="{{ $iconeDinheiro }}" alt="Ícone de dinheiro" class="icon">
-                <p><strong>Valor a Receber:</strong> {{ number_format($valorReceber, 2, ',', '.') }}</p>
+                <p><strong>Valor a Receber:</strong> @reais($valorReceber)</p>
               </div>
             </div>
 
@@ -484,23 +484,13 @@
         <div class="highlight-bar">
           <p><strong>UC:</strong> {{ $uc }}</p>
           <p><strong>Fonte de Geração:</strong> UFV</p>
-          <p><strong>Valor kWh:</strong> R$ {{$usina->comercializacao->valor_kwh}}</p>
-          <p><strong>Valor a Receber:</strong> R$ {{ number_format($valorReceber, 2, ',', '.') }}</p>
+          <p><strong>Valor kWh:</strong> @tarifa($usina->comercializacao->valor_kwh)</p>
+          <p><strong>Valor a Receber:</strong> @reais($valorReceber)</p>
         </div>
       
         <div class="demonstrativo-geracao">
           DEMONSTRATIVO DE GERAÇÃO
         </div>
-
-        @php
-          // Fatores de conversão atualizados
-          $fatorEmissao = 0.4;    // kg CO2 evitado por kWh gerado (média no Brasil)
-          $kgPorArvore = 20;      // kg CO2 capturado por árvore por ano
-
-          // Cálculos
-          $co2Evitado = $geracaoMes * $fatorEmissao; // em kg
-          $arvores = $co2Evitado / $kgPorArvore;
-        @endphp
 
         <div class="geracao-container">
           <div class="grafico">
@@ -510,11 +500,11 @@
 
           <div class="dados-geracao">
             <h3>Dados de Geração<br>de Energia</h3>
-            <p>Sua geração de energia foi de <span style="color: orangered;"><strong>{{ number_format($geracaoMes, 2, ',', '.') }} kWh</span><br>isso é igual a:</p>
+            <p>Sua geração de energia foi de <span style="color: orangered;"><strong>@kwh($geracaoMes)</strong></span><br>isso é igual a:</p>
 
             <div class="item-geracao">
               <img src="{{ $iconeCo2 }}" alt="Ícone CO2" class="icon-geracao">
-              <span><strong>{{ number_format($co2Evitado, 0, ',', '.') }}Kg</strong> de <strong>emissão de CO₂ evitada</strong></span>
+              <span><strong>{{ number_format($co2Evitado, 0, ',', '.') }} Kg</strong> de <strong>emissão de CO₂ evitada</strong></span>
             </div>
 
             <div class="item-geracao">
@@ -544,14 +534,77 @@
               @foreach($dadosMensais as $mes => $dados)
                 <tr>
                   <td>{{ $mes }}</td>
-                  <td>{{ number_format($dados['geracao_kwh'] ?? 0, 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['fixo'], 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['injetado'], 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['cuo'], 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['valor_final'], 2, ',', '.') }}</td>
+                  <td>@kwh($dados['geracao_kwh'] ?? 0)</td>
+                  <td>@reais($dados['fixo'])</td>
+                  <td>@reais($dados['injetado'])</td>
+                  <td>@reais($dados['creditado'])</td>
+                  <td>@reais($dados['cuo'])</td>
+                  <td>@reais($dados['valor_final'])</td>
                 </tr>
               @endforeach
+            </tbody>
+          </table>
+        </div>
+
+        {{-- AUDITORIA (REGRAS_DE_CALCULO.md §8): Projetada × Realizada × Faltante,
+             crédito expirado por mês e a origem FIFO do crédito resgatado. --}}
+        <div style="margin-top: 8px;">
+          <div class="titulo-tabela">AUDITORIA DE GERAÇÃO E CRÉDITOS</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Mês</th>
+                <th>Projetada / Média (kWh)</th>
+                <th>Realizada (kWh)</th>
+                <th>Líquida (kWh)</th>
+                <th>Faltante (kWh)</th>
+                <th>Crédito Expirado (kWh)</th>
+                <th>Crédito Expirado (R$)</th>
+                <th>Meses Utilizados (FIFO)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($auditoria as $linha)
+                <tr>
+                  <td>{{ $linha['label'] }}</td>
+                  <td>@kwh($linha['projetada_media_kwh'])</td>
+                  <td>@kwh($linha['geracao_real_kwh'])</td>
+                  <td>@kwh($linha['geracao_liquida_kwh'])</td>
+                  <td>@kwh($linha['faltante_kwh'])</td>
+                  <td>@kwh($linha['credito_expirado_kwh'])</td>
+                  <td>@reais($linha['credito_expirado_reais'])</td>
+                  <td>{{ $linha['meses_utilizados'] ?? '-' }}</td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+
+        {{-- PARÂMETROS DE CÁLCULO (§8): derivados da usina, sem fórmula. --}}
+        <div style="margin-top: 8px;">
+          <div class="titulo-tabela">PARÂMETROS DE CÁLCULO</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tarifa (R$/kWh)</th>
+                <th>Valor Fixo (R$)</th>
+                <th>Fio B (R$/kWh)</th>
+                <th>Percentual Lei</th>
+                <th>Menor Geração (kWh)</th>
+                <th>Média (kWh)</th>
+                <th>Rede</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>@tarifa($parametros['tarifa'], 6)</td>
+                <td>@reais($parametros['valor_fixo'])</td>
+                <td>@tarifa($parametros['fio_b'], 6)</td>
+                <td>@percentual($parametros['percentual_lei'])</td>
+                <td>@kwh($parametros['menor_geracao'])</td>
+                <td>@kwh($parametros['media'])</td>
+                <td>{{ $parametros['rede'] ?? '-' }}</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -579,8 +632,8 @@
                       <tr>
                           <td>{{ $mes }}</td>
                           <td>{{ $dados['vencimento'] ?? '-' }}</td>
-                          <td>{{ number_format($dados['guardado'], 2, ',', '.') }} kWh</td>
-                          <td>{{ number_format($dados['creditado_kwh'] ?? 0, 2, ',', '.') }} kWh</td>
+                          <td>@kwh($dados['guardado'])</td>
+                          <td>@kwh($dados['creditado_kwh'] ?? 0)</td>
                           <td>{{ $dados['meses_utilizados'] ?? '-' }}</td>
                       </tr>
                   @endforeach
@@ -600,15 +653,15 @@
             <tbody>
               <tr>
                 <td>Total acum de energia a receber</td>
-                <td>{{ number_format($totalEnergiaReceber, 2, ',', '.') }} kWh</td>
+                <td>@kwh($totalEnergiaReceber)</td>
               </tr>
               <tr>
                 <td>Total acum de fatura concessionária</td>
-                <td>R$ {{ number_format($totalFaturaConcessionaria, 2, ',', '.') }}</td>
+                <td>@reais($totalFaturaConcessionaria)</td>
               </tr>
               <tr>
                 <td>Total acum de faturas emitidas</td>
-                <td>R$ {{ number_format($totalFaturasEmitidas, 2, ',', '.') }}</td>
+                <td>@reais($totalFaturasEmitidas)</td>
               </tr>
             </tbody>
           </table>

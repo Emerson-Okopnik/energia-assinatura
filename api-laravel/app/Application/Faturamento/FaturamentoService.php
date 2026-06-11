@@ -21,7 +21,9 @@ use App\Models\DadoConsumo;
 use App\Models\DadoConsumoUsina;
 use App\Models\DadosGeracaoReal;
 use App\Models\DadosGeracaoRealUsina;
+use App\Models\DemonstrativoCreditosPdf;
 use App\Models\FaturamentoUsina;
+use App\Models\GeracaoFaturamentoPdf;
 use App\Models\HistoricoEstorno;
 use App\Models\Usina;
 use App\Models\ValorAcumuladoReserva;
@@ -324,6 +326,10 @@ final class FaturamentoService
             $reserva->total = $saldoDepois;
             $reserva->save();
 
+            // Cache de LEITURA do PDF (§8): o PDF lê daqui sem recalcular nada.
+            // Idempotente por (usi_id, competencia) — espelha o que o motor calculou.
+            $this->gravarCachePdf($usiId, $competencia, $entrada, $resultado);
+
             return $ids;
         });
     }
@@ -412,6 +418,107 @@ final class FaturamentoService
         }
 
         return $ids;
+    }
+
+    /**
+     * Grava o CACHE de leitura do PDF (PLANO_REDESENHO.md Fase 6): o breakdown
+     * mensal em geracao_faturamento_pdf e o demonstrativo em demonstrativo_creditos_pdf.
+     *
+     * O PDF passa a LER daqui (zero recálculo). Os valores são EXATAMENTE os do
+     * motor único — nenhuma fórmula nova é aplicada. Idempotente por
+     * (usi_id, competencia) via updateOrCreate.
+     */
+    private function gravarCachePdf(
+        int $usiId,
+        Competencia $competencia,
+        EntradaCalculoMes $entrada,
+        ResultadoCalculoMes $resultado,
+    ): void {
+        $competenciaData = $this->data($competencia);
+
+        // 1) Breakdown de faturamento (geracao_faturamento_pdf).
+        //    injetado = valor_variavel; creditado = credito (termos do motor, §2).
+        $this->upsertPorCompetencia(
+            GeracaoFaturamentoPdf::query(),
+            $usiId,
+            $competenciaData,
+            [
+                'geracao_kwh' => round($entrada->geracaoBrutaKwh->valor(), 4),
+                'valor_fixo' => $resultado->valorFixo->emReais(),
+                'injetado' => $resultado->valorVariavel->emReais(),
+                'creditado' => $resultado->credito->emReais(),
+                'cuo' => $resultado->cuo->emReais(),
+                'valor_final' => $resultado->valorFinal->emReais(),
+            ],
+        );
+
+        // 2) Demonstrativo de créditos (demonstrativo_creditos_pdf):
+        //    guardado/creditado em kWh, vencimento e a origem FIFO (§6, §7, §8).
+        $creditadoKwh = array_sum(array_map(
+            static fn (array $c): float => $c['kwh']->valor(),
+            $resultado->consumosFifo,
+        ));
+
+        // "meses utilizados" = origens consumidas via FIFO neste mês (auditoria §8).
+        $mesesUtilizados = array_map(
+            static fn (array $c): string => self::competenciaLabel((string) $c['origem']),
+            $resultado->consumosFifo,
+        );
+        $mesesUtilizadosTexto = count($mesesUtilizados) ? implode(', ', $mesesUtilizados) : null;
+
+        $vencimento = $competencia->vencimentoEmDias(self::PRAZO_VENCIMENTO_DIAS)->format('Y-m-d');
+
+        $this->upsertPorCompetencia(
+            DemonstrativoCreditosPdf::query(),
+            $usiId,
+            $competenciaData,
+            [
+                'vencimento' => $vencimento,
+                'guardado_kwh' => round($resultado->guardadoKwh->valor(), 4),
+                'creditado_kwh' => round($creditadoKwh, 4),
+                'meses_utilizados' => $mesesUtilizadosTexto,
+            ],
+        );
+    }
+
+    /**
+     * Upsert idempotente por (usi_id, competencia) tolerante ao cast `date`:
+     * casa o registro existente via whereDate (a coluna pode estar gravada como
+     * datetime), atualizando-o; senão cria. Evita violar o unique quando a
+     * comparação string vs datetime falharia num updateOrCreate cru.
+     *
+     * @param array<string, mixed> $valores
+     */
+    private function upsertPorCompetencia(
+        \Illuminate\Database\Eloquent\Builder $query,
+        int $usiId,
+        string $competenciaData,
+        array $valores,
+    ): void {
+        $existente = (clone $query)
+            ->where('usi_id', $usiId)
+            ->whereDate('competencia', $competenciaData)
+            ->first();
+
+        if ($existente !== null) {
+            $existente->fill($valores)->save();
+
+            return;
+        }
+
+        (clone $query)->create(array_merge($valores, [
+            'usi_id' => $usiId,
+            'competencia' => $competenciaData,
+        ]));
+    }
+
+    /** Converte a chave "YYYY-MM" de uma origem em rótulo "Mês/AA" (auditoria). */
+    private static function competenciaLabel(string $chave): string
+    {
+        [$ano, $mes] = array_map('intval', explode('-', $chave));
+        $nome = self::MESES[$mes] ?? $chave;
+
+        return ucfirst($nome) . '/' . substr((string) $ano, -2);
     }
 
     /**
