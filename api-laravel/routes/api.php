@@ -127,6 +127,7 @@ Route::middleware('auth:api')->group(function () {
   // .../calculo agora usa o motor novo (FaturamentoService) — o frontend salva aqui.
   Route::get('/usinas/{usi_id}/projecao/{ano}', [\App\Http\Controllers\CalculoGeracaoController::class, 'projecao']);
   Route::get('/usinas/{usi_id}/inputs-salvos/{ano}', [\App\Http\Controllers\CalculoGeracaoController::class, 'inputsSalvos']);
+  Route::post('/usinas/{usi_id}/consumo/{ano}/mes/{mes}', [\App\Http\Controllers\CalculoGeracaoController::class, 'upsertConsumoMes']);
   Route::get('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/preview', [\App\Http\Controllers\CalculoGeracaoController::class, 'preview']);
   Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'processar']);
   Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/estorno', [\App\Http\Controllers\EstornoGeracaoController::class, 'estornar']);

@@ -682,24 +682,15 @@ export default {
 
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const mesesKeys = Object.keys(this.meses);
-        const consumoPayload = mesesKeys.reduce((acc, key) => {
-          acc[key] = 0;
-          return acc;
-        }, {});
+        const mesIndex = this.mesIndexAtual();
 
-        consumoPayload[this.mesSelecionado] = parseFloat(this.consumoUsinaMes || 0);
-        consumoPayload.media = consumoPayload[this.mesSelecionado];
-
-        const consumoResponse = await axios.post(`${baseURL}/consumo`, consumoPayload, { headers });
-        const dcon_id = consumoResponse.data?.id;
-
-        await axios.post(`${baseURL}/dados-consumo-usina`, {
-          usi_id: this.usina.usi_id,
-          cli_id: cliId,
-          dcon_id,
-          ano: this.anoFaturamento,
-        }, { headers });
+        // UPSERT: atualiza só o mês no registro do ano (não cria duplicata nem zera
+        // os outros meses) — corrige o bug das múltiplas linhas de consumo.
+        await axios.post(
+          `${baseURL}/usinas/${this.usina.usi_id}/consumo/${this.anoFaturamento}/mes/${mesIndex}`,
+          { consumo: parseFloat(this.consumoUsinaMes || 0) },
+          { headers }
+        );
 
         if (!silencioso) {
           Swal.fire({

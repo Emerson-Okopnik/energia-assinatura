@@ -47,6 +47,55 @@ class CalculoGeracaoController extends Controller
     }
 
     /**
+     * UPSERT do consumo de UM mês, preservando os outros meses do ano. Evita o bug
+     * das duplicatas (cada save criava um novo registro com só 1 mês preenchido).
+     */
+    public function upsertConsumoMes(\Illuminate\Http\Request $request, int $usi_id, int $ano, int $mes): JsonResponse
+    {
+        $meses = [
+            1 => 'janeiro', 2 => 'fevereiro', 3 => 'marco', 4 => 'abril',
+            5 => 'maio', 6 => 'junho', 7 => 'julho', 8 => 'agosto',
+            9 => 'setembro', 10 => 'outubro', 11 => 'novembro', 12 => 'dezembro',
+        ];
+        $mesNome = $meses[$mes] ?? null;
+        if ($mesNome === null) {
+            return response()->json(['error' => 'Mês inválido'], 422);
+        }
+
+        $consumo = (float) $request->input('consumo', 0);
+        $usina = Usina::find($usi_id);
+        if (!$usina) {
+            return response()->json(['error' => 'Usina não encontrada'], 404);
+        }
+
+        return response()->json(['success' => true, 'data' => \Illuminate\Support\Facades\DB::transaction(function () use ($usina, $usi_id, $ano, $mesNome, $consumo) {
+            // Reusa o vínculo mais recente do ano (ou cria um). Atualiza só o mês.
+            $vinculo = \App\Models\DadoConsumoUsina::where('usi_id', $usi_id)
+                ->where('ano', $ano)->orderByDesc('dcu_id')->first();
+
+            if ($vinculo !== null) {
+                $dadoConsumo = \App\Models\DadoConsumo::find($vinculo->dcon_id);
+            } else {
+                $dadoConsumo = \App\Models\DadoConsumo::create(array_merge(
+                    array_fill_keys(['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'], 0),
+                    ['media' => 0]
+                ));
+                $vinculo = \App\Models\DadoConsumoUsina::create([
+                    'usi_id' => $usi_id,
+                    'cli_id' => $usina->cli_id,
+                    'dcon_id' => $dadoConsumo->dcon_id,
+                    'ano' => $ano,
+                ]);
+            }
+
+            $dadoConsumo->{$mesNome} = $consumo;
+            $dadoConsumo->save();
+
+            return ['dcu_id' => $vinculo->dcu_id, 'mes' => $mesNome, 'consumo' => $consumo];
+        })]);
+    }
+
+    /**
      * INPUTS SALVOS por mês (fatura de energia + consumo) para um ano, para a tela
      * PRÉ-PREENCHER o que foi gravado ao reabrir um mês. Retorna mapa mes_nome => {...}.
      */
