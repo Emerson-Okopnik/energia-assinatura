@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- @dsCard group="Components" name="Form Inputs" subtitle="Default, focused, error states" viewport="700x220" --><html><head><meta charset="utf-8"><title>Inputs</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  label { font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-graphite); }
+  .input { font-family: var(--font-body); font-size: 14px; padding: 11px 14px; border: 1.5px solid var(--color-mist); border-radius: 12px; background: white; color: var(--color-ink); transition: border-color .15s; }
+  .input.focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(243,147,37,0.2); outline: none; }
+  .input.error { border-color: var(--color-danger); }
+  .hint { font-size: 11px; color: var(--color-slate); }
+  .err { font-size: 11px; color: var(--color-danger); font-weight: 600; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+</style>
+</head><body>
+  <div class="row">
+    <div class="field"><label>Nome</label><div class="input">Maria Silva</div></div>
+    <div class="field"><label>CPF / CNPJ</label><div class="input focus">123.456.789-00</div></div>
+  </div>
+  <div class="field"><label>E-mail</label><div class="input error">maria@exemplo</div><span class="err">E-mail inválido</span></div>
+</body></html>

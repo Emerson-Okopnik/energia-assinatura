@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- @dsCard group="Spacing" name="Radii" subtitle="sm / md / lg / xl / pill" viewport="700x180" --><html><head><meta charset="utf-8"><title>Radii</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 24px; display: flex; align-items: center; justify-content: center; gap: 18px; background: var(--color-linen); }
+  .r { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .sq { width: 86px; height: 86px; background: var(--color-primary); box-shadow: var(--shadow-sm); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--color-graphite); text-align: center; }
+  .name { font-family: var(--font-display); font-weight: 700; font-size: 12px; color: var(--color-ink); }
+  .pill { width: 96px; height: 44px; background: var(--color-primary); border-radius: 999px; box-shadow: var(--shadow-sm); }
+</style>
+</head><body>
+  <div class="r"><div class="sq" style="border-radius:6px"></div><div class="name">sm</div><div class="label">6px · chips</div></div>
+  <div class="r"><div class="sq" style="border-radius:12px"></div><div class="name">md</div><div class="label">12px · inputs</div></div>
+  <div class="r"><div class="sq" style="border-radius:20px"></div><div class="name">lg</div><div class="label">20px · cards</div></div>
+  <div class="r"><div class="sq" style="border-radius:28px"></div><div class="name">xl</div><div class="label">28px · hero</div></div>
+  <div class="r"><div class="pill"></div><div class="name">pill</div><div class="label">999 · CTA</div></div>
+</body></html>

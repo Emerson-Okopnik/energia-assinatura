@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- @dsCard group="Colors" name="Colors · Semantic & Accent" subtitle="Leaf accent, success, warning, danger" viewport="700x190" --><html><head><meta charset="utf-8"><title>Colors · Semantic</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 24px; }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .swatch { border-radius: 14px; padding: 12px; height: 130px; display: flex; flex-direction: column; justify-content: space-between; }
+  .head { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .name { font-family: var(--font-display); font-weight: 800; font-size: 13px; }
+  .hex { font-family: var(--font-mono); font-size: 10px; opacity: 0.85; }
+  .label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7; }
+</style>
+</head><body>
+  <div class="row">
+    <div class="swatch" style="background:var(--color-accent-leaf);color:white"><div><div class="label">Accent</div><div class="name">Leaf</div></div><div class="hex">#5FB53A</div></div>
+    <div class="swatch" style="background:var(--color-success-soft);color:var(--color-accent-leaf-deep)"><div class="head"><span class="dot" style="background:var(--color-success)"></span><div class="name">Success</div></div><div class="hex">#3FA14A · #E3F3E3</div></div>
+    <div class="swatch" style="background:var(--color-warning-soft);color:#6b4d05"><div class="head"><span class="dot" style="background:var(--color-warning)"></span><div class="name">Warning</div></div><div class="hex">#E0A41C · #FBEFCB</div></div>
+    <div class="swatch" style="background:var(--color-danger-soft);color:var(--color-danger)"><div class="head"><span class="dot" style="background:var(--color-danger)"></span><div class="name">Danger</div></div><div class="hex">#C53B2F · #F8DED9</div></div>
+  </div>
+</body></html>

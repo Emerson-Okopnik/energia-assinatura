@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- @dsCard group="Spacing" name="Motion · Durations" subtitle="Four duration tokens, ease-out-quart" viewport="700x210" --><html><head><meta charset="utf-8"><title>Motion</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 22px 26px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  .row { display: grid; grid-template-columns: 110px 1fr 70px; gap: 10px; align-items: center; }
+  .name { font-family: var(--font-mono); font-size: 11px; color: var(--color-ink); }
+  .dur { font-family: var(--font-mono); font-size: 10px; color: var(--color-slate); text-align: right; }
+  .track { height: 6px; background: var(--color-mist); border-radius: 999px; overflow: hidden; position: relative; }
+  .ball { position: absolute; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--color-primary); }
+  @keyframes slideOut { 0%{left:0;} 100%{left:calc(100% - 12px);} }
+  .b1 { animation: slideOut 0.12s var(--ease-out-quart) infinite alternate; }
+  .b2 { animation: slideOut 0.18s var(--ease-out-quart) infinite alternate; }
+  .b3 { animation: slideOut 0.28s var(--ease-out-quart) infinite alternate; }
+  .b4 { animation: slideOut 0.42s var(--ease-out-quart) infinite alternate; }
+</style>
+</head><body>
+  <div class="row"><span class="name">dur-hover</span><div class="track"><div class="ball b1"></div></div><span class="dur">120ms</span></div>
+  <div class="row"><span class="name">dur-press</span><div class="track"><div class="ball b2"></div></div><span class="dur">180ms</span></div>
+  <div class="row"><span class="name">dur-enter</span><div class="track"><div class="ball b3"></div></div><span class="dur">280ms</span></div>
+  <div class="row"><span class="name">dur-section</span><div class="track"><div class="ball b4"></div></div><span class="dur">420ms</span></div>
+  <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-slate);margin-top:4px">easing · cubic-bezier(0.22, 1, 0.36, 1)</div>
+</body></html>

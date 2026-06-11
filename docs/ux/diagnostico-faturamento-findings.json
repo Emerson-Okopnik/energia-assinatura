@@ -1,0 +1,322 @@
+[
+ {
+  "title": "Seleção de usina é um <select> nativo sem busca, sem paginação e sem contexto persistente da usina escolhida",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:6-11 — `<select id=\"usinaSelect\" v-model=\"selectedUsinaId\" ...>` itera todas as usinas retornadas por GET /usina (fetchUsinas, linha 434-445, sem paginação nem filtro). O label da option é só 'nome - média kWh'. Depois de selecionada, a usina não aparece em lugar nenhum como contexto fixo: ao rolar a página de 900+ linhas, o usuário perde de vista qual usina está faturando.",
+  "recommendation": "Trocar por um combobox com busca (filtro client-side por nome/cliente já resolve para a carga atual; o endpoint não muda). Após a seleção, renderizar um 'header de contexto' sticky no topo da área de trabalho: nome do cliente, usina, Fio B, % Lei 14300 e competência atual — espelhando o padrão topbar sticky com blur do AppShell.jsx do kit portal (rgba(255,255,255,0.75) + backdrop-filter blur(16px), borda --color-mist). Isso resolve a dor 1 e dá âncora visual permanente.",
+  "userPainPoint": 1,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Rota única /calculo-geracao sem parâmetros: estado inteiro (usina, ano, mês) vive em data() e morre no F5",
+  "severity": "alta",
+  "evidence": "router/index.js:88-92 — `path: '/calculo-geracao'` sem params. CalculoGeracao.vue:345,364,374 — selectedUsinaId, mesSelecionado e anoFaturamento são só data() local. Não há deep-link: impossível compartilhar 'faturamento da usina X em maio/2026', o botão voltar do browser sai da página inteira, e recarregar zera tudo. O resto do app já usa rotas com param (/usina/:id, /consumidor/:id, linhas 58 e 76 do router).",
+  "recommendation": "Adotar rota `/faturar/:usinaId?/:ano?/:mes?` (ou /faturar?usina=&competencia=2026-05). `/faturar` sem param mostra a tela de escolher usina; com param, carrega direto (carregarDados a partir de route.params + watcher de rota). Trocar usina/mês/ano vira router.push, dando histórico de navegação, deep-link e refresh seguro de graça. Manter redirect de /calculo-geracao para /faturar para não quebrar links existentes.",
+  "userPainPoint": 2,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Ordem das seções invertida: a projeção anual (Expectativa) ocupa o primeiro scroll inteiro e empurra a tarefa primária (apurar o mês) para baixo da dobra",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:14-68 — tabela de 12 meses + gráfico de 860x400px (linha 66, dimensões fixas inline) vêm ANTES do bloco 'Faturamento da Usina no Mês' (linha 70). A Expectativa é informação de consulta/referência, não input do fluxo; o operador entra na página para lançar UM mês e precisa rolar ~800px até os campos.",
+  "recommendation": "Inverter a hierarquia: 1º a apuração do mês (competência + inputs + preview), 2º a Expectativa como seção colapsável ou aba secundária ('Apuração do mês' | 'Expectativa anual' | 'Histórico'). O gráfico deve ser responsivo (remover width fixa) e viver dentro da aba Expectativa. Isso responde diretamente à dor 2 (página gigante sem hierarquia de fluxo).",
+  "userPainPoint": 2,
+  "lens": "navegacao"
+ },
+ {
+  "title": "O botão 'Salvar Valores' está a ~150 linhas de template dos inputs que ele salva, depois do histórico anual e do estorno",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:297-301 — o botão de salvar aparece DEPOIS da tabela de histórico anual (222-269) e do histórico de estornos (271-295), enquanto os inputs ficam nas linhas 70-132. Entre o input e a ação de commit há: preview de créditos, CO2/árvores, card de auditoria e duas tabelas. O usuário não tem como saber que aquele botão fecha o formulário lá de cima; pior, ele fica visualmente associado ao histórico.",
+  "recommendation": "Agrupar inputs + preview + ação num único card 'Apuração de {mês}/{ano}' com o botão primário no rodapé do card (padrão card --radius-lg 20px, --shadow-sm do design system; botão primário Lider Orange #F39325). Alternativa mais robusta: barra de ação sticky no rodapé da seção de apuração ('Salvar lançamento de Maio/2026') que só habilita quando consumo está preenchido. O detalhamento de auditoria (161-220) vira um <details>/accordion dentro do mesmo card — perto do preview, mas sem separar input da ação.",
+  "userPainPoint": 2,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Não há nenhum sinal de quais meses já foram faturados na seleção de mês — dá para sobrescrever um lançamento sem aviso",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:77-83 — o <select> de mês lista os 12 meses sem nenhum estado; nada impede selecionar um mês com lançamento existente e chamar salvarValoresMensais (702-768), que POSTa por cima sem confirmação. O dado para saber o estado JÁ está carregado: dadosFaturamentoAnual.faturamento_usina[mes] e temDadosMes() (426-433) são usados na tabela anual, mas não no seletor.",
+  "recommendation": "Trocar o select de mês por um seletor de competência (12 chips/segmented control Jan–Dez + stepper de ano) onde cada mês exibe badge de estado usando temDadosMes(): 'Faturado' (badge success #3FA14A), 'Pendente' (neutro), 'Atual' (outline laranja) — componentes em design-system/preview/badges.html. Ao selecionar mês faturado, mostrar a apuração em modo leitura com ação explícita 'Reverter para relançar'; e no salvar de um mês já faturado, Swal de confirmação destrutiva. Resolve dor 4 e dá visão imediata de progresso do ano.",
+  "userPainPoint": 4,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Dois controles de ano desconectados controlam o mesmo estado: input number livre no topo e paginação '← Ano Anterior / Próximo →' no rodapé da tabela",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:73-75 — `<input type=\"number\" v-model.number=\"anoFaturamento\">` (aceita qualquer número, sem limites, e mudar por digitação NÃO dispara recarga — não há watcher em anoFaturamento, só @input nos outros campos). CalculoGeracao.vue:259-268 — botões voltarAno/avancarAno no tfoot da tabela de histórico mexem no MESMO anoFaturamento e aí sim recarregam (525-538). Resultado: digitar 2025 no topo não atualiza nada até outro evento; clicar no rodapé muda o ano dos inputs lá de cima sem o usuário ver.",
+  "recommendation": "Um único seletor de competência (mês + ano com stepper ‹ 2026 ›, limite inferior 2024 que hoje só existe no voltarAno linha 532) no topo da seção de apuração, sincronizado com a rota (finding 2). A tabela de histórico passa a só LER a competência, sem controles próprios. Elimina o bug de dessincronização e o estado duplicado.",
+  "userPainPoint": 2,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Histórico (tabela anual + estornos) está espremido NO MEIO do fluxo de lançamento, e o histórico de alterações é um toggle de link quase invisível",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:222-295 — a tabela anual de lançamentos e o botão 'Reverter' ficam entre o card de auditoria e o botão Salvar; o histórico de estornos é um `btn-link` textual '▼ Ver histórico de alterações' (linha 272-274, com setas unicode que o design system veta: 'No unicode glyphs as icons'). O usuário que quer só consultar o que já foi lançado atravessa todo o formulário; o que quer lançar atravessa o histórico.",
+  "recommendation": "Mover histórico para uma região própria: aba 'Histórico' ao lado de 'Apuração' (ou painel master-detail à direita em telas largas, dentro do max-width 1280px de app do design system). Dentro dela: tabela anual de lançamentos com a ação Reverter por linha + accordion de trilha de auditoria (lançado por/revertido por) usando ícones Lucide chevron-down em vez de ▲/▼. A ação 'Reverter' do mês selecionado também deve aparecer contextualmente na apuração quando o mês já está faturado (ver finding 5).",
+  "userPainPoint": 2,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Observações, Reserva Total, PDF e 'Voltar' formam uma cauda solta sem dono no fim da página",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:303-320 — depois do Salvar vêm: Reserva Total Acumulada (dado de consulta do ANO), textarea de Observações (que na verdade é parâmetro do PDF, ver gerarPDF linha 861) e os botões 'Baixar PDF da Usina' e 'Voltar' (goBack → /Home, linha 895-897, redundante com a navbar e com o histórico do browser quando houver rota). O PDF usa silenciosamente mesSelecionado/fatura/adicional (839-866) sem dizer ao usuário qual competência será impressa.",
+  "recommendation": "Reserva Total vira um stat-card no header de contexto da usina (junto de Fio B e % Lei — padrão de stat cards do Dashboard.jsx do kit portal). 'Baixar PDF' vira ação contextual do mês: botão secundário no card de apuração após salvar e/ou ícone por linha na tabela de histórico, com label explícito 'PDF de Maio/2026'; o campo Observações entra no diálogo/área do PDF, não solto na página. Remover o botão 'Voltar'.",
+  "userPainPoint": 5,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Navbar não indica a página ativa e mistura entidades com ações; rótulos de menu duplicam o item pai",
+  "severity": "baixa",
+  "evidence": "TheNavbar.vue:14-51 — não há classe de estado ativo nos router-links (router-link-active não é estilizado em lugar nenhum do <style>); o item pai 'Cadastrar Usina' é simultaneamente link e dropdown que contém de novo 'Cadastrar Usina' + 'Usinas' (linhas 20-26), padrão hover-only (mouseover, linha 18) inacessível por teclado/touch. O kit de referência (AppShell.jsx, navBtnActive) usa estado ativo explícito: background rgba(243,147,37,0.10) + cor primary-deep.",
+  "recommendation": "Reorganizar por entidade: Usinas, Consumidores, Faturamento, Distribuição, Relatórios (ações 'cadastrar' viram botões dentro das listas). Estilizar .router-link-active com o padrão do kit (fundo laranja 10%, texto #D97613) para o usuário sempre saber onde está — inclusive em /faturar/:usinaId, que deve manter 'Faturamento' ativo. Trocar dropdown hover por click/focus (Bootstrap data-bs-toggle padrão já resolve).",
+  "userPainPoint": 2,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Macro-estrutura proposta: master-detail com fluxo em 2 níveis (escolher usina → workspace da usina com 3 regiões)",
+  "severity": "alta",
+  "evidence": "Síntese da arquitetura atual: CalculoGeracao.vue empilha 8 blocos numa coluna só (seleção 4-12, expectativa 14-68, inputs 70-158, auditoria 161-220, histórico 222-295, salvar 297-301, reserva/obs 303-313, PDF/voltar 315-320) sem o usuário saber em que etapa está nem o que falta para concluir.",
+  "recommendation": "Estrutura alvo (sem mudar nenhum endpoint): NÍVEL 1 — /faturar: lista/combobox de usinas com busca e estado do mês corrente de cada uma ('Maio pendente' / 'Maio faturado'), funcionando como fila de trabalho. NÍVEL 2 — /faturar/:usinaId/:ano/:mes: (a) header sticky de contexto (usina, cliente, Fio B, % Lei, Reserva acumulada, troca rápida de usina); (b) seletor de competência com chips de estado por mês (finding 5); (c) região principal = card 'Apuração' com inputs obrigatórios marcados, preview ao vivo, auditoria em accordion e botão Salvar no rodapé do card; (d) abas secundárias 'Expectativa anual' (tabela 12 meses + gráfico) e 'Histórico' (lançamentos, estorno, trilha). Não recomendo stepper/wizard: o preview em tempo real é o coração da tela e um wizard o esconderia; master-detail + abas preserva o fluxo de digitação contínua do operador.",
+  "userPainPoint": 2,
+  "lens": "navegacao"
+ },
+ {
+  "title": "Salvar sobrescreve mês já faturado sem nenhum guard ou confirmação",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:702-768 — salvarValoresMensais() faz POST .../calculo direto. Não há verificação se dadosFaturamentoAnual.faturamento_usina[mesSelecionado] já tem lançamento, nem diálogo de confirmação. Pior: o watch mesSelecionado (linhas 387-399) zera faturaEnergia=0 e consumoUsinaMes=null ao trocar de mês, então re-salvar um mês faturado envia fatura_energia: 0 silenciosamente por cima do valor original.",
+  "recommendation": "Guard no frontend: se o mês selecionado existe em faturamento_usina/historicoEstorno sem reversão, renderizar os campos em modo leitura (badge 'Faturado em DD/MM por X') e exigir ação explícita 'Refaturar este mês'. Ao confirmar, abrir diálogo (modal do design system, não SweetAlert genérico) com tabela comparativa 'valor atual vs novo' (geração, consumo, fatura, adicional, valor final do preview) e botão destrutivo var(--color-danger) #C53B2F com texto 'Substituir lançamento de Março/2026'.",
+  "userPainPoint": 4,
+  "lens": "formularios"
+ },
+ {
+  "title": "Mês já salvo aparece como formulário vazio editável — inputs e 'dados' são indistinguíveis",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:387-399 — ao selecionar um mês já faturado, geração é pré-preenchida (dadosGeracaoRealMensal) mas consumo/fatura/adicional voltam a null/0, escondendo os valores realmente usados no cálculo persistido. Além disso, .campo-info (linhas 930-939) imita visualmente um input desabilitado (mesma borda #ced4da, mesmo padding), então saídas calculadas (Valor Gerado, Créditos, Total) parecem campos a preencher.",
+  "recommendation": "Dois estados claros por mês: (a) 'A faturar' — formulário ativo; (b) 'Faturado' — exibir os inputs persistidos (buscar do lançamento) como pares label/valor em card de leitura (sem moldura de input; usar JetBrains Mono para números conforme o design system) com botão 'Refaturar'. Saídas calculadas nunca devem usar moldura de input: usar o padrão de stat/card do Dashboard.jsx do kit portal (valor grande, label pequena em Graphite #5C5C5C).",
+  "userPainPoint": 3,
+  "lens": "formularios"
+ },
+ {
+  "title": "Obrigatório vs opcional não é indicado em nenhum campo; atributo required é inerte",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:97-105 — consumoUsinaMes tem `required`, mas não há <form> nem submit nativo (o botão chama salvarValoresMensais via @click), então o atributo nunca dispara. Nenhum label tem asterisco ou texto 'opcional'. Geração, fatura e adicional têm exatamente a mesma aparência do consumo obrigatório. O usuário só descobre a obrigatoriedade via SweetAlert na hora de salvar (linhas 716-723).",
+  "recommendation": "Padrão único: marcar obrigatórios com asterisco em Lider Orange (#F39325) ao lado do label e sufixo '(opcional)' em Smoke #B0B0B0 nos demais (Adicional, Observações). Adicionar helper text sob cada campo ('Consumo da própria usina no mês — obrigatório para apurar a geração líquida'). Validar inline no blur seguindo o padrão .input.error + <span class='err'> de preview/inputs.html (borda var(--color-danger), mensagem abaixo), mantendo o botão Salvar desabilitado enquanto inválido.",
+  "userPainPoint": 6,
+  "lens": "formularios"
+ },
+ {
+  "title": "Inputs type=number com decimal por ponto contradizem a formatação pt-BR de todo o resto da página",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:86, 97-131 — todos os campos numéricos usam type='number' step='0.01' com v-model.number: o usuário deve digitar '1234.56', enquanto todas as saídas mostram '1.234,56' (formatters.js). O placeholder do Adicional (linha 127: 'Ex: 15,00 ou -10,00') sugere vírgula, que o type=number rejeita ou interpreta de forma inconsistente entre navegadores/locales, e v-model.number devolve string vazia em entrada inválida sem feedback.",
+  "recommendation": "Trocar para type='text' inputmode='decimal' com máscara pt-BR (aceitar vírgula como separador decimal, formatar com milhar no blur) — um componente CurrencyInput/KwhInput reutilizável. Unidades como adorno fixo no input (input-group: prefixo 'R$' para fatura/adicional, sufixo 'kWh' para geração/consumo), removendo a unidade do label. Corrigir o placeholder para o mesmo formato aceito pela máscara. Internamente o componente emite Number com ponto para o preview/calculo (sem mudar a API).",
+  "userPainPoint": 0,
+  "lens": "formularios"
+ },
+ {
+  "title": "Salvar consumo zera os outros 11 meses no payload e calcula 'media' errada",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:660-668 — salvarConsumoUsina monta consumoPayload com todos os meses = 0, sobrescreve apenas o mês selecionado e define media = valor do mês. Se o backend substitui o registro de consumo do ano (POST /consumo + /dados-consumo-usina), salvar Março apaga o consumo informado em Janeiro/Fevereiro; e como o watch reseta consumoUsinaMes=null ao trocar de mês, o formulário nunca reidrata os valores anteriores para preservá-los.",
+  "recommendation": "Antes do redesign visual, corrigir o fluxo de dados do formulário: carregar o consumo anual existente ao selecionar a usina/ano (GET dados-consumo-usina), pré-preencher consumoUsinaMes do mês selecionado e enviar o objeto anual mesclado (meses existentes + mês editado), com media recalculada sobre meses preenchidos. Isso também resolve a transparência: o campo passa a mostrar o consumo realmente usado pelo backend no preview.",
+  "userPainPoint": 5,
+  "lens": "formularios"
+ },
+ {
+  "title": "Validação só acontece no clique de Salvar, via SweetAlert modal, sem estados inline nem limites",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:629-655 e 711-723 — todos os erros (usina/mês não selecionados, consumo vazio, falha de rede) viram Swal.fire genérico; o erro de salvar (linhas 759-766) diz apenas 'Verifique se os dados estão corretos', sem apontar campo. Não há min='0' (geração e consumo aceitam negativos), o ano (linha 74) é um number livre que aceita 20 ou 99999 e dispara chamadas de API com anos absurdos, e nada impede salvar com geração 0.",
+  "recommendation": "Mover a validação para inline e contínua: borda/mensagem de erro por campo no blur (padrão do design system), min=0 nos kWh, ano como select limitado (2024..ano atual+1, já que voltarAno trava em 2024), e aviso amarelo (Warning #E0A41C) não-bloqueante quando geração = 0 ('Você está faturando um mês sem geração informada'). Reservar SweetAlert/toast apenas para resultado da requisição (sucesso/erro de rede), nunca para validação de campo.",
+  "userPainPoint": 0,
+  "lens": "formularios"
+ },
+ {
+  "title": "Lógica de disabled inconsistente e sem explicação ao usuário",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:74, 86 vs 103, 115, 128 — Ano e 'Geração de {mês}' nunca são desabilitados, mas consumo/fatura/adicional usam :disabled='!mesSelecionado || !usina'. Como mounted() (linha 906) sempre define mesSelecionado, a condição real é só !usina. Resultado: antes de escolher usina, metade do formulário aceita digitação inútil e a outra metade fica cinza sem dizer por quê.",
+  "recommendation": "Gating coerente por etapa: enquanto nenhuma usina estiver selecionada, desabilitar TODO o bloco 'Faturamento da Usina no Mês' (fieldset disabled) com um empty-state explicativo ('Selecione uma usina para iniciar a apuração'), seguindo a hierarquia de fluxo do redesign (passo 1 usina → passo 2 competência → passo 3 dados). Texto auxiliar nos campos desabilitados explicando o pré-requisito, e cor de disabled do design system (Smoke #B0B0B0).",
+  "userPainPoint": 2,
+  "lens": "formularios"
+ },
+ {
+  "title": "Botão 'Salvar Valores' distante dos campos, com rótulo e estado de progresso enganosos",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:297-301 — o botão fica depois do breakdown de auditoria, da tabela anual e do histórico de estornos, a centenas de pixels dos inputs que ele salva. O rótulo de loading é 'Salvando consumo...' embora a ação faça dois POSTs (consumo + calculo). Não há indicação de alterações não salvas, e o botão fica habilitado mesmo com formulário vazio/inválido ou com preview ainda pendente (debounce de 300ms em andamento).",
+  "recommendation": "Colocar a ação primária no rodapé do card do formulário do mês (ou barra fixa de ação do AppShell), com rótulo específico 'Faturar Março/2026' em btn primário laranja (#F39325, hover #D97613). Desabilitar enquanto o formulário for inválido ou o preview estiver carregando, com estado 'Faturando...' único. Exibir indicador de dirty state ('Alterações não faturadas') quando algum input divergir do último lançamento, reforçando que salvar é explícito, não autosave.",
+  "userPainPoint": 2,
+  "lens": "formularios"
+ },
+ {
+  "title": "Pré-preenchimento da geração usa 0 como valor e o preview não dispara em mês sem cadastro",
+  "severity": "baixa",
+  "evidence": "CalculoGeracao.vue:390-398 — mesGeracao recebe Number(...)||0: um mês sem geração cadastrada mostra '0' no input, indistinguível de uma geração real de 0 kWh, e o preview inicial só roda se geracaoCadastrada > 0. Também não há qualquer indicação de que o valor veio do cadastro (medição importada) vs digitado pelo operador.",
+  "recommendation": "Usar null + placeholder ('Informe a geração medida') quando não houver cadastro, em vez de 0. Quando pré-preenchido, mostrar hint sob o campo: 'Pré-preenchido com a geração cadastrada de Março — edite se necessário', com ícone discreto. Disparar o preview sempre que houver mês+usina (o backend já tolera 0), para que os campos calculados nunca fiquem em branco sem explicação.",
+  "userPainPoint": 5,
+  "lens": "formularios"
+ },
+ {
+  "title": "Saídas ambientais e de crédito sem rótulo de proveniência quebram a transparência do cálculo",
+  "severity": "baixa",
+  "evidence": "CalculoGeracao.vue:134-158 — 'Valor em Créditos', 'Energia acumulada', 'Valor Total a Ser pago', CO₂ e árvores são renderizados como .campo-info logo abaixo dos inputs, sem distinção visual nem indicação de que são resultado do GET /preview com os parâmetros digitados; quando previewMes é null tudo vira 'R$ 0,00', parecendo dado real salvo.",
+  "recommendation": "Agrupar as saídas num card 'Resultado da apuração (prévia)' visualmente distinto (fundo Linen #FAF6F1, números em JetBrains Mono), com legenda 'Calculado pelo sistema a partir dos valores informados — nada foi salvo ainda' e estado vazio explícito ('Preencha geração e consumo para ver a prévia') em vez de zeros. Junto ao Detalhamento de Auditoria já existente, isso atende diretamente a transparência sobre os dados usados no cálculo.",
+  "userPainPoint": 5,
+  "lens": "formularios"
+ },
+ {
+  "title": "Zero tokens do design system no front — base.css ainda é o tema default do Vue (Inter, branco frio, dark-mode automático)",
+  "severity": "alta",
+  "evidence": "front/src/assets/base.css:1-86 — paleta `--vt-c-*` do template Vue, `font-family: Inter...`, `font-size: 15px`, e bloco `@media (prefers-color-scheme: dark)` que inverte cores sem design. front/src/assets/main.css:9-20 usa laranja errado (#f28c1f) e link verde `hsla(160,100%,37%)` que não existe na paleta. Nenhum arquivo importa design-system/colors_and_type.css; Nunito e JetBrains Mono nunca são carregadas.",
+  "recommendation": "Criar front/src/assets/tokens.css copiando os custom properties de design-system/colors_and_type.css (cores, radii, sombras, espaçamento, type scale, motion) e importá-lo no main.css ANTES do Bootstrap. Remover o bloco dark-mode e a paleta --vt-c-* do base.css; definir body { background: var(--color-linen); color: var(--color-ink); font-family: var(--font-body) } e carregar Nunito 400-900 + JetBrains Mono via o mesmo @import do DS. Apagar o link verde e o `body { display:flex; place-items:center }` (linha 28-32 do main.css) que quebra layout de página inteira.",
+  "userPainPoint": 0,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Laranja da marca errado em 3 lugares e hover fora do Ember",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:920-928 — `.btn-orange { background-color: #f28c1f }` e hover `#d97706` (amber-600 do Tailwind). main.css:10-12 — focus ring `#f28c1f`. TheNavbar.vue:193-217 — hovers `#f28c1f`. A paleta oficial é Lider Orange #F39325, hover/press Ember #D97613 (design-system/colors_and_type.css:11-12).",
+  "recommendation": "Substituir todas as ocorrências por var(--color-primary) e var(--color-primary-deep). Focus visible: box-shadow var(--shadow-focus) = 0 0 0 3px rgba(243,147,37,0.40), conforme regra 'never remove focus rings' do README. Fazer um grep global por #f28c1f/#d97706 para não sobrar resíduo em outras páginas.",
+  "userPainPoint": 0,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Gráfico Chart.js com paleta Tailwind genérica (azul/verde/vermelho) — proibida pelo DS — e largura fixa de 860px",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:552-556 — datasets com #60a5fa (azul), #FFA500 (laranja web), #4ade80, #f87171 e linha #1e40af (azul marinho). README do DS: 'Never cross to purple, blue...', verde só como acento. CalculoGeracao.vue:66 — `style=\"width: 860px; height: 400px\"` hardcoded quebra responsividade.",
+  "recommendation": "Remapear: Fixo = Apricot #F9B566, Injetado = Lider Orange #F39325, Creditado = Leaf #5FB53A (acento, ok em dataviz), CUO = Danger #C53B2F, linha 'Valor Final' = Ink #3D3D3D com pointBackgroundColor primary. Tooltip/legend com fontFamily Nunito via Chart.defaults.font. Container: width:100%; max-width:1100px; height:400px dentro de um card branco radius-lg.",
+  "userPainPoint": 5,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Botões 100% Bootstrap default — sem pill CTA, hierarquia de ação invertida",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:262-319 — `btn-success` (verde Bootstrap #198754) no CTA principal 'Salvar Valores', `btn-secondary` (cinza #6c757d) em Voltar/anos, `btn-outline-danger` no Reverter, `.btn-orange` ad-hoc no PDF. O DS (preview/buttons.html) define: primary = pill (border-radius 999px), uppercase 13px bold, fundo #F39325 + shadow-glow; secondary = branco com borda 1.5px mist; ghost = texto primary-deep. Verde no DS é acento de status, nunca botão primário.",
+  "recommendation": "Criar componente BaseButton.vue (variants: primary | secondary | ghost | danger; sizes md/sm) com os estilos do preview/buttons.html usando tokens. 'Salvar Valores' vira primary pill com --shadow-glow (única ação laranja da página); 'Baixar PDF' e navegação de ano viram secondary; 'Voltar' ghost; 'Reverter' danger-soft (fundo --color-danger-soft, texto --color-danger). Press scale(0.98) 80ms e hover --color-primary-deep conforme interactive states do README.",
+  "userPainPoint": 2,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Conflito Bootstrap vs Tailwind: Tailwind 4 está no package.json mas NÃO está wired — estratégia de migração indefinida",
+  "severity": "alta",
+  "evidence": "front/package.json:27 declara `tailwindcss ^4.1.8`, mas vite.config.js não tem o plugin @tailwindcss/vite e nenhum CSS tem `@import \"tailwindcss\"` — é dependência morta. O app inteiro roda em Bootstrap 5 global (main.js:15-16), então não dá para remover Bootstrap sem quebrar as outras páginas.",
+  "recommendation": "Estratégia em camadas, sem big-bang: (1) tokens.css global só com variáveis (não conflita com nada); (2) nesta página, parar de usar classes visuais Bootstrap (table-dark, btn-success, form-control estilizado) e usar componentes base próprios (BaseButton, BaseCard, BaseField, BaseBadge, StatValue, SectionCard em front/src/components/base/) com <style scoped> sobre os tokens — Bootstrap continua servindo só grid/utilitários de layout; (3) decidir o Tailwind: ou remover do package.json, ou wirar o v4 com `@theme` mapeando os tokens do DS e migrar página a página. Não manter os três sistemas competindo na mesma página.",
+  "userPainPoint": 0,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Página sem hierarquia visual: tudo flat num .container, sem cards de seção nem cabeçalhos com eyebrow",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:2-321 — um único `.container mt-5` com h3/h4 soltos intercalando tabelas, inputs e gráfico; o card só aparece no 'Detalhamento de Auditoria' (linha 161, card Bootstrap com borda default). O kit portal (Dashboard.jsx) organiza tudo em cards brancos radius 20-24px + shadow-sm sobre fundo Linen, com cabeçalho eyebrow uppercase 11px primary-deep + título Nunito 800.",
+  "recommendation": "Envolver cada etapa do fluxo num SectionCard (fundo Paper, var(--radius-lg), var(--shadow-sm), padding var(--space-6)) sobre página Linen, max-width 1280px: 1-Seleção de usina, 2-Expectativa anual (tabela+gráfico), 3-Apuração do mês (inputs), 4-Resultado/preview, 5-Histórico. Cada card com eyebrow ('PASSO 2 — EXPECTATIVA') + h4 Nunito 800, criando a hierarquia de fluxo que falta (dor 2). Trocar o `.card-header fw-bold` do bloco de auditoria pelo mesmo padrão.",
+  "userPainPoint": 2,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Valores calculados (.campo-info) são indistinguíveis de inputs desabilitados — e obrigatório/opcional não é sinalizado",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:930-939 — `.campo-info` usa exatamente a anatomia do form-control Bootstrap (mesma borda #ced4da, mesmo radius .375rem, fundo #f8f9fa = cara de input disabled). Labels dos inputs editáveis (linhas 96-130) não diferenciam obrigatório (consumo tem `required` invisível) de opcional (adicional). Dores 3 e 6 confirmadas no código.",
+  "recommendation": "Separar as duas linguagens: (a) inputs editáveis no padrão preview/inputs.html — borda 1.5px var(--color-mist), radius 12px, label 12px/600 graphite, asterisco laranja + hint 'obrigatório' para consumo, hint 'opcional' para adicional/fatura, focus borda primary + ring 3px rgba(243,147,37,.2); (b) valores calculados viram StatValue (padrão CreditsCard/PlantCard do Dashboard.jsx): sem borda de input, label eyebrow mono 10px uppercase slate, valor grande em JetBrains Mono var(--color-ink) 700 — leitura imediata de 'isto é resultado, não campo'.",
+  "userPainPoint": 3,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Tabelas table-dark/table-bordered Bootstrap em vez do padrão de tabela do portal — e números em fonte proporcional",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:32-33, 222-223 — `table-bordered` com thead `table-dark` (#212529, preto frio fora da paleta; o escuro da marca é Ink #3D3D3D). BillsTable do Dashboard.jsx define o alvo: sem grid de bordas, apenas border-top 1px var(--color-mist) por linha, thead em JetBrains Mono 10px uppercase letter-spacing .1em cor slate, valores numéricos em JetBrains Mono 13px. Bônus: `<p>` dentro de `<tfoot>` (linha 267) é HTML inválido.",
+  "recommendation": "Criar um estilo .table-lider (ou componente DataTable): thead transparente com o padrão mono/slate, linhas com divisor mist, hover rgba(243,147,37,0.04), células de R$/kWh com font-family var(--font-mono) e text-align right (formatters.js já entrega pt-BR). Mover a nota 'Geração já descontado o consumo' e a navegação de ano para fora do tfoot, num footer do card. Destaque de menor geração: trocar text-danger puro por badge/fundo --color-danger-soft.",
+  "userPainPoint": 5,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Nenhum badge de status — meses faturados, revertidos e reserva negativa sem linguagem de estado do DS",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:233-258 — a tabela de lançamentos não marca visualmente quais meses estão faturados (dor 4: dá para salvar por cima sem perceber); o histórico de estorno (271-295) usa texto puro; a 'Reserva Total' (303-308) usa text-success/text-danger Bootstrap. O DS tem sistema completo de badges pill (preview/badges.html): success-soft/warning-soft/danger-soft com dot de 6px.",
+  "recommendation": "Criar BaseBadge.vue com as variants do preview/badges.html e usar: 'Faturado' (success + dot) na linha do mês lançado, 'Revertido' (neutral) no histórico, 'Não lançado' (neutral) nos vazios, e — chave para a dor 4 — badge warning 'Mês já faturado' ao lado do seletor de mês quando o mês selecionado já tem lançamento. Reserva Total vira StatValue com badge success/danger-soft em vez de parágrafo colorido.",
+  "userPainPoint": 4,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Navbar e SweetAlert2 fora da identidade: cinza-preto genérico, azuis default e focus ring removido",
+  "severity": "baixa",
+  "evidence": "TheNavbar.vue:172 — `background-color: #1f1f1f !important` (não é Ink #3D3D3D nem o padrão do portal: topbar branca com blur sobre Linen, AppShell.jsx:59); TheNavbar.vue:231-233 — `.navbar-toggler:focus { box-shadow: none }` viola 'Never remove focus rings'. CalculoGeracao.vue:751, 793, 821 — Swal com confirmButtonColor '#3085d6' (azul default) e '#d33', cores inexistentes na paleta.",
+  "recommendation": "Curto prazo (sem redesenhar o shell): trocar #1f1f1f por var(--color-ink), hovers para #F39325/#D97613, restaurar focus-visible com --shadow-focus. Para o Swal, definir uma vez `Swal.mixin({ confirmButtonColor: '#F39325', cancelButtonColor: '#5C5C5C' })` (danger: #C53B2F) e customClass com radius/Nunito via tokens. Médio prazo: avaliar migrar o shell para o padrão AppShell (sidebar branca + topbar com backdrop-blur linen), já que 'Faturar Usina' é fluxo de portal interno.",
+  "userPainPoint": 0,
+  "lens": "design-visual"
+ },
+ {
+  "title": "Preview (simulação) é visualmente indistinguível de dado salvo",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:88-158 e 161-220 — 'Valor Gerado', 'Valor em Créditos', 'Valor Total a Ser pago' e todo o card 'Detalhamento de Auditoria' renderizam previewMes (GET /preview) com o mesmo estilo .campo-info (linhas 930-939) usado para dados estáticos. Nada na tela diz que são números simulados, recalculados a cada tecla (debounce 300ms, agendarPreview linha 450), e não o que está persistido.",
+  "recommendation": "Envolver toda a área de resultado num painel 'Simulação — valores não salvos' com badge Warning (#E0A41C do design system), borda tracejada e microcopy 'Estes valores serão recalculados pelo servidor ao salvar'. Após o POST /calculo bem-sucedido, trocar o estado do painel para 'Lançado em DD/MM/AAAA' com badge Success (#3FA14A), usando os badges de design-system/preview/badges.html.",
+  "userPainPoint": 5,
+  "lens": "transparencia"
+ },
+ {
+  "title": "Salvar sobrescreve mês já faturado sem nenhum aviso ou diff",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:702-768 — salvarValoresMensais() faz POST /calculo direto, sem verificar se dadosFaturamentoAnual.faturamento_usina[mesSelecionado] já tem valor (a informação está disponível: temDadosMes, linha 426). O Swal de sucesso é idêntico para primeiro lançamento e sobrescrita.",
+  "recommendation": "Antes do POST, se temDadosMes(mesSelecionado) for verdadeiro, exibir confirmação com diff lado a lado: 'Valor pago atual: R$ X → Novo valor (simulação): R$ Y', exigindo confirmação explícita ('Sim, substituir lançamento'). Reaproveitar os dados de dadosFaturamentoAnual e previewMes já em memória — zero mudança de backend.",
+  "userPainPoint": 4,
+  "lens": "transparencia"
+ },
+ {
+  "title": "Parâmetros da usina usados no cálculo não estão visíveis no momento do cálculo",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:22-29 — apenas Fio B e % Lei aparecem, no topo da página (seção Expectativa), longe do formulário mensal. Tarifa, média de geração, menor geração e regra de rede/desconto não aparecem em lugar nenhum, embora o backend retorne previewMes.parametros e previewMes.geracao.rede (usado só como string na linha 172).",
+  "recommendation": "Adicionar um bloco colapsável 'Parâmetros usados neste cálculo' colado ao preview mensal, alimentado por previewMes.parametros: tarifa, média, menor geração, Fio B, % Lei 14300, rede/desconto. Isso transforma o preview em registro auditável: o operador vê exatamente quais constantes o servidor aplicou naquela competência, não as do cadastro atual.",
+  "userPainPoint": 5,
+  "lens": "transparencia"
+ },
+ {
+  "title": "A fórmula de 4 termos nunca é mostrada na apuração mensal — Fixo e CUO ficam invisíveis",
+  "severity": "alta",
+  "evidence": "CalculoGeracao.vue:88-147 — o fluxo mensal exibe só valor_variavel_reais (rotulado 'Valor Gerado', nome que não corresponde a nenhum termo), credito_reais e valor_final_reais. Os termos Fixo e CUO (que incluem a fatura digitada e o adicional) só existem na tabela de projeção anual (linhas 50-53). O usuário não consegue reconciliar de onde saiu o 'Valor Total a Ser pago'.",
+  "recommendation": "Exibir a fórmula com valores substituídos como linha de fechamento do preview: 'Fixo R$ A + Injetado R$ B + Crédito R$ C − CUO R$ D = R$ Total', cada termo com tooltip explicando sua origem (CUO: 'fatura informada + Fio B + adicional'). Usar JetBrains Mono para os valores, conforme o design system prescreve para linhas de fatura. Os 4 termos já vêm em previewMes.termos.",
+  "userPainPoint": 5,
+  "lens": "transparencia"
+ },
+ {
+  "title": "Histórico anual não mostra com quais inputs cada mês foi faturado",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:222-269 — a tabela anual mostra apenas saídas derivadas (Geração, Valor Guardado, Creditado, Valor Pago); consumo, fatura e adicional CUO usados em cada lançamento não aparecem. O histórico de estorno (271-295) registra só quem/quando, sem valores. O rodapé 'Geração já descontado o consumo' (linha 267) é a única pista de que houve transformação dos inputs.",
+  "recommendation": "Tornar cada linha do histórico expansível, mostrando os inputs do lançamento e o detalhamento de auditoria daquela competência (se o GET de faturamento anual já os retorna, exibi-los; caso contrário, reusar o GET /preview da competência salva, que reconstrói o cálculo). Mover a nota do rodapé para um tooltip no cabeçalho 'Geração'.",
+  "userPainPoint": 5,
+  "lens": "transparencia"
+ },
+ {
+  "title": "Erros das 6+ chamadas de API são silenciosos e não há estados de loading",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:442-444, 490-494, 517-523, 580-584 — fetchUsinas, carregarPreview, carregarFaturamentoAno e carregarProjecao tratam erro só com console.error e zeram o estado. Falha de rede fica idêntica a 'sem dados' ('Nenhum dado de geração real disponível...'). Não existe isPreviewLoading: durante o debounce de 300ms + request, o usuário vê números antigos sem saber que estão obsoletos.",
+  "recommendation": "Para cada fetch: estado de erro inline com mensagem e botão 'Tentar novamente' (alert do design system, cor Danger #C53B2F), skeleton/spinner durante carregamento, e no preview um indicador 'Recalculando…' que esmaece os valores antigos enquanto o request está em voo. Falha do preview deve mostrar erro visível em vez de simplesmente sumir com previewMes.",
+  "userPainPoint": 0,
+  "lens": "transparencia"
+ },
+ {
+  "title": "Campos obrigatórios e opcionais são visualmente idênticos; validação só explode no salvar",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:94-132 — consumo tem atributo required (linha 104) mas nenhuma marcação visual; fatura e adicional parecem iguais. A obrigatoriedade só aparece via Swal bloqueante em salvarConsumoUsina/salvarValoresMensais (638-645, 716-723), depois que o usuário já tentou salvar.",
+  "recommendation": "Marcar 'Consumo da usina *' com asterisco e hint 'obrigatório', rotular 'Adicional (opcional)', e validar inline (is-invalid do Bootstrap + invalid-feedback) ao perder o foco. Desabilitar o botão 'Salvar Valores' enquanto o consumo estiver vazio, com tooltip explicando o motivo — em vez de permitir o clique e punir com modal.",
+  "userPainPoint": 6,
+  "lens": "transparencia"
+ },
+ {
+  "title": "Saídas calculadas (.campo-info) imitam inputs desabilitados — reforça a confusão editável vs dado",
+  "severity": "media",
+  "evidence": "CalculoGeracao.vue:930-939 — .campo-info copia o visual do form-control (borda #ced4da, mesma altura/padding), então 'Valor Gerado', 'Valor em Créditos' e 'Valor Total' parecem inputs travados, não resultados. O mesmo padrão é usado para Fio B/% Lei (24, 28), misturando parâmetros cadastrais com resultados de cálculo.",
+  "recommendation": "Substituir .campo-info por apresentação de métrica/stat (padrão de design-system/preview/cards.html): label pequeno em Graphite #5C5C5C, valor grande em JetBrains Mono, sem borda de input. Diferenciar visualmente parâmetros (chips/badges) de resultados (stats), eliminando a ambiguidade 'isso é editável?'.",
+  "userPainPoint": 3,
+  "lens": "transparencia"
+ },
+ {
+  "title": "Estorno não mostra o que será desfeito nem explica por que só um mês é revertível",
+  "severity": "baixa",
+  "evidence": "CalculoGeracao.vue:785-801 — o modal de confirmação fala de 'cache do PDF' (detalhe técnico) mas não mostra os valores que serão desfeitos (valor pago, créditos distribuídos, reserva). O botão 'Reverter' só aparece no ultimoRevertivel (243), sem nenhuma explicação na UI de por que os demais meses não têm a ação.",
+  "recommendation": "Incluir no modal de estorno o resumo do lançamento a desfazer ('Valor pago: R$ X, Creditado: R$ Y') usando dadosFaturamentoAnual já carregado, e remover a menção a cache de PDF. Nos meses sem botão, exibir ícone de cadeado com tooltip 'Apenas o lançamento mais recente pode ser revertido; reverta os meses posteriores primeiro'.",
+  "userPainPoint": 0,
+  "lens": "transparencia"
+ },
+ {
+  "title": "Feedback pós-salvar é genérico e não confirma o que foi persistido",
+  "severity": "baixa",
+  "evidence": "CalculoGeracao.vue:747-753 — Swal de sucesso diz apenas 'As informações da usina foram atualizadas com sucesso', sem competência, valor final nem próximos passos (gerar PDF). A mensagem de erro (760-766) é igualmente genérica ('Verifique se os dados estão corretos'), ignorando error.response?.data do backend.",
+  "recommendation": "No sucesso, mostrar resumo do que foi gravado ('Junho/2026 lançado — Valor a pagar: R$ X') com ação secundária 'Baixar PDF'; no formulário, exibir estado persistente 'Lançado em DD/MM por <usuário>' (dado já existe em historicoEstorno). No erro, exibir a mensagem real do backend como já é feito no estorno (linha 825).",
+  "userPainPoint": 0,
+  "lens": "transparencia"
+ }
+]
