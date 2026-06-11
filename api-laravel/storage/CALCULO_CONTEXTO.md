@@ -134,6 +134,21 @@ Reconstrução a partir da geração real vs media=12911 (FIFO cross-ano, mais a
 - PENDENTE validar: separar definitivamente bug real de limitação da reconstrução (saldos migrados sem geração lançada).
   Query inicial não achou nenhuma usina com saldo no ano mais antigo sem geração — investigar se há saldos iniciais reais.
 
+## >>> FASE 3 BACKFILL — DRY-RUN E DECISÃO PENDENTE (expiração retroativa) <<<
+Comando ledger:reconstruir criado. Dry-run no staging: 67 usinas, 30 batem / 37 divergem / 44 com SALDO_INICIAL.
+Correções técnicas aplicadas: saldoLegado soma todos os anos (era só 1); unique no idempotency_key; truncate+gravação
+em transação; filtro de competência futura (Colina tinha jun/2027); teste de expiração movido p/ 2025. 43 testes verdes.
+
+DESCOBERTA CRÍTICA — EXPIRAÇÃO RETROATIVA:
+A reconstrução aplica expiração de 180d retroativamente. Isso ZERA crédito antigo não usado.
+Ex: Colina (UC 3085733401) tem 10700 kWh parados desde ago/2025 -> ledger reconstruído = 0 (tudo expirou).
+Legado mantém 10700. Muitas das 37 divergências vêm disso. PERGUNTA AO CLIENTE (peso financeiro):
+- (a) aplicar expiração retroativa (crédito antigo >180d é perdido), ou
+- (b) NÃO expirar retroativo (preservar reserva atual; começar o relógio de 180d a partir do go-live), ou
+- (c) expirar mas pagar receita ao cliente pelo crédito expirado (impacto financeiro grande).
+As divergências (ledger vs legado) são o ANTES×DEPOIS esperado (legado corrompido) — não são erro.
+Reconciliação NÃO precisa "fechar"; ela QUANTIFICA a correção.
+
 ## >>> STATUS ACESSO BANCO <<<
 - ACESSO RESOLVIDO: do bastion, chave /home/ubuntu/KeyliderEnergy.pem entra no app (ubuntu@10.0.2.2, host App-LiderEnergy).
   Banco via `sudo -u postgres psql -d energia_assinatura` (peer auth, sem senha). Release real NÃO é /var/www/energia-assinatura/repo (esse é clone sem vendor); usar psql direto.

@@ -63,7 +63,8 @@ return new class extends Migration
             $table->index(['usi_id', 'competencia_origem'], 'credito_ledger_usi_origem_idx');
             $table->index(['usi_id', 'tipo', 'estornado_em'], 'credito_ledger_usi_tipo_estorno_idx');
             $table->index(['usi_id', 'vencimento'], 'credito_ledger_usi_vencimento_idx');
-            $table->index('idempotency_key', 'credito_ledger_idempotency_idx');
+            // UNIQUE: garante idempotência a nível de banco (re-rodar o backfill não duplica).
+            $table->unique('idempotency_key', 'credito_ledger_idempotency_uq');
         });
     }
 
