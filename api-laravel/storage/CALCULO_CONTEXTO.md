@@ -37,6 +37,44 @@ Rodrigo Novacoski (40161767, ~8843), Roney Schwecerski (59150280, ~7044), Solar 
 Muitas com excedente=0 (nunca geraram acima da média no histórico lançado) -> saldo veio de migração/lançamento anterior ao sistema.
 Plano consolidado completo salvo em: api-laravel/storage/PLANO_REDESENHO.md (7 fases, 13 lacunas L1-L13).
 
+## >>> BRIEFING DE LACUNAS — DECISÕES DO CLIENTE (consolidado) <<<
+- menor_geracao = MÍNIMO das 12 gerações projetadas (Eder: jun=7636). media = média das 12 (12911). CONFIRMADO nos dados.
+- Valor Fixo = menor_geracao × tarifa (Eder: 7636×0,51 = 3894,36, bate com planilha). CONFIRMADO.
+- faturaEnergia (parte do CUO): INPUT MANUAL do operador (campo "Fatura de Energia da Usina" em CalculoGeracao.vue:17).
+  Integração CELESC existe mas só anexa PDF, não preenche. DECISÃO: manter input manual. (Eder maio: ~98,77.)
+- CUO = faturaEnergia + (consumo × fio_b × percentual_lei/100) + adicional_cuo. (Eder: 98,77 + 9858×0,13275×0,60... rever base do fio_b: usa geração ou consumo?)
+- Desconto de rede CONFIRMADO correto: Trifásico 100 / Bifásico 50 / Monofásico 30 kWh. Mover regra ao backend.
+- Saldo inicial das 21 usinas migradas: DECISÃO = usar o 'total' atual da reserva do ano mais antigo como lançamento SALDO_INICIAL no ledger.
+
+## >>> ITEM ABERTO QUE PRECISA DO CLIENTE (não bloqueia Fase 1) <<<
+- VARIÁVEL EXATO: cliente quer que o Valor Variável bata com a planilha dele (Eder maio = 1.129,14).
+  O sistema, com a fórmula documentada (geracao−menor)×tarifa = (9858−7636)×0,51 = 1.133,22.
+  Para dar 1.129,14 precisaria geracao=9850 (8 kWh a menos). Testado geração líquida (consumo maio=134, desconto trif. 100
+  -> líquida 9824 -> 1.115,88): NÃO bate. CONCLUSÃO: a planilha do cliente usa metodologia própria não derivável dos dados.
+  AÇÃO: obter do cliente a metodologia/planilha detalhada do Variável (ou mais casos) para reconciliar. A FÓRMULA
+  (geracao_liquida − menor)×tarifa fica parametrizada no núcleo; só o valor de entrada precisa reconciliação.
+- OBS: há linhas DUPLICADAS em dados_consumo_usina do Eder (maio aparece 2× com 134) — qualidade de dados a investigar.
+
+## >>> RESOLUÇÃO DO VARIÁVEL + DUPLICADO (descoberta final) <<<
+A planilha do cliente reconcilia 100% com geração=9850 (Fixo 3894,36 + Variável 1129,14 + Crédito 1561,11 − CUO 883,96 = 5700,65).
+Variável E Crédito usam o MESMO 9850 -> a divergência é no VALOR DA GERAÇÃO (líquida), não na fórmula. FÓRMULA CONFIRMADA:
+  Fixo = menor × tarifa ; Variável = (geracao_liquida − menor) × tarifa ; Crédito = (media − geracao_liquida) × tarifa [limitado à reserva FIFO]
+  geracao_liquida = geracao_bruta − max(consumo − desconto_rede, 0)
+
+CAUSA RAIZ dos 8 kWh (9858 vs 9850) e do "duplicado/revert":
+- Consumo de maio nas linhas dados_consumo_usina do Eder por data de criação: fev/mar/abr/mai=0, jun09=134, jun11=134.
+- Quando MAIO foi lançado (04/mai) o consumo ainda era 0 -> sistema calculou líquida=9858 -> Variável=1133,22 (= PDF do sistema).
+- Consumo preenchido depois (134) NÃO disparou recálculo -> faturamento "congelado" com dado incompleto. BUG.
+- consumo=0 -> 1133,22 (sistema) ; consumo=108 -> 9850 -> 1129,14 (planilha cliente) ; consumo=134 -> 9824 -> 1115,88.
+- Cliente usou consumo=108 (não está no sistema: sistema tem 0 ou 134). Origem do 108 a confirmar com cliente.
+- DUPLICADO: cada lançamento/revert cria NOVA linha dados_consumo_usina p/ mesmo (usina,ano) -> 108 PARES duplicados no sistema.
+  creditos_distribuidos_usina e dados_geracao_real_usina estão LIMPOS (0 duplicatas). Problema só no consumo.
+
+IMPLICAÇÕES PARA O REDESENHO:
+- Cálculo DEVE usar geração líquida com o consumo FINAL; recalcular se o consumo mudar (ou exigir consumo antes de calcular).
+- dados_consumo_usina precisa ser único por (usina,ano) — deduplicar e corrigir o upsert.
+- Geração líquida = responsabilidade do BACKEND (hoje no front, getDescontoRede).
+
 ## >>> 3 PROBLEMAS CONFIRMADOS PELO CLIENTE (verificados no código) <<<
 - PROBLEMA 1: não puxa o guardado mais antigo de OUTRO ANO.
   Local: CalculoGeracaoService.php:118-120 e :129. $reservaAnterior = só reserva->total do ano atual;

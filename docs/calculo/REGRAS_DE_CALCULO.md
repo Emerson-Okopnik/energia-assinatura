@@ -60,34 +60,41 @@ exibido em linha própria do demonstrativo (não embutido no termo Crédito).
 Valor Fixo (R$) = menor_geracao (kWh) × tarifa (R$/kWh)
 ```
 
-> **Pendência a resolver na implementação:** hoje há divergência entre usar `comercializacao.valor_fixo`
-> (valor cadastrado) e `menor_geracao × tarifa`. A especificação adota `menor_geracao × tarifa`; confirmar
-> com o negócio se o `valor_fixo` cadastrado deve ser igual a isso (e então derivado, nunca digitado solto).
+- `menor_geracao` = **mínimo das 12 gerações projetadas** da usina (`dados_geracao`). Confirmado nos dados:
+  Eder, junho = 7.636 kWh é o menor dos 12 meses → Fixo = 7.636 × 0,51 = R$ 3.894,36 (bate com a planilha).
+- O `comercializacao.valor_fixo` cadastrado deve ser **derivado** de `menor_geracao × tarifa`, nunca digitado solto.
 
 ---
 
 ## 4. Valor Variável (Injetado)
 
-Depende da relação entre Geração Líquida e Média:
+Depende da relação entre **Geração Líquida** (§9) e Média. **Sempre opera sobre a geração líquida**, não a bruta:
 
 ```
-SE geracao >= media:
-    Injetado = (media − menor_geracao) × tarifa        // teto: injeta no máximo o "miolo" da média
+SE geracao_liquida >= media:
+    Injetado = (media − menor_geracao) × tarifa             // teto: injeta no máximo o "miolo" da média
 SENÃO:
-    Injetado = (geracao − menor_geracao) × tarifa       // injeta proporcional à geração do mês
+    Injetado = (geracao_liquida − menor_geracao) × tarifa   // injeta proporcional à geração do mês
 ```
+
+> **Confirmado pela planilha (Eder, Maio/2026):** com geração líquida = 9.850, Variável = (9.850 − 7.636) × 0,51 = R$ 1.129,14.
+> O mesmo valor de geração líquida (9.850) alimenta o Crédito (§6) — Variável e Crédito **nunca** usam valores de geração diferentes.
+> A geração líquida depende do consumo final do mês (§9); o cálculo deve usar o consumo final e **recalcular se o consumo mudar**.
 
 ---
 
 ## 5. CUO (Custo Operacional da Usina)
 
 ```
-CUO (R$) = faturaEnergia + (consumo_compensavel × fio_b × percentual_lei / 100) + adicional_cuo
+CUO (R$) = faturaEnergia + (geracao × fio_b × percentual_lei / 100) + adicional_cuo
 ```
 
+- `geracao`: a geração do mês (base do Fio B). Confirmado nos dados do Eder: `9858 × 0,13275 × 0,60 = 785,19`,
+  somado a `faturaEnergia ≈ 98,77` → CUO = R$ 883,96 (bate com a planilha).
+  *(A confirmar se a base é geração bruta ou líquida — a diferença de ~8 kWh é absorvida pelo `faturaEnergia` manual.)*
 - `fio_b`: tarifa do Fio B (R$/kWh), cadastrada em `comercializacao.fio_b`.
 - `percentual_lei`: percentual de cobrança do Fio B conforme escalonamento da **Lei 14.300/2022** (`comercializacao.percentual_lei`).
-- `faturaEnergia`: valor da fatura da concessionária no mês (entrada).
+- `faturaEnergia`: valor da fatura da concessionária no mês — **input manual** do operador.
 - `adicional_cuo`: ajuste manual, somado apenas no mês de referência.
 
 O CUO é **subtraído** no valor final.
@@ -95,6 +102,8 @@ O CUO é **subtraído** no valor final.
 ---
 
 ## 6. Crédito e Reserva (FIFO cross-ano)
+
+> Em todas as regras abaixo, `geracao` significa **Geração Líquida** (§9).
 
 ### Acúmulo
 Quando `geracao >= media`, o excedente (`geracao − media`) é **guardado** na reserva, registrado com:
@@ -172,6 +181,14 @@ Desconto de rede por tipo de conexão:
 | Monofásico | 30 |
 
 > Esta regra **deve viver no backend** (hoje está no frontend). O cálculo opera sobre a Geração Líquida.
+>
+> **Consumo final e recálculo:** o cálculo deve usar o **consumo final** do mês. Se o faturamento for lançado antes
+> de o consumo ser preenchido (consumo = 0) e o consumo for informado depois, o mês **deve ser recalculado** — caso
+> contrário o resultado "congela" com dado incompleto (bug observado no Eder: maio calculado com consumo 0 → 9.858,
+> depois consumo virou 134, sem recálculo).
+>
+> **Unicidade:** `dados_consumo_usina` deve ser **único por (usina, ano)**. Hoje cada lançamento/revert cria uma nova
+> linha (108 pares duplicados no banco) — o upsert deve reusar o pacote do ano, não criar um novo.
 
 ---
 
