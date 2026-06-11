@@ -515,6 +515,8 @@ final class FaturamentoService
                 'creditado' => $resultado->credito->emReais(),
                 'cuo' => $resultado->cuo->emReais(),
                 'valor_final' => $resultado->valorFinal->emReais(),
+                // Input do mês — para a tela pré-preencher a fatura ao reabrir o mês.
+                'fatura_energia' => $entrada->faturaEnergia->emReais(),
             ],
         );
 

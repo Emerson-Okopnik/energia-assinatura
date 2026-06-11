@@ -47,6 +47,43 @@ class CalculoGeracaoController extends Controller
     }
 
     /**
+     * INPUTS SALVOS por mês (fatura de energia + consumo) para um ano, para a tela
+     * PRÉ-PREENCHER o que foi gravado ao reabrir um mês. Retorna mapa mes_nome => {...}.
+     */
+    public function inputsSalvos(\Illuminate\Http\Request $request, int $usi_id, int $ano): JsonResponse
+    {
+        $meses = [
+            1 => 'janeiro', 2 => 'fevereiro', 3 => 'marco', 4 => 'abril',
+            5 => 'maio', 6 => 'junho', 7 => 'julho', 8 => 'agosto',
+            9 => 'setembro', 10 => 'outubro', 11 => 'novembro', 12 => 'dezembro',
+        ];
+
+        // Fatura salva por competência (geracao_faturamento_pdf).
+        $faturas = \App\Models\GeracaoFaturamentoPdf::where('usi_id', $usi_id)
+            ->whereYear('competencia', $ano)
+            ->get()
+            ->keyBy(fn ($r) => (int) \Illuminate\Support\Carbon::parse($r->competencia)->month);
+
+        // Consumo salvo por mês (dados_consumo_usina -> dados_consumo).
+        $consumo = \Illuminate\Support\Facades\DB::table('dados_consumo_usina as dcu')
+            ->join('dados_consumo as dc', 'dc.dcon_id', '=', 'dcu.dcon_id')
+            ->where('dcu.usi_id', $usi_id)
+            ->where('dcu.ano', $ano)
+            ->orderByDesc('dcu.dcu_id')
+            ->first();
+
+        $resultado = [];
+        foreach ($meses as $num => $nome) {
+            $resultado[$nome] = [
+                'fatura_energia' => isset($faturas[$num]) ? (float) $faturas[$num]->fatura_energia : null,
+                'consumo' => $consumo ? (float) ($consumo->$nome ?? 0) : null,
+            ];
+        }
+
+        return response()->json(['success' => true, 'data' => $resultado]);
+    }
+
+    /**
      * PROJEÇÃO ANUAL (Expectativa) — os 12 meses com a geração PROJETADA da usina,
      * simulados pelo motor único (reserva construída do zero). Não toca o ledger real.
      */

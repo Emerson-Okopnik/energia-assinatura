@@ -369,6 +369,8 @@ export default {
       // Projeção anual (Expectativa) — 12 meses do GET .../projecao.
       projecaoAnual: [],
       projecaoTimer: null,
+      // Inputs salvos por mês (fatura/consumo) p/ pré-preencher ao reabrir o mês.
+      inputsSalvos: {},
       menorGeracao: 0,
       usina: null,
       anoFaturamento: new Date().getFullYear(),
@@ -385,12 +387,13 @@ export default {
   },
   watch: {
     mesSelecionado() {
-      // Pré-preenche a geração com o valor já cadastrado do mês (se houver) e dispara
-      // o preview do mês. A fatura é por-mês: começa zerada para o operador informar.
+      // Pré-preenche geração, consumo e fatura com o que foi SALVO do mês (se houver)
+      // e dispara o preview — para a Expectativa do mês bater com o que foi gravado.
       const geracaoCadastrada = Number(this.dadosGeracaoRealMensal?.[this.mesSelecionado]) || 0;
+      const salvo = this.inputsSalvos?.[this.mesSelecionado] || {};
       this.mesGeracao = geracaoCadastrada;
-      this.consumoUsinaMes = null;
-      this.faturaEnergia = 0;
+      this.consumoUsinaMes = (salvo.consumo !== null && salvo.consumo !== undefined) ? salvo.consumo : null;
+      this.faturaEnergia = (salvo.fatura_energia !== null && salvo.fatura_energia !== undefined) ? salvo.fatura_energia : 0;
       this.adicionalCuo = 0;
       this.previewMes = null;
       // chartData NÃO é zerado: o gráfico é a projeção anual (independe do mês).
@@ -526,6 +529,7 @@ export default {
       this.anoFaturamento++;
       this.carregarFaturamentoAno();
       this.carregarProjecao();
+      this.carregarInputsSalvos();
       this.agendarPreview();
     },
     voltarAno() {
@@ -533,6 +537,7 @@ export default {
         this.anoFaturamento--;
         this.carregarFaturamentoAno();
         this.carregarProjecao();
+        this.carregarInputsSalvos();
         this.agendarPreview();
       }
     },
@@ -560,6 +565,24 @@ export default {
     agendarProjecao() {
       if (this.projecaoTimer) clearTimeout(this.projecaoTimer);
       this.projecaoTimer = setTimeout(() => this.carregarProjecao(), 300);
+    },
+    async carregarInputsSalvos() {
+      if (!this.usina?.usi_id || !this.anoFaturamento) {
+        this.inputsSalvos = {};
+        return;
+      }
+      const baseURL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem('token');
+      try {
+        const response = await axios.get(
+          `${baseURL}/usinas/${this.usina.usi_id}/inputs-salvos/${this.anoFaturamento}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        this.inputsSalvos = response.data?.data ?? {};
+      } catch (error) {
+        console.error('Erro ao carregar inputs salvos:', error);
+        this.inputsSalvos = {};
+      }
     },
     async carregarProjecao() {
       if (!this.usina?.usi_id || !this.anoFaturamento) {
@@ -617,6 +640,7 @@ export default {
         this.usina = response.data;
         await this.carregarFaturamentoAno();
         await this.carregarProjecao();
+        await this.carregarInputsSalvos();
       } catch (error) {
         console.error('Erro ao carregar dados da usina:', error);
       }
