@@ -813,11 +813,11 @@ label {
 
 .btn-submit{
   color: white;
-  background-color: #f28c1f;
+  background-color: var(--color-primary);
 }
 
 .btn-submit:hover{
   color: white;
-  background-color: #d97706;
+  background-color: var(--color-primary-deep);
 }
 </style>

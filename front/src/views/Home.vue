@@ -70,7 +70,7 @@
 </template>
 
 <script>
-import Swal from 'sweetalert2';
+import Swal from '../utils/swal.js';
 import axios from 'axios';
 import { clearAuthSession, isAuthorizationError } from '@/utils/auth.js';
 import { formatKwh } from '@/utils/formatters.js';
@@ -158,7 +158,6 @@ export default {
           icon: "error",
           title: "Erro ao gerar PDF",
           text: "Não foi possível gerar o PDF.",
-          confirmButtonColor: "#d33",
           confirmButtonText: "Fechar"
         });
       }
@@ -240,7 +239,6 @@ export default {
           icon: 'warning',
           title: 'Sessão expirada',
           text: 'Sua sessão expirou. Faça login novamente.',
-          confirmButtonColor: '#d33'
         });
         return;
       }
@@ -249,7 +247,6 @@ export default {
         icon: 'error',
         title: 'Erro ao carregar dados',
         text: 'Não foi possível carregar os dados. Tente novamente.',
-        confirmButtonColor: '#d33'
       });
     }
   }
@@ -339,7 +336,7 @@ table .text-dark {
 
 
 .create-account a {
-  color: #f28c1f;
+  color: var(--color-primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -350,12 +347,12 @@ table .text-dark {
 
 .btn-orange{
   color: white;
-  background-color: #f28c1f;
+  background-color: var(--color-primary);
 }
 
 .btn-orange:hover{
   color: white;
-  background-color: #d97706;
+  background-color: var(--color-primary-deep);
 }
 
 @media (max-width: 768px) {

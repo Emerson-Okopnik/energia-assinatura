@@ -81,7 +81,7 @@
 </template>
 
 <script>
-import Swal from 'sweetalert2';
+import Swal from '../utils/swal.js';
 import axios from 'axios';
 
 export default {
@@ -175,7 +175,6 @@ export default {
           icon: 'error',
           title: 'Erro ao salvar',
           text: 'Selecione um ou mais consumidores alocados para desvincular.',
-          confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
         return;
@@ -202,7 +201,6 @@ export default {
           icon: 'error',
           title: 'Erro ao salvar',
           text: 'Não foi possível desvincular os consumidores.',
-          confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
       }
@@ -213,7 +211,6 @@ export default {
           icon: 'error',
           title: 'Erro ao salvar',
           text: 'Selecione um ou mais consumidores disponíveis para vincular.',
-          confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
         return;
@@ -252,7 +249,6 @@ export default {
               icon: 'error',
               title: 'Erro ao salvar',
               text: 'Dados da usina não encontrados.',
-              confirmButtonColor: '#d33',
               confirmButtonText: 'Entendi'
             });
             return;
@@ -274,7 +270,6 @@ export default {
           icon: 'error',
           title: 'Erro ao salvar',
           text: 'Não foi possível vincular os consumidores.',
-          confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
       }
@@ -324,7 +319,7 @@ input.form-control {
 
 select.form-select:focus,
 input.form-control:focus {
-  border-color: #f28c1f;
+  border-color: var(--color-primary);
   outline: none;
   box-shadow: 0 0 0 2px rgba(242, 140, 31, 0.2);
 }
@@ -354,7 +349,7 @@ table {
   position: sticky;
   top: 0;
   z-index: 1;
-  background-color: #f28c1f;
+  background-color: var(--color-primary);
   color: white;
 }
 
@@ -383,7 +378,7 @@ table {
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
-  color: #f28c1f;
+  color: var(--color-primary);
   margin: 10px 0;
   transition: transform 0.2s;
 }
