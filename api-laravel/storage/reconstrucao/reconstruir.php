@@ -1,144 +1,278 @@
 <?php
 /**
- * Reconstrução auditável do faturamento de geração (relatório ANTES × DEPOIS).
+ * Reconstrução auditável do faturamento de geração (relatório ANTES × DEPOIS) — versão corrigida.
  *
- * Roda contra o STAGING (cópia de produção), SEM tocar em produção e SEM alterar o staging.
- * Reconstrói a reserva/crédito de cada usina a partir da GERAÇÃO REAL mês a mês, aplicando:
- *   - Crédito guardado quando geração >= média (excedente)
- *   - Consumo FIFO cross-ano (mais antigo primeiro) quando geração < média
- *   - Expiração em 180 dias do que sobrou sem uso
- * Classifica cada divergência por TIPO de erro e gera relatório HTML + CSV + resumo.
+ * Dirige o MOTOR DE DOMÍNIO ÚNICO (CalculadoraGeracaoLinear via ReconstrutorLedger),
+ * aplicando as regras de REGRAS_DE_CALCULO.md:
+ *   - Geração líquida = bruta − max(consumo − desconto_rede, 0)            (§9)
+ *   - Crédito limitado ao faltante e à reserva, FIFO cross-ano             (§6)
+ *   - Expiração 180 dias DEPOIS do consumo FIFO (só o que sobrou)          (§7)
+ *   - Saldo inicial migrado para usinas com déficit histórico > excedente  (§12)
  *
- * Uso: php reconstruir.php          -> gera relatorio.html, relatorio-antes-depois.csv e resumo no terminal
- *      php reconstruir.php --uc=X   -> detalha uma usina
+ * Roda contra o STAGING (cópia de produção), SEM tocar produção e SEM alterar o staging.
+ * Não reimplementa cálculo: o motor é o mesmo que vai para produção (zero duplicação).
+ *
+ * Uso (dentro do container php-recon, com a porta do staging acessível):
+ *   php reconstruir.php          -> gera relatorio.html + relatorio-antes-depois.csv
+ *   php reconstruir.php --uc=X   -> detalha uma usina no terminal
+ *
+ * Conexão configurável por env (DB_HOST/DB_PORT) para rodar de container:
+ *   docker run --rm -e DB_HOST=host.docker.internal -v "$PWD":/app -w /app php-recon \
+ *     php storage/reconstrucao/reconstruir.php
  */
 
-const DB_HOST='127.0.0.1'; const DB_PORT='5440'; const DB_NAME='energia_assinatura';
-const DB_USER='postgres';  const DB_PASS='staging';
-const PRAZO_EXPIRACAO_DIAS=180;
-const TOL=0.01;
+require __DIR__ . '/../../vendor/autoload.php';
 
-$MESES=[1=>'janeiro',2=>'fevereiro',3=>'marco',4=>'abril',5=>'maio',6=>'junho',
-        7=>'julho',8=>'agosto',9=>'setembro',10=>'outubro',11=>'novembro',12=>'dezembro'];
-$MES_LABEL=[1=>'Jan',2=>'Fev',3=>'Mar',4=>'Abr',5=>'Mai',6=>'Jun',7=>'Jul',8=>'Ago',9=>'Set',10=>'Out',11=>'Nov',12=>'Dez'];
+use App\Domain\Faturamento\Calculo\DescontoRede;
+use App\Domain\Faturamento\Ledger\LoteReserva;
+use App\Domain\Faturamento\Ledger\ReconstrutorLedger;
+use App\Domain\Faturamento\ValueObject\Competencia;
+use App\Domain\Faturamento\ValueObject\Kwh;
 
-$opts=getopt('',['uc::']);
-$ucFiltro=$opts['uc']??null;
+$DB_HOST = getenv('DB_HOST') ?: '127.0.0.1';
+$DB_PORT = getenv('DB_PORT') ?: '5440';
+const DB_NAME = 'energia_assinatura';
+const DB_USER = 'postgres';
+const DB_PASS = 'staging';
+const TOL = 0.01;
 
-$pdo=new PDO('pgsql:host='.DB_HOST.';port='.DB_PORT.';dbname='.DB_NAME,DB_USER,DB_PASS,
-    [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+$MESES = [1=>'janeiro',2=>'fevereiro',3=>'marco',4=>'abril',5=>'maio',6=>'junho',
+          7=>'julho',8=>'agosto',9=>'setembro',10=>'outubro',11=>'novembro',12=>'dezembro'];
+$MES_LABEL = [1=>'Jan',2=>'Fev',3=>'Mar',4=>'Abr',5=>'Mai',6=>'Jun',7=>'Jul',8=>'Ago',9=>'Set',10=>'Out',11=>'Nov',12=>'Dez'];
 
-$sql="SELECT u.usi_id,u.uc,cli.nome AS cliente,
-             c.valor_kwh,c.valor_fixo,d.media,d.menor_geracao
-      FROM usina u
-      JOIN comercializacao c ON c.com_id=u.com_id
-      JOIN dados_geracao d ON d.dger_id=u.dger_id
-      LEFT JOIN cliente cli ON cli.cli_id=u.cli_id";
-if($ucFiltro){$sql.=" WHERE u.uc=".$pdo->quote($ucFiltro);}
-$usinas=$pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+$opts = getopt('', ['uc::']);
+$ucFiltro = $opts['uc'] ?? null;
 
-$linhas=[];               // todas as divergências
-$totDiff=0.0;
-$porTipo=[];              // contagem e soma por tipo de erro
-$usinasAfetadas=[];
+$pdo = new PDO('pgsql:host='.$DB_HOST.';port='.$DB_PORT.';dbname='.DB_NAME, DB_USER, DB_PASS,
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
-foreach($usinas as $u){
-    $usiId=(int)$u['usi_id']; $kwh=(float)$u['valor_kwh']; $media=(float)$u['media'];
+$reconstrutor = new ReconstrutorLedger();
 
-    // geração real por ano (cronológico)
-    $st=$pdo->prepare("SELECT dgru.ano,dgr.* FROM dados_geracao_real_usina dgru
-        JOIN dados_geracao_real dgr ON dgr.dgr_id=dgru.dgr_id
-        WHERE dgru.usi_id=:u ORDER BY dgru.ano");
+// ---------- carga base ----------
+$sql = "SELECT u.usi_id,u.uc,u.rede,cli.nome AS cliente,
+               c.valor_kwh,c.fio_b,c.percentual_lei,d.media,d.menor_geracao
+        FROM usina u
+        JOIN comercializacao c ON c.com_id=u.com_id
+        JOIN dados_geracao d ON d.dger_id=u.dger_id
+        LEFT JOIN cliente cli ON cli.cli_id=u.cli_id";
+if ($ucFiltro) { $sql .= " WHERE u.uc=".$pdo->quote($ucFiltro); }
+$usinas = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+
+// consumo duplicado (qualidade de dados) — global
+$consumoDup = $pdo->query(
+    "SELECT count(*) FROM (SELECT usi_id,ano FROM dados_consumo_usina GROUP BY usi_id,ano HAVING count(*)>1) x"
+)->fetchColumn();
+
+$linhas = [];          // divergências (flat)
+$porTipo = [];         // contagem/soma por tipo
+$usinasAfetadas = [];  // uc => true
+$usinasReport = [];    // uc => timeline detalhada (drill-down)
+$dq = ['saldo_inicial'=>[], 'sem_rede'=>[], 'sem_fat_antes'=>[]]; // qualidade de dados
+$totDiffFinal = 0.0;   // impacto no valor final (depois-antes)
+
+foreach ($usinas as $u) {
+    $usiId = (int) $u['usi_id'];
+    $uc = $u['uc'];
+    $tarifa = (float) $u['valor_kwh'];
+    $media = (float) $u['media'];
+    if (empty($u['rede'])) { $dq['sem_rede'][] = $uc; }
+
+    // geração real por ano
+    $st = $pdo->prepare("SELECT dgru.ano,dgr.* FROM dados_geracao_real_usina dgru
+        JOIN dados_geracao_real dgr ON dgr.dgr_id=dgru.dgr_id WHERE dgru.usi_id=:u ORDER BY dgru.ano");
     $st->execute([':u'=>$usiId]);
-    $geracaoPorAno=$st->fetchAll(PDO::FETCH_ASSOC);
-    if(!$geracaoPorAno) continue;
+    $geracaoPorAno = $st->fetchAll(PDO::FETCH_ASSOC);
+    if (!$geracaoPorAno) { continue; }
 
-    // crédito ANTES (sistema)
-    $st=$pdo->prepare("SELECT cdu.ano,cd.* FROM creditos_distribuidos_usina cdu
+    // consumo por ano (DEDUP: registro mais recente por (usina,ano))
+    $st = $pdo->prepare("SELECT DISTINCT ON (dcu.ano) dcu.ano,dc.* FROM dados_consumo_usina dcu
+        JOIN dados_consumo dc ON dc.dcon_id=dcu.dcon_id WHERE dcu.usi_id=:u
+        ORDER BY dcu.ano, dc.updated_at DESC");
+    $st->execute([':u'=>$usiId]);
+    $consumoPorAno = [];
+    foreach ($st as $r) { $consumoPorAno[(int) $r['ano']] = $r; }
+
+    // crédito ANTES (creditos_distribuidos — colunas mensais por ano) — fonte mais completa
+    $st = $pdo->prepare("SELECT cdu.ano,cd.* FROM creditos_distribuidos_usina cdu
         JOIN creditos_distribuidos cd ON cd.cd_id=cdu.cd_id WHERE cdu.usi_id=:u");
     $st->execute([':u'=>$usiId]);
-    $credAntes=[]; foreach($st as $r){$credAntes[(int)$r['ano']]=$r;}
+    $credAntes = [];
+    foreach ($st as $r) { $credAntes[(int) $r['ano']] = $r; }
 
-    // timeline cronológica
-    $timeline=[];
-    foreach($geracaoPorAno as $ga){$ano=(int)$ga['ano'];
-        foreach($MESES as $n=>$nome){$g=$ga[$nome];
-            if($g===null||(float)$g==0.0)continue;
-            $timeline[]=['ano'=>$ano,'mes'=>$n,'nome'=>$nome,'geracao'=>(float)$g];}}
-    usort($timeline,fn($a,$b)=>[$a['ano'],$a['mes']]<=>[$b['ano'],$b['mes']]);
+    // faturamento ANTES por competência (4 termos) — pode faltar o último mês
+    $st = $pdo->prepare("SELECT competencia,valor_fixo,injetado,creditado,cuo,valor_final
+        FROM geracao_faturamento_pdf WHERE usi_id=:u");
+    $st->execute([':u'=>$usiId]);
+    $fatAntes = [];
+    foreach ($st as $r) { $fatAntes[substr($r['competencia'], 0, 7)] = $r; }
 
-    // reconstrução FIFO
-    $reserva=[]; $credDepois=[]; $detalhe=[];
-    foreach($timeline as $t){
-        $refFim=(new DateTime(sprintf('%04d-%02d-01',$t['ano'],$t['mes'])))->modify('last day of this month');
-        // expira vencidos antes de consumir
-        foreach($reserva as &$lote){
-            if($lote['saldo']<=0)continue;
-            if(new DateTime($lote['venc'])<$refFim){$lote['saldo']=0.0;}
-        } unset($lote);
+    // reserva (corrompida) do ano mais antigo — base do saldo inicial migrado (§12)
+    $st = $pdo->prepare("SELECT cdu.ano,var.total FROM creditos_distribuidos_usina cdu
+        JOIN valor_acumulado_reserva var ON var.var_id=cdu.var_id WHERE cdu.usi_id=:u
+        ORDER BY cdu.ano ASC");
+    $st->execute([':u'=>$usiId]);
+    $reservaPorAno = [];
+    foreach ($st as $r) { $reservaPorAno[(int) $r['ano']] = (float) $r['total']; }
 
-        if($t['geracao']>=$media){
-            $exc=$t['geracao']-$media;
-            if($exc>0){$venc=(new DateTime(sprintf('%04d-%02d-01',$t['ano'],$t['mes'])))
-                ->modify('+'.PRAZO_EXPIRACAO_DIAS.' days')->format('Y-m-d');
-                $reserva[]=['ano'=>$t['ano'],'mes'=>$t['mes'],'saldo'=>$exc,'venc'=>$venc];}
-            $credDepois[$t['ano']][$t['mes']]=0.0;
-            $detalhe[$t['ano']][$t['mes']]=['faltante'=>0,'consumido'=>0,'guardou'=>$exc,'saldo_disp'=>0];
-        }else{
-            $falta=$media-$t['geracao']; $saldoDisp=array_sum(array_column($reserva,'saldo'));
-            $cons=0;
-            foreach($reserva as &$lote){if($falta<=0)break;if($lote['saldo']<=0)continue;
-                $r=min($lote['saldo'],$falta);$lote['saldo']-=$r;$falta-=$r;$cons+=$r;} unset($lote);
-            $credDepois[$t['ano']][$t['mes']]=$cons*$kwh;
-            $detalhe[$t['ano']][$t['mes']]=['faltante'=>$media-$t['geracao'],'consumido'=>$cons,'guardou'=>0,'saldo_disp'=>$saldoDisp];
-        }
-    }
-
-    // compara e CLASSIFICA
-    foreach($geracaoPorAno as $ga){$ano=(int)$ga['ano'];
-        foreach($MESES as $n=>$nome){$g=$ga[$nome];
-            if($g===null||(float)$g==0.0)continue;
-            $cA=isset($credAntes[$ano])?(float)$credAntes[$ano][$nome]:0.0;
-            $cD=$credDepois[$ano][$n]??0.0;
-            $diff=round($cD-$cA,2);
-            if(abs($diff)<TOL)continue;
-
-            $det=$detalhe[$ano][$n]??['faltante'=>0,'consumido'=>0,'saldo_disp'=>0];
-            // classificação do tipo de erro
-            if($det['faltante']<=0 && $cA>TOL){
-                $tipo='Crédito sem déficit'; // geração >= média mas creditou
-            }elseif($cA > ($det['faltante']*$kwh)+TOL){
-                $tipo='Creditou além do déficit'; // creditou mais que o que faltava
-            }elseif($det['consumido'] < ($det['faltante']-TOL) && $cA>$cD+TOL){
-                $tipo='Creditou além da reserva'; // não havia reserva suficiente
-            }elseif($diff>0){
-                $tipo='Creditou a menos (FIFO não usou reserva antiga)';
-            }else{
-                $tipo='Divergência de valor';
+    // ---- monta meses crus ----
+    // CUO = faturaEnergia (input manual, não está nas tabelas) + geracao×fio_b×pct/100 (§5).
+    // Para o CUO DEPOIS ser comparável ao ANTES, derivamos a faturaEnergia do CUO ANTES:
+    //   faturaEnergia = cuoA − geracao_bruta×fio_b×pct/100 (clamp >= 0).
+    // Assim o CUO reconcilia e o impacto no valor final isola crédito/variável/fixo.
+    $fioB = (float) $u['fio_b']; $pct = (float) $u['percentual_lei'];
+    $mesesRaw = [];
+    foreach ($geracaoPorAno as $ga) {
+        $ano = (int) $ga['ano'];
+        foreach ($MESES as $n => $nome) {
+            $g = $ga[$nome];
+            if ($g === null || (float) $g == 0.0) { continue; }
+            $cons = isset($consumoPorAno[$ano]) ? (float) ($consumoPorAno[$ano][$nome] ?? 0) : 0.0;
+            $compKey = sprintf('%04d-%02d', $ano, $n);
+            $faMes = $fatAntes[$compKey] ?? null;
+            $faturaEnergia = 0.0;
+            if ($faMes !== null) {
+                $faturaEnergia = max((float) $faMes['cuo'] - ((float) $g * $fioB * $pct / 100), 0.0);
             }
-
-            $totDiff+=$diff;
-            $porTipo[$tipo]['n']=($porTipo[$tipo]['n']??0)+1;
-            $porTipo[$tipo]['soma']=($porTipo[$tipo]['soma']??0)+$diff;
-            $usinasAfetadas[$u['uc']]=true;
-
-            $linhas[]=[
-                'uc'=>$u['uc'],'cliente'=>$u['cliente']??'-','ano'=>$ano,'mes'=>$MES_LABEL[$n],
-                'geracao'=>(float)$g,'media'=>$media,'faltante'=>round($det['faltante'],0),
-                'saldo_disp'=>round($det['saldo_disp'],0),
-                'cred_antes'=>round($cA,2),'cred_depois'=>round($cD,2),'diff'=>$diff,'tipo'=>$tipo,
+            $mesesRaw[] = [
+                'ano'=>$ano, 'mes'=>$n,
+                'geracao_bruta_kwh'=>(float) $g, 'consumo_kwh'=>$cons, 'rede'=>$u['rede'],
+                'media_kwh'=>$media, 'menor_geracao_kwh'=>(float) $u['menor_geracao'], 'tarifa'=>$tarifa,
+                'fio_b'=>$fioB, 'percentual_lei'=>$pct,
+                'fatura_energia'=>$faturaEnergia, 'adicional_cuo'=>0.0,
             ];
         }
     }
+    if (!$mesesRaw) { continue; }
+
+    // ---- saldo inicial migrado: déficit histórico (líquido) > excedente ----
+    usort($mesesRaw, fn($a,$b)=>[$a['ano'],$a['mes']]<=>[$b['ano'],$b['mes']]);
+    $totExced = 0.0; $totDefic = 0.0;
+    foreach ($mesesRaw as $m) {
+        $liq = DescontoRede::liquida(Kwh::de($m['geracao_bruta_kwh']), Kwh::de($m['consumo_kwh']), $m['rede'])->valor();
+        $totExced += max($liq - $media, 0.0);
+        $totDefic += max($media - $liq, 0.0);
+    }
+    $migrada = $totDefic > $totExced;
+    $lotesIniciais = [];
+    if ($migrada) {
+        $menorAno = $mesesRaw[0]['ano'];
+        $saldoIni = $reservaPorAno[$menorAno] ?? 0.0;
+        if ($saldoIni > 0.0) {
+            // origem = mês anterior ao primeiro da timeline (estritamente mais antigo => FIFO o consome 1º)
+            $primeiroMes = $mesesRaw[0]['mes'];
+            $origAno = $primeiroMes === 1 ? $menorAno - 1 : $menorAno;
+            $origMes = $primeiroMes === 1 ? 12 : $primeiroMes - 1;
+            $orig = Competencia::de($origAno, $origMes);
+            $lotesIniciais[] = new LoteReserva($orig, Kwh::de($saldoIni), $orig->vencimentoEmDias(180));
+            $dq['saldo_inicial'][] = ['uc'=>$uc, 'cliente'=>$u['cliente'], 'ano'=>$menorAno, 'kwh'=>$saldoIni];
+        } else {
+            $dq['saldo_inicial'][] = ['uc'=>$uc, 'cliente'=>$u['cliente'], 'ano'=>$menorAno, 'kwh'=>0.0];
+        }
+    }
+
+    // ---- reconstrução (motor único) ----
+    $rec = $reconstrutor->reconstruir($mesesRaw, $lotesIniciais);
+
+    // ---- cruza DEPOIS × ANTES por mês ----
+    $timeline = [];
+    foreach ($rec['meses'] as $mz) {
+        $ano = $mz['ano']; $n = $mz['mes']; $res = $mz['resultado']; $ent = $mz['entrada'];
+        $chaveComp = sprintf('%04d-%02d', $ano, $n);
+
+        $cA = isset($credAntes[$ano]) ? (float) ($credAntes[$ano][$MESES[$n]] ?? 0) : 0.0;
+        $cD = $res->credito->emReais();
+        $diff = round($cD - $cA, 2);
+
+        $liquida = $ent->geracaoLiquidaKwh->valor();
+        $bruta = $ent->geracaoBrutaKwh->valor();
+        $consumoMes = $bruta - $liquida + 0.0; // descontável aplicado (para exibição usamos consumo cru abaixo)
+        $faltante = max($media - $liquida, 0.0);
+        $consumido = 0.0;
+        foreach ($res->consumosFifo as $c) { $consumido += $c['kwh']->valor(); }
+
+        // 4 termos ANTES (geracao_faturamento_pdf) quando houver
+        $fa = $fatAntes[$chaveComp] ?? null;
+        $fixoA = $fa ? (float) $fa['valor_fixo'] : null;
+        $varA  = $fa ? (float) $fa['injetado'] : null;
+        $cuoA  = $fa ? (float) $fa['cuo'] : null;
+        $finalA = $fa ? (float) $fa['valor_final'] : null;
+
+        $fixoD = $res->valorFixo->emReais();
+        $varD  = $res->valorVariavel->emReais();
+        $cuoD  = $res->cuo->emReais();
+        $finalD = $res->valorFinal->emReais();
+        if ($finalA !== null) { $totDiffFinal += round($finalD - $finalA, 2); }
+
+        // consumo cru do mês (para a coluna de transparência)
+        $consumoCru = 0.0;
+        // recupera o consumo cru do mesesRaw correspondente
+        foreach ($mesesRaw as $mr) { if ($mr['ano']===$ano && $mr['mes']===$n) { $consumoCru = $mr['consumo_kwh']; break; } }
+        $descontoAplicado = max($consumoCru - DescontoRede::kwhPorTipo($u['rede']), 0.0);
+
+        $linhaTL = [
+            'ano'=>$ano, 'mes'=>$n, 'comp'=>$chaveComp,
+            'bruta'=>$bruta, 'consumo'=>$consumoCru, 'desconto'=>$descontoAplicado, 'liquida'=>$liquida,
+            'media'=>$media, 'faltante'=>$faltante,
+            'guardou'=>$res->guardadoKwh->valor(),
+            'consumos'=>array_map(fn($c)=>['origem'=>(string)$c['origem'],'kwh'=>$c['kwh']->valor()], $res->consumosFifo),
+            'expirou'=>array_map(fn($e)=>['origem'=>(string)$e['origem'],'kwh'=>$e['kwh']->valor()], $res->expiracoes),
+            'saldo_final'=>$mz['saldo_final_kwh'],
+            'fixoA'=>$fixoA,'fixoD'=>$fixoD,'varA'=>$varA,'varD'=>$varD,
+            'credA'=>$cA,'credD'=>$cD,'cuoA'=>$cuoA,'cuoD'=>$cuoD,'finalA'=>$finalA,'finalD'=>$finalD,
+            'diff'=>$diff, 'tipo'=>null,
+        ];
+
+        if (abs($diff) >= TOL) {
+            // classificação (mesma taxonomia, agora sobre líquida)
+            if ($faltante <= 0 && $cA > TOL) {
+                $tipo = 'Crédito sem déficit';
+            } elseif ($cA > ($faltante * $tarifa) + TOL) {
+                $tipo = 'Creditou além do déficit';
+            } elseif ($consumido < ($faltante - TOL) && $cA > $cD + TOL) {
+                $tipo = 'Creditou além da reserva';
+            } elseif ($diff > 0) {
+                $tipo = 'Creditou a menos (FIFO não usou reserva antiga)';
+            } else {
+                $tipo = 'Divergência de valor';
+            }
+            $linhaTL['tipo'] = $tipo;
+
+            $porTipo[$tipo]['n'] = ($porTipo[$tipo]['n'] ?? 0) + 1;
+            $porTipo[$tipo]['soma'] = ($porTipo[$tipo]['soma'] ?? 0) + $diff;
+            $usinasAfetadas[$uc] = true;
+
+            $linhas[] = [
+                'uc'=>$uc, 'cliente'=>$u['cliente'] ?? '-', 'ano'=>$ano, 'mes'=>$MES_LABEL[$n],
+                'bruta'=>$bruta, 'consumo'=>$consumoCru, 'liquida'=>$liquida, 'media'=>$media,
+                'faltante'=>round($faltante,0), 'reserva'=>round($mz['reserva_antes_kwh'],0),
+                'cred_antes'=>round($cA,2), 'cred_depois'=>round($cD,2), 'diff'=>$diff, 'tipo'=>$tipo,
+            ];
+        }
+
+        if ($fa === null) { $dq['sem_fat_antes'][$uc] = ($dq['sem_fat_antes'][$uc] ?? 0) + 1; }
+        $timeline[] = $linhaTL;
+    }
+
+    $usinasReport[$uc] = [
+        'cliente'=>$u['cliente'] ?? '-', 'rede'=>$u['rede'], 'migrada'=>$migrada,
+        'tarifa'=>$tarifa, 'media'=>$media, 'menor'=>(float)$u['menor_geracao'],
+        'timeline'=>$timeline,
+        'diff_credito'=>array_sum(array_map(fn($t)=>$t['diff'], $timeline)),
+        'casos'=>count(array_filter($timeline, fn($t)=>$t['tipo']!==null)),
+    ];
 }
 
-// ---------- saída terminal (detalhe ou resumo) ----------
-if($ucFiltro){
+// ============================ SAÍDA TERMINAL ============================
+if ($ucFiltro) {
     echo "=== DETALHE UC {$ucFiltro} ===\n";
-    foreach($linhas as $l){
-        printf("%s %-3s | ger %.0f media %.0f faltante %.0f saldo %.0f | antes %.2f depois %.2f diff %.2f | %s\n",
-            $l['ano'],$l['mes'],$l['geracao'],$l['media'],$l['faltante'],$l['saldo_disp'],
-            $l['cred_antes'],$l['cred_depois'],$l['diff'],$l['tipo']);
+    if (!isset($usinasReport[$ucFiltro])) { echo "(sem dados)\n"; exit; }
+    $ur = $usinasReport[$ucFiltro];
+    echo "cliente: {$ur['cliente']} | rede: {$ur['rede']} | migrada: ".($ur['migrada']?'sim':'não')."\n";
+    foreach ($ur['timeline'] as $t) {
+        $cons = implode(',', array_map(fn($c)=>$c['origem'].':'.round($c['kwh']), $t['consumos'])) ?: '-';
+        printf("%s | bruta %.0f cons %.0f liq %.0f media %.0f falt %.0f | credA %.2f credD %.2f diff %.2f | guardou %.0f consumiu[%s] saldo %.0f | %s\n",
+            $t['comp'], $t['bruta'], $t['consumo'], $t['liquida'], $t['media'], $t['faltante'],
+            $t['credA'], $t['credD'], $t['diff'], $t['guardou'], $cons, $t['saldo_final'], $t['tipo'] ?? 'ok');
     }
     exit;
 }
@@ -146,118 +280,261 @@ if($ucFiltro){
 echo "=== RESUMO ===\n";
 echo "Usinas analisadas: ".count($usinas)." | com divergência: ".count($usinasAfetadas)."\n";
 echo "Linhas divergentes: ".count($linhas)."\n";
-printf("Diferença líquida total (depois-antes): R\$ %s\n", number_format($totDiff,2,',','.'));
+echo "Usinas migradas (saldo inicial): ".count($dq['saldo_inicial'])."\n";
+$impactoCredito = array_sum(array_map(fn($l)=>$l['diff'], $linhas));
+printf("Impacto líquido no crédito (cobertura completa): R\$ %s\n", number_format($impactoCredito,2,',','.'));
+printf("Impacto no valor final (PARCIAL, só meses com PDF): R\$ %s\n", number_format($totDiffFinal,2,',','.'));
 echo "\nPor tipo de erro:\n";
-uasort($porTipo,fn($a,$b)=>$a['soma']<=>$b['soma']);
-foreach($porTipo as $tipo=>$x){
-    printf("  %-42s %3d casos  R\$ %s\n",$tipo,$x['n'],number_format($x['soma'],2,',','.'));
+uasort($porTipo, fn($a,$b)=>$a['soma']<=>$b['soma']);
+foreach ($porTipo as $tipo=>$x) {
+    printf("  %-42s %3d casos  R\$ %s\n", $tipo, $x['n'], number_format($x['soma'],2,',','.'));
 }
 
-// ---------- CSV ----------
-$f=fopen(__DIR__.'/relatorio-antes-depois.csv','w');
-fputcsv($f,['UC','Cliente','Ano','Mes','Geracao_kWh','Media_kWh','Faltante_kWh','Saldo_Reserva_kWh','Credito_ANTES','Credito_DEPOIS','Diferenca','Tipo_de_Erro']);
-foreach($linhas as $l) fputcsv($f,array_values($l));
+// ============================ CSV ============================
+$f = fopen(__DIR__.'/relatorio-antes-depois.csv', 'w');
+fputcsv($f, ['UC','Cliente','Ano','Mes','Geracao_Bruta_kWh','Consumo_kWh','Geracao_Liquida_kWh','Media_kWh',
+    'Faltante_kWh','Reserva_kWh','Credito_ANTES','Credito_DEPOIS','Diferenca','Tipo_de_Erro']);
+foreach ($linhas as $l) { fputcsv($f, array_values($l)); }
 fclose($f);
 
-// ---------- HTML apresentável ----------
-$totUsinas=count($usinas); $totAfetadas=count($usinasAfetadas);
-$creditoAMais=array_sum(array_map(fn($l)=>$l['diff']<0?-$l['diff']:0,$linhas));
-$creditoAMenos=array_sum(array_map(fn($l)=>$l['diff']>0?$l['diff']:0,$linhas));
+// ============================ HTML ============================
+$totUsinas = count($usinas);
+$totAfetadas = count($usinasAfetadas);
+$creditoAMais = array_sum(array_map(fn($l)=>$l['diff']<0?-$l['diff']:0, $linhas));
+$creditoAMenos = array_sum(array_map(fn($l)=>$l['diff']>0?$l['diff']:0, $linhas));
 
-// agrupa por usina pra visão executiva
-$porUsina=[];
-foreach($linhas as $l){$porUsina[$l['uc']]['cliente']=$l['cliente'];
-    $porUsina[$l['uc']]['diff']=($porUsina[$l['uc']]['diff']??0)+$l['diff'];
-    $porUsina[$l['uc']]['casos']=($porUsina[$l['uc']]['casos']??0)+1;}
-uasort($porUsina,fn($a,$b)=>$a['diff']<=>$b['diff']);
+// resumo por usina (executivo)
+$porUsina = [];
+foreach ($linhas as $l) {
+    $porUsina[$l['uc']]['cliente'] = $l['cliente'];
+    $porUsina[$l['uc']]['diff'] = ($porUsina[$l['uc']]['diff'] ?? 0) + $l['diff'];
+    $porUsina[$l['uc']]['casos'] = ($porUsina[$l['uc']]['casos'] ?? 0) + 1;
+}
+uasort($porUsina, fn($a,$b)=>$a['diff']<=>$b['diff']);
 
-$fmt=fn($v)=>number_format($v,2,',','.');
-$badge=function($tipo){
-    $cor=['Crédito sem déficit'=>'#dc2626','Creditou além do déficit'=>'#ea580c',
-          'Creditou além da reserva'=>'#d97706','Creditou a menos (FIFO não usou reserva antiga)'=>'#2563eb',
-          'Divergência de valor'=>'#6b7280'][$tipo]??'#6b7280';
-    return "<span style=\"background:$cor;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;white-space:nowrap\">".htmlspecialchars($tipo)."</span>";
+$fmt = fn($v)=>number_format((float)$v, 2, ',', '.');
+$fk  = fn($v)=>number_format((float)$v, 2, ',', '.'); // kWh
+$cores = ['Crédito sem déficit'=>'#dc2626','Creditou além do déficit'=>'#ea580c',
+    'Creditou além da reserva'=>'#d97706','Creditou a menos (FIFO não usou reserva antiga)'=>'#2563eb',
+    'Divergência de valor'=>'#6b7280'];
+$badge = function($tipo) use ($cores) {
+    if ($tipo === null) { return '<span class="ok">ok</span>'; }
+    $cor = $cores[$tipo] ?? '#6b7280';
+    return "<span class=\"bdg\" style=\"background:$cor\">".htmlspecialchars($tipo)."</span>";
+};
+// diff financeiro formatado e em R$
+$diffCell = function($a, $b) use ($fmt) {
+    if ($a === null) { return '<td class="num muted">—</td><td class="num">R$ '.$fmt($b).'</td><td class="num muted">—</td>'; }
+    $d = round($b - $a, 2);
+    $cls = abs($d) < 0.01 ? 'muted' : ($d < 0 ? 'neg' : 'pos');
+    return '<td class="num muted">R$ '.$fmt($a).'</td><td class="num">R$ '.$fmt($b).'</td><td class="num '.$cls.'">R$ '.$fmt($d).'</td>';
 };
 
 ob_start(); ?>
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<title>Auditoria de Crédito — Antes × Depois</title>
+<title>Auditoria de Crédito — Antes × Depois (detalhado)</title>
 <style>
 *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f8fafc;color:#0f172a}
-.wrap{max-width:1200px;margin:0 auto;padding:32px}
+.wrap{max-width:1280px;margin:0 auto;padding:32px}
 h1{font-size:26px;margin:0 0 4px} .sub{color:#64748b;margin:0 0 24px;font-size:14px}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:18px}
-.card .lbl{font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
-.card .val{font-size:26px;font-weight:700;margin-top:6px}
-.val.red{color:#dc2626} .val.blue{color:#2563eb}
-h2{font-size:18px;margin:28px 0 12px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;font-size:13px}
-th{background:#f1f5f9;text-align:left;padding:10px 12px;font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:.03em}
-td{padding:9px 12px;border-top:1px solid #f1f5f9}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:28px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px}
+.card .lbl{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+.card .val{font-size:23px;font-weight:700;margin-top:6px}
+.val.red{color:#dc2626} .val.blue{color:#2563eb} .val.amber{color:#d97706}
+h2{font-size:18px;margin:30px 0 12px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
+h3{font-size:14px;margin:14px 0 6px;color:#334155}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12.5px}
+th{background:#f1f5f9;text-align:left;padding:8px 10px;font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:.03em}
+td{padding:7px 10px;border-top:1px solid #f1f5f9}
 tr:hover td{background:#f8fafc}
-.num{text-align:right;font-variant-numeric:tabular-nums}
+.num{text-align:right;font-variant-numeric:tabular-nums} .right{text-align:right}
 .neg{color:#dc2626;font-weight:600} .pos{color:#2563eb;font-weight:600}
-.muted{color:#94a3b8} .right{text-align:right}
+.muted{color:#94a3b8}
+.bdg{color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;white-space:nowrap}
+.ok{color:#16a34a;font-size:11px} .tagm{background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:11px}
 input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:8px;font-size:14px}
 .legenda{font-size:12px;color:#64748b;margin:10px 0 0;line-height:1.7}
+details{background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;padding:4px 14px}
+details[open]{box-shadow:0 1px 3px rgba(0,0,0,.05)}
+summary{cursor:pointer;padding:10px 0;font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary .meta{font-weight:400;color:#64748b;font-size:12.5px}
+.sub2{font-size:12px;color:#64748b;margin:2px 0 10px}
+.led{font-size:11.5px;color:#475569} .led b{color:#0f172a}
+.scroll{overflow-x:auto}
 </style></head><body><div class="wrap">
-<h1>Auditoria de Crédito de Geração — Antes × Depois</h1>
-<p class="sub">Comparação entre o crédito calculado pelo sistema (ANTES) e o crédito reconstruído pela regra correta — FIFO por ordem de geração, limitado ao déficit e à reserva disponível (DEPOIS). Gerado a partir de cópia fiel do banco de produção.</p>
+<h1>Auditoria de Crédito de Geração — Antes × Depois <span style="font-size:14px;color:#64748b">(detalhado)</span></h1>
+<p class="sub">Reconstrução pelo motor de cálculo único (geração líquida §9, FIFO cross-ano §6, expiração §7,
+saldo inicial migrado §12). ANTES = sistema; DEPOIS = regra correta. Gerado de cópia fiel do banco de produção.</p>
 
 <div class="cards">
   <div class="card"><div class="lbl">Usinas analisadas</div><div class="val"><?=$totUsinas?></div></div>
   <div class="card"><div class="lbl">Usinas com erro</div><div class="val red"><?=$totAfetadas?></div></div>
   <div class="card"><div class="lbl">Creditado a MAIS</div><div class="val red">R$ <?=$fmt($creditoAMais)?></div></div>
   <div class="card"><div class="lbl">Creditado a MENOS</div><div class="val blue">R$ <?=$fmt($creditoAMenos)?></div></div>
+  <div class="card"><div class="lbl">Impacto líquido no crédito</div><div class="val <?=($creditoAMenos-$creditoAMais)<0?'red':'blue'?>">R$ <?=$fmt($creditoAMenos-$creditoAMais)?></div></div>
 </div>
+<p class="legenda">Impacto líquido negativo = o sistema creditou a mais (cobertura completa, via <code>creditos_distribuidos</code>).
+O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é parcial, pois só há demonstrativo persistido
+(<code>geracao_faturamento_pdf</code>) para parte dos meses; as maiores correções de crédito caem em meses recentes não cobertos lá.</p>
 
 <h2>Por tipo de erro</h2>
-<table><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto (R$)</th></tr></thead><tbody>
-<?php foreach($porTipo as $tipo=>$x): ?>
+<table><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th></tr></thead><tbody>
+<?php foreach ($porTipo as $tipo=>$x): ?>
 <tr><td><?=$badge($tipo)?></td><td class="num"><?=$x['n']?></td>
 <td class="num <?=$x['soma']<0?'neg':'pos'?>">R$ <?=$fmt($x['soma'])?></td></tr>
 <?php endforeach; ?>
 </tbody></table>
 <p class="legenda">
-<b>Crédito sem déficit:</b> geração ≥ média, não faltava energia, mas o sistema creditou.<br>
+<b>Crédito sem déficit:</b> geração líquida ≥ média, não faltava energia, mas o sistema creditou.<br>
 <b>Creditou além do déficit:</b> creditou mais do que o necessário para atingir a média.<br>
 <b>Creditou além da reserva:</b> creditou energia que não estava guardada.<br>
 <b>Creditou a menos (FIFO):</b> havia reserva antiga (de anos anteriores) que não foi usada.
 </p>
 
 <h2>Resumo por usina</h2>
-<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto total (R$)</th></tr></thead><tbody>
-<?php foreach($porUsina as $uc=>$x): ?>
+<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th></tr></thead><tbody>
+<?php foreach ($porUsina as $uc=>$x): ?>
 <tr><td><?=htmlspecialchars($uc)?></td><td><?=htmlspecialchars($x['cliente'])?></td>
 <td class="num"><?=$x['casos']?></td>
 <td class="num <?=$x['diff']<0?'neg':'pos'?>">R$ <?=$fmt($x['diff'])?></td></tr>
 <?php endforeach; ?>
 </tbody></table>
 
-<h2>Detalhe — todas as divergências (<?=count($linhas)?>)</h2>
+<h2>Detalhe — divergências com transparência da geração líquida (<?=count($linhas)?>)</h2>
 <input id="busca" placeholder="🔎 Filtrar por UC, cliente, mês ou tipo de erro..." onkeyup="filtrar()">
+<div class="scroll">
 <table id="tab"><thead><tr>
-<th>UC</th><th>Cliente</th><th>Período</th><th class="right">Geração</th><th class="right">Média</th>
-<th class="right">Faltou</th><th class="right">Reserva</th><th class="right">Antes</th><th class="right">Depois</th><th class="right">Diferença</th><th>Tipo</th>
+<th>UC</th><th>Cliente</th><th>Período</th>
+<th class="right">Bruta (kWh)</th><th class="right">Consumo (kWh)</th><th class="right">Líquida (kWh)</th>
+<th class="right">Média (kWh)</th><th class="right">Faltou (kWh)</th><th class="right">Reserva (kWh)</th>
+<th class="right">Antes (R$)</th><th class="right">Depois (R$)</th><th class="right">Diferença (R$)</th><th>Tipo</th>
 </tr></thead><tbody>
-<?php foreach($linhas as $l): ?>
+<?php foreach ($linhas as $l): ?>
 <tr>
 <td><?=htmlspecialchars($l['uc'])?></td>
 <td><?=htmlspecialchars(mb_substr($l['cliente'],0,22))?></td>
 <td><?=$l['mes']?>/<?=$l['ano']?></td>
-<td class="num"><?=$fmt($l['geracao'])?></td>
-<td class="num muted"><?=$fmt($l['media'])?></td>
-<td class="num"><?=$fmt($l['faltante'])?></td>
-<td class="num muted"><?=$fmt($l['saldo_disp'])?></td>
-<td class="num"><?=$fmt($l['cred_antes'])?></td>
-<td class="num"><?=$fmt($l['cred_depois'])?></td>
-<td class="num <?=$l['diff']<0?'neg':'pos'?>"><?=$fmt($l['diff'])?></td>
+<td class="num"><?=$fk($l['bruta'])?></td>
+<td class="num"><?=$fk($l['consumo'])?></td>
+<td class="num"><?=$fk($l['liquida'])?></td>
+<td class="num muted"><?=$fk($l['media'])?></td>
+<td class="num"><?=$fk($l['faltante'])?></td>
+<td class="num muted"><?=$fk($l['reserva'])?></td>
+<td class="num">R$ <?=$fmt($l['cred_antes'])?></td>
+<td class="num">R$ <?=$fmt($l['cred_depois'])?></td>
+<td class="num <?=$l['diff']<0?'neg':'pos'?>">R$ <?=$fmt($l['diff'])?></td>
 <td><?=$badge($l['tipo'])?></td>
 </tr>
 <?php endforeach; ?>
 </tbody></table>
-<p class="legenda right">Gerado em <?=date('d/m/Y H:i')?> · fonte: cópia do banco de produção · valores em R$</p>
+</div>
+
+<h2>Drill-down por usina — 4 termos &amp; ledger FIFO</h2>
+<p class="legenda">As usinas com divergência abrem expandidas; as demais ficam recolhidas para auditoria sob demanda.
+Cada R$ de crédito é rastreável ao mês-origem consumido via FIFO.
+Nos 4 termos: <b>A</b> = antes (sistema), <b>D</b> = depois (correto), <b>Δ</b> = diferença. Colunas <span class="muted">—</span>
+indicam meses sem demonstrativo persistido (o termo ANTES não existe no banco para comparar).
+O CUO DEPOIS reconcilia a <code>faturaEnergia</code> a partir do CUO ANTES, isolando o efeito em crédito/variável.</p>
+<?php
+// ordena: divergentes primeiro (por impacto), depois as ok
+uasort($usinasReport, function($a,$b){
+    $ad = $a['casos']>0?0:1; $bd = $b['casos']>0?0:1;
+    if ($ad !== $bd) { return $ad <=> $bd; }
+    return $a['diff_credito'] <=> $b['diff_credito'];
+});
+foreach ($usinasReport as $uc=>$ur):
+    $aberto = $ur['casos'] > 0 ? ' open' : '';
+    $tagMig = $ur['migrada'] ? ' <span class="tagm">saldo inicial</span>' : '';
+?>
+<details<?=$aberto?>>
+<summary><span><?=htmlspecialchars($uc)?> · <?=htmlspecialchars($ur['cliente'])?><?=$tagMig?></span>
+<span class="meta"><?=$ur['casos']?> caso(s) · crédito Δ R$ <?=$fmt($ur['diff_credito'])?> · rede <?=htmlspecialchars($ur['rede']?:'—')?></span></summary>
+
+<h3>4 termos — Antes × Depois</h3>
+<div class="scroll">
+<table><thead><tr>
+<th>Período</th>
+<th class="right" colspan="3">Fixo (R$)</th>
+<th class="right" colspan="3">Variável (R$)</th>
+<th class="right" colspan="3">Crédito (R$)</th>
+<th class="right" colspan="3">CUO (R$)</th>
+<th class="right" colspan="3">Valor final (R$)</th>
+</tr><tr>
+<th></th>
+<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
+<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
+<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
+<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
+<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
+</tr></thead><tbody>
+<?php foreach ($ur['timeline'] as $t): ?>
+<tr>
+<td><?=$MES_LABEL[$t['mes']]?>/<?=$t['ano']?></td>
+<?=$diffCell($t['fixoA'],$t['fixoD'])?>
+<?=$diffCell($t['varA'],$t['varD'])?>
+<?=$diffCell($t['credA'],$t['credD'])?>
+<?=$diffCell($t['cuoA'],$t['cuoD'])?>
+<?=$diffCell($t['finalA'],$t['finalD'])?>
+</tr>
+<?php endforeach; ?>
+</tbody></table>
+</div>
+
+<h3>Ledger da reserva (FIFO) &amp; geração líquida</h3>
+<div class="scroll">
+<table><thead><tr>
+<th>Período</th><th class="right">Bruta</th><th class="right">Consumo</th><th class="right">Desc. rede</th>
+<th class="right">Líquida</th><th class="right">Faltou</th><th class="right">Guardou</th>
+<th>Consumiu (origem→kWh)</th><th>Expirou</th><th class="right">Saldo reserva</th>
+</tr></thead><tbody>
+<?php foreach ($ur['timeline'] as $t):
+    $cons = $t['consumos'] ? implode(' · ', array_map(fn($c)=>$c['origem'].'→'.$fk($c['kwh']), $t['consumos'])) : '—';
+    $exp = $t['expirou'] ? implode(' · ', array_map(fn($e)=>$e['origem'].'→'.$fk($e['kwh']), $t['expirou'])) : '—';
+?>
+<tr>
+<td><?=$MES_LABEL[$t['mes']]?>/<?=$t['ano']?></td>
+<td class="num"><?=$fk($t['bruta'])?></td>
+<td class="num"><?=$fk($t['consumo'])?></td>
+<td class="num muted"><?=$fk($t['desconto'])?></td>
+<td class="num"><?=$fk($t['liquida'])?></td>
+<td class="num"><?=$fk($t['faltante'])?></td>
+<td class="num pos"><?=$t['guardou']>0?$fk($t['guardou']):'—'?></td>
+<td class="led"><?=$cons?></td>
+<td class="led"><?=$exp?></td>
+<td class="num"><?=$fk($t['saldo_final'])?></td>
+</tr>
+<?php endforeach; ?>
+</tbody></table>
+</div>
+</details>
+<?php endforeach; ?>
+
+<h2>Qualidade de dados &amp; saldos iniciais</h2>
+<table><thead><tr><th>Item</th><th class="right">Qtde</th><th>Observação</th></tr></thead><tbody>
+<tr><td>Consumos duplicados (usina, ano)</td><td class="num"><?=$consumoDup?></td>
+<td>Resolvido pegando o registro mais recente (<code>updated_at</code>). O upsert do app deve passar a ser único por (usina, ano).</td></tr>
+<tr><td>Usinas com saldo inicial migrado</td><td class="num"><?=count($dq['saldo_inicial'])?></td>
+<td>Déficit histórico &gt; excedente: receberam lote <code>SALDO_INICIAL</code> (total da reserva do ano mais antigo). Conferir caso a caso.</td></tr>
+<tr><td>Usinas sem tipo de rede</td><td class="num"><?=count($dq['sem_rede'])?></td>
+<td>Sem desconto de rede aplicável (assume 0). <?=$dq['sem_rede']?htmlspecialchars(implode(', ',$dq['sem_rede'])):'—'?></td></tr>
+</tbody></table>
+
+<?php if ($dq['saldo_inicial']): ?>
+<h3>Saldos iniciais injetados (conferência manual)</h3>
+<div class="scroll">
+<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Ano base</th><th class="right">Saldo inicial (kWh)</th></tr></thead><tbody>
+<?php foreach ($dq['saldo_inicial'] as $s): ?>
+<tr><td><?=htmlspecialchars($s['uc'])?></td><td><?=htmlspecialchars($s['cliente'])?></td>
+<td class="num"><?=$s['ano']?></td><td class="num"><?=$fk($s['kwh'])?></td></tr>
+<?php endforeach; ?>
+</tbody></table>
+</div>
+<?php endif; ?>
+
+<p class="legenda right">Gerado em <?=date('d/m/Y H:i')?> · fonte: cópia do banco de produção ·
+motor de domínio único · energia em kWh · valores financeiros em R$</p>
 </div>
 <script>
 function filtrar(){var q=document.getElementById('busca').value.toLowerCase();
@@ -266,5 +543,5 @@ tr.style.display=tr.innerText.toLowerCase().includes(q)?'':'none';});}
 </script>
 </body></html>
 <?php
-file_put_contents(__DIR__.'/relatorio.html',ob_get_clean());
-echo "\n>> Gerados: relatorio.html (apresentável) e relatorio-antes-depois.csv\n";
+file_put_contents(__DIR__.'/relatorio.html', ob_get_clean());
+echo "\n>> Gerados: relatorio.html (detalhado) e relatorio-antes-depois.csv\n";
