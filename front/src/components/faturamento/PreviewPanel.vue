@@ -97,8 +97,7 @@ const arvores = computed(() => props.preview?.parametros?.arvores_equivalentes)
 <style scoped>
 .preview-panel {
   background: var(--color-linen);
-  border: 1px dashed var(--color-smoke);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;

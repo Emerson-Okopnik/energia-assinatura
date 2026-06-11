@@ -1,9 +1,9 @@
 <script setup>
-// Página "Faturar Usina" — workspace master-detail em 2 níveis.
-// Nível 1: /faturar — seleção de usina.
-// Nível 2: /faturar/:usinaId/:ano/:mes — apuração, expectativa anual e histórico.
+// Página "Faturar Usina" — PÁGINA ÚNICA da usina, sem abas (blueprint §3).
+// Sempre acessada com :usinaId (a rota /faturar sem id redireciona para /usinas).
+// Coluna única rolável: Hero → stat-cards → Apuração → Histórico → Expectativa.
 // O frontend NÃO calcula nada: lê preview/projeção do backend (faturamentoApi.js).
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Chart as ChartJS,
@@ -19,16 +19,13 @@ import * as api from '../services/faturamentoApi.js'
 import SectionCard from '../components/base/SectionCard.vue'
 import BaseButton from '../components/base/BaseButton.vue'
 import BaseBadge from '../components/base/BaseBadge.vue'
-import BaseField from '../components/base/BaseField.vue'
-import NumberInput from '../components/base/NumberInput.vue'
 import DataTable from '../components/base/DataTable.vue'
-import UsinaCombobox from '../components/faturamento/UsinaCombobox.vue'
-import ContextHeader from '../components/faturamento/ContextHeader.vue'
+import StatValue from '../components/base/StatValue.vue'
 import CompetenciaSelector from '../components/faturamento/CompetenciaSelector.vue'
 import PreviewPanel from '../components/faturamento/PreviewPanel.vue'
 import AuditoriaAccordion from '../components/faturamento/AuditoriaAccordion.vue'
-import ConfirmRefaturarDialog from '../components/faturamento/ConfirmRefaturarDialog.vue'
 import LancamentoReadonly from '../components/faturamento/LancamentoReadonly.vue'
+import ApurarMesModal from '../components/faturamento/ApurarMesModal.vue'
 
 ChartJS.register(
   Title, Tooltip, Legend, BarElement, LineElement,
@@ -51,16 +48,6 @@ const maxAno = anoAtual + 1
 const chaveMesAtual = CHAVES_MESES[new Date().getMonth()]
 
 // ---------------------------------------------------------------- estado
-const usinas = ref([])
-const carregandoUsinas = ref(false)
-const erroUsinas = ref('')
-
-// Estado da competência corrente por usina (nível 1): 'faturado' | 'pendente'.
-// Limitação conhecida: GET /usina não traz dados do mês, então o estado é
-// buscado em lote com os mesmos endpoints anuais, com concorrência limitada.
-const estadosMesUsinas = ref({})
-let estadosUsinasSeq = 0
-
 const usina = ref(null)
 const carregandoPagina = ref(false)
 const erroPagina = ref('')
@@ -77,25 +64,16 @@ const projecaoAnual = ref([])
 const carregandoAno = ref(false)
 const erroAno = ref('')
 
-// Formulário de apuração (Number|null — null = não preenchido, nunca 0 automático)
-const mesGeracao = ref(null)
-const consumoUsinaMes = ref(null)
-const faturaEnergia = ref(null)
-const adicionalCuo = ref(null)
-const tocado = reactive({ consumo: false, fatura: false })
+// Modal de apuração (blueprint §4): toda a entrada de dados, preview e auditoria
+// editável saiu para o ApurarMesModal. A view só dispara a abertura na competência
+// certa e recarrega o ano ao confirmar.
+const apuracaoModalAberto = ref(false)
+const apuracaoMesAlvo = ref(null)
 
-const previewMes = ref(null)
-const previewLoading = ref(false)
-const previewError = ref('')
-let previewTimer = null
-let previewSeq = 0
-
-const aba = ref('apuracao')
-const modoEdicao = ref(false)
-const dialogRefaturarAberto = ref(false)
-const isSalvando = ref(false)
 const isRevertendo = ref(false)
-const observacoes = ref('')
+
+// Auditoria READ-ONLY do histórico: preview relido por mês a partir dos inputs salvos.
+const previewHistorico = reactive({}) // { [chaveMes]: { dados, loading, error } }
 
 // ---------------------------------------------------------------- derivados
 const usinaIdRota = computed(() => (route.params.usinaId ? Number(route.params.usinaId) : null))
@@ -114,6 +92,33 @@ const reservaTotal = computed(() =>
   dadosFaturamentoAnual.value?.valor_acumulado_reserva?.total ?? null
 )
 
+// ----- Hero: subtítulo e chips de contrato
+const nomeCliente = computed(() => usina.value?.cliente?.nome ?? 'Usina')
+const subtituloUsina = computed(() => {
+  if (!usina.value) return ''
+  const partes = []
+  if (usina.value.uc) partes.push(`UC ${usina.value.uc}`)
+  const cidade = usina.value.cliente?.endereco?.cidade
+  const uf = usina.value.cliente?.endereco?.estado
+  if (cidade && uf) partes.push(`${cidade}/${uf}`)
+  else if (cidade || uf) partes.push(cidade || uf)
+  const cia = usina.value.comercializacao?.cia_energia
+  if (cia) partes.push(cia)
+  return partes.join(' · ')
+})
+
+const mediaGeracao = computed(() => usina.value?.dado_geracao?.media ?? null)
+const menorGeracao = computed(() => Number(usina.value?.dado_geracao?.menor_geracao) || 0)
+const tarifaContrato = computed(() => usina.value?.comercializacao?.valor_kwh ?? null)
+
+const chipsContrato = computed(() => [
+  { label: 'Fio B', valor: usina.value ? formatReais(fioB.value) : '—' },
+  { label: 'Lei 14.300', valor: usina.value ? `${formatNumero(percentualLei.value, 0)}%` : '—' },
+  { label: 'Média geração', valor: mediaGeracao.value == null ? '—' : formatKwh(mediaGeracao.value) },
+  { label: 'Menor geração', valor: menorGeracao.value > 0 ? formatKwh(menorGeracao.value) : '—' },
+  { label: 'Tarifa', valor: tarifaContrato.value == null ? '—' : formatReais(tarifaContrato.value) },
+])
+
 function temDadosMes(chaveMes) {
   const geracao = Number(dadosGeracaoRealMensal.value?.[chaveMes] || 0)
   const faturamento = Number(dadosFaturamentoAnual.value?.faturamento_usina?.[chaveMes] || 0)
@@ -130,38 +135,44 @@ const estadosPorMes = computed(() => {
   return estados
 })
 
-const mesFaturado = computed(() => temDadosMes(mes.value))
-const mostrarFormulario = computed(() => !mesFaturado.value || modoEdicao.value)
+// ----- Stat-cards (1ª dobra)
+const mesesFaturados = computed(() => CHAVES_MESES.filter((c) => temDadosMes(c)).length)
 
-const geracaoVemDoCadastro = computed(() => {
-  const valor = dadosGeracaoRealMensal.value?.[mes.value]
-  return valor !== undefined && valor !== null && Number(valor) > 0
+const creditosNoAno = computed(() => {
+  const dist = dadosFaturamentoAnual.value?.creditos_distribuidos || {}
+  return CHAVES_MESES.reduce((total, c) => total + (Number(dist[c]) || 0), 0)
 })
 
-// Validação inline (F7): erro aparece após blur do campo ou tentativa de salvar.
-const erroConsumo = computed(() =>
-  tocado.consumo && consumoUsinaMes.value === null
-    ? 'Informe o consumo da usina no mês.'
-    : ''
-)
-const erroFatura = computed(() =>
-  tocado.fatura && faturaEnergia.value === null
-    ? 'Informe a fatura de energia do mês.'
-    : ''
-)
-const formValido = computed(
-  () => consumoUsinaMes.value !== null && faturaEnergia.value !== null
-)
+const ultimoFaturamento = computed(() => {
+  const fatur = dadosFaturamentoAnual.value?.faturamento_usina || {}
+  for (let i = CHAVES_MESES.length - 1; i >= 0; i -= 1) {
+    const chave = CHAVES_MESES[i]
+    if (temDadosMes(chave)) {
+      return {
+        valor: Number(fatur[chave]) || 0,
+        competencia: `${MESES[chave]}/${ano.value}`,
+      }
+    }
+  }
+  return null
+})
 
-const parametrosAuditoria = computed(() => ({
-  tarifa: usina.value?.comercializacao?.valor_kwh ?? null,
-  mediaKwh: usina.value?.dado_geracao?.media ?? null,
-  menorGeracaoKwh: usina.value?.dado_geracao?.menor_geracao ?? null,
-  fioB: fioB.value,
-  percentualLei: percentualLei.value,
-  rede: previewMes.value?.geracao?.rede ?? null,
-  descontoRedeKwh: previewMes.value?.geracao?.desconto_rede_kwh ?? null,
-}))
+const mesFaturado = computed(() => temDadosMes(mes.value))
+
+// Parâmetros de auditoria: rede/desconto vêm do preview do mês (quando houver).
+function montarParametros(preview = null) {
+  return {
+    tarifa: usina.value?.comercializacao?.valor_kwh ?? null,
+    mediaKwh: usina.value?.dado_geracao?.media ?? null,
+    menorGeracaoKwh: usina.value?.dado_geracao?.menor_geracao ?? null,
+    fioB: fioB.value,
+    percentualLei: percentualLei.value,
+    rede: preview?.geracao?.rede ?? null,
+    descontoRedeKwh: preview?.geracao?.desconto_rede_kwh ?? null,
+  }
+}
+
+const parametrosAuditoria = computed(() => montarParametros())
 
 function numeroOuNulo(valor) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -184,14 +195,6 @@ const dadosLancamento = computed(() => ({
   lancadoPor: registroLancamento.value?.lancado_por ?? null,
 }))
 
-const novoLancamento = computed(() => ({
-  geracaoKwh: mesGeracao.value,
-  consumoKwh: consumoUsinaMes.value,
-  faturaReais: faturaEnergia.value,
-  adicionalReais: adicionalCuo.value,
-  valorFinalReais: numeroOuNulo(previewMes.value?.termos?.valor_final_reais),
-}))
-
 const mesRevertivel = computed(
   () =>
     Boolean(ultimoRevertivel.value) &&
@@ -200,8 +203,6 @@ const mesRevertivel = computed(
 )
 
 // ---------------------------------------------------------------- expectativa
-const menorGeracao = computed(() => Number(usina.value?.dado_geracao?.menor_geracao) || 0)
-
 const colunasExpectativa = [
   { key: 'mes', label: 'Mês' },
   { key: 'geracao', label: 'Geração', numeric: true },
@@ -220,9 +221,11 @@ function ucfirst(str) {
 
 const linhasExpectativa = computed(() =>
   projecaoAnual.value.map((linha) => ({
+    chave: linha.mes_nome,
     mes: ucfirst(linha.mes_nome),
     geracao: formatKwh(linha.geracao_kwh),
     geracaoEhMenor: Number(linha.geracao_kwh) === menorGeracao.value && menorGeracao.value > 0,
+    ehMesCorrente: linha.mes_nome === mes.value,
     media: formatKwh(linha.media_kwh),
     fixo: formatReais(linha.fixo_reais),
     injetado: formatReais(linha.injetado_reais),
@@ -231,6 +234,22 @@ const linhasExpectativa = computed(() =>
     valorFinal: formatReais(linha.valor_final_reais),
   }))
 )
+
+// Cards-resumo da Expectativa: total projetado, melhor e pior mês.
+const resumoExpectativa = computed(() => {
+  const p = projecaoAnual.value
+  if (!p.length) return null
+  let total = 0
+  let melhor = null
+  let pior = null
+  for (const l of p) {
+    const v = Number(l.valor_final_reais) || 0
+    total += v
+    if (!melhor || v > melhor.valor) melhor = { mes: ucfirst(l.mes_nome), valor: v }
+    if (!pior || v < pior.valor) pior = { mes: ucfirst(l.mes_nome), valor: v }
+  }
+  return { total, melhor, pior }
+})
 
 // Gráfico responsivo na paleta do design system (F9).
 // Fonte de dados: projecaoAnual (expectativa anual), não o preview do mês.
@@ -269,13 +288,42 @@ const colunasHistorico = [
   { key: 'acao', label: 'Ação', align: 'right' },
 ]
 
-// Expansão por linha (F8): mostra os inputs de cada lançamento.
+// Expansão por linha (F8): auditoria READ-ONLY com a MESMA composição do preview
+// (4 termos / geração líquida / FIFO / expiração) relida dos inputs salvos.
 const mesesExpandidos = ref(new Set())
+
+// Relê o preview do mês a partir dos inputs persistidos (modo leitura).
+async function carregarPreviewHistorico(chave) {
+  if (!usina.value?.usi_id) return
+  const salvo = inputsSalvos.value?.[chave] || {}
+  const mesIdx = CHAVES_MESES.indexOf(chave) + 1
+  previewHistorico[chave] = { dados: null, loading: true, error: '' }
+  try {
+    const dados = await api.obterPreview(usina.value.usi_id, ano.value, mesIdx, {
+      geracaoBrutaKwh: numeroOuNulo(dadosGeracaoRealMensal.value?.[chave]),
+      faturaEnergia: numeroOuNulo(salvo.fatura_energia),
+      adicionalCuo: null,
+      consumo: numeroOuNulo(salvo.consumo),
+    })
+    previewHistorico[chave] = { dados, loading: false, error: '' }
+  } catch (error) {
+    previewHistorico[chave] = {
+      dados: null,
+      loading: false,
+      error: 'Não foi possível carregar o detalhamento. Tente de novo.',
+    }
+  }
+}
 
 function alternarDetalhes(chave) {
   const novo = new Set(mesesExpandidos.value)
-  if (novo.has(chave)) novo.delete(chave)
-  else novo.add(chave)
+  if (novo.has(chave)) {
+    novo.delete(chave)
+  } else {
+    novo.add(chave)
+    // Carrega sob demanda (uma vez) ao abrir a linha.
+    if (!previewHistorico[chave]) carregarPreviewHistorico(chave)
+  }
   mesesExpandidos.value = novo
 }
 
@@ -332,60 +380,13 @@ const linhasTrilha = computed(() =>
 )
 
 // ---------------------------------------------------------------- carregamento
-async function carregarUsinas() {
-  carregandoUsinas.value = true
-  erroUsinas.value = ''
-  try {
-    usinas.value = await api.listarUsinas()
-    if (!usinaIdRota.value) carregarEstadosUsinas()
-  } catch (error) {
-    erroUsinas.value = 'Não foi possível carregar a lista de usinas. Verifique a conexão e tente de novo.'
-  } finally {
-    carregandoUsinas.value = false
-  }
-}
-
-// Badge "Mês pendente/faturado" na fila de trabalho do nível 1 (dores 1 e 2).
-// Usa os mesmos endpoints anuais já existentes (sem mudança no backend) e a
-// mesma regra de temDadosMes() para a competência corrente.
-async function carregarEstadosUsinas() {
-  const lista = usinas.value
-  if (!lista.length) return
-  const seq = ++estadosUsinasSeq
-  const resultado = {}
-  const fila = [...lista]
-  const CONCORRENCIA = 4
-
-  async function worker() {
-    while (fila.length) {
-      if (seq !== estadosUsinasSeq) return
-      const u = fila.shift()
-      try {
-        const [faturamento, geracao] = await Promise.all([
-          api.obterFaturamentoAnual(u.usi_id, anoAtual),
-          api.obterGeracaoReal(u.usi_id, anoAtual),
-        ])
-        const tem =
-          Number(geracao?.[chaveMesAtual] || 0) > 0 ||
-          Number(faturamento?.faturamento_usina?.[chaveMesAtual] || 0) > 0 ||
-          Number(faturamento?.valor_acumulado_reserva?.[chaveMesAtual] || 0) > 0 ||
-          Number(faturamento?.creditos_distribuidos?.[chaveMesAtual] || 0) > 0
-        resultado[u.usi_id] = tem ? 'faturado' : 'pendente'
-        if (seq === estadosUsinasSeq) estadosMesUsinas.value = { ...resultado }
-      } catch (error) {
-        // Sem estado para esta usina: a opção fica sem badge (falha silenciosa).
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(CONCORRENCIA, fila.length) }, worker))
-}
-
 async function carregarAno() {
   if (!usina.value?.usi_id) return
   carregandoAno.value = true
   erroAno.value = ''
   mesesExpandidos.value = new Set()
+  // Limpa a auditoria read-only em cache ao trocar ano/usina.
+  for (const k of Object.keys(previewHistorico)) delete previewHistorico[k]
   try {
     const usiId = usina.value.usi_id
     const [faturamento, geracao, revertivel, historico, inputs, projecao] = await Promise.all([
@@ -429,35 +430,13 @@ async function carregarUsina(usiId) {
   }
 }
 
-// Reidrata o formulário com o que existe salvo para a competência (F1/F12).
-function reidratarFormulario() {
-  const geracaoCadastrada = dadosGeracaoRealMensal.value?.[mes.value]
-  mesGeracao.value = numeroOuNulo(geracaoCadastrada)
-
-  const salvo = inputsSalvos.value?.[mes.value] || {}
-  consumoUsinaMes.value = numeroOuNulo(salvo.consumo)
-  faturaEnergia.value = numeroOuNulo(salvo.fatura_energia)
-  adicionalCuo.value = null
-
-  tocado.consumo = false
-  tocado.fatura = false
-  previewMes.value = null
-  previewError.value = ''
-  agendarPreview()
-}
-
 // ---------------------------------------------------------------- rota (F5)
 function navegar(usiId, novoAno = ano.value, novoMes = mes.value) {
   router.push(`/faturar/${usiId}/${novoAno}/${novoMes}`)
 }
 
-function selecionarUsina(usiId) {
-  if (!usiId) return
-  navegar(usiId, ano.value, mes.value)
-}
-
 function trocarUsina() {
-  router.push('/faturar')
+  router.push('/usinas')
 }
 
 watch(
@@ -465,14 +444,8 @@ watch(
   async (params, anteriores) => {
     if (route.name !== 'faturar') return
     const idParam = params.usinaId ? Number(params.usinaId) : null
-
-    if (!idParam) {
-      usina.value = null
-      modoEdicao.value = false
-      // Recarrega o estado do mês corrente: pode ter mudado no nível 2.
-      if (usinas.value.length) carregarEstadosUsinas()
-      return
-    }
+    // Sem :usinaId a rota redireciona para /usinas (beforeEnter); nada a fazer aqui.
+    if (!idParam) return
 
     const anoParam = Number(params.ano)
     const mesParam = String(params.mes || '')
@@ -489,136 +462,48 @@ watch(
     const anoMudou = ano.value !== anoParam || anteriores?.ano !== params.ano
     ano.value = anoParam
     mes.value = mesParam
-    modoEdicao.value = false
+    // Trocar de competência fecha qualquer modal de apuração aberto.
+    apuracaoModalAberto.value = false
 
     if (!usina.value || Number(usina.value.usi_id) !== idParam) {
       await carregarUsina(idParam)
     } else if (anoMudou && anteriores) {
       await carregarAno()
     }
-    reidratarFormulario()
   },
   { immediate: true }
 )
 
-carregarUsinas()
+// ---------------------------------------------------------------- apuração (modal)
+// Mês alvo do modal: por padrão a competência selecionada; "Apurar" por linha do
+// histórico abre o modal já na competência daquela linha.
+const apuracaoMes = computed(() => apuracaoMesAlvo.value ?? mes.value)
+const apuracaoMesFaturado = computed(() => temDadosMes(apuracaoMes.value))
 
-// ---------------------------------------------------------------- preview
-function agendarPreview() {
-  if (previewTimer) clearTimeout(previewTimer)
-  previewTimer = setTimeout(() => carregarPreview(), 300)
+const apuracaoGeracaoCadastrada = computed(() =>
+  numeroOuNulo(dadosGeracaoRealMensal.value?.[apuracaoMes.value])
+)
+const apuracaoInputsSalvos = computed(() => inputsSalvos.value?.[apuracaoMes.value] ?? null)
+
+// Abre o modal na competência selecionada (botão do card Apuração / refaturar).
+function abrirApuracao() {
+  apuracaoMesAlvo.value = mes.value
+  apuracaoModalAberto.value = true
 }
 
-async function carregarPreview() {
-  if (!usina.value?.usi_id || !mes.value || !ano.value) {
-    previewMes.value = null
-    return
-  }
-  // Sem nenhum input preenchido não há o que simular (F12: null ≠ 0).
-  if (
-    mesGeracao.value === null &&
-    consumoUsinaMes.value === null &&
-    faturaEnergia.value === null &&
-    adicionalCuo.value === null
-  ) {
-    previewMes.value = null
-    previewError.value = ''
-    return
-  }
-
-  const seq = ++previewSeq
-  previewLoading.value = true
-  previewError.value = ''
-  try {
-    const dados = await api.obterPreview(usina.value.usi_id, ano.value, mesIndex.value, {
-      geracaoBrutaKwh: mesGeracao.value,
-      faturaEnergia: faturaEnergia.value,
-      adicionalCuo: adicionalCuo.value,
-      consumo: consumoUsinaMes.value,
-    })
-    if (seq !== previewSeq) return
-    previewMes.value = dados
-  } catch (error) {
-    if (seq !== previewSeq) return
-    previewMes.value = null
-    previewError.value = 'Não foi possível calcular a simulação. Verifique a conexão e tente de novo.'
-  } finally {
-    if (seq === previewSeq) previewLoading.value = false
-  }
+function fecharApuracao() {
+  apuracaoModalAberto.value = false
+  apuracaoMesAlvo.value = null
 }
 
-watch([mesGeracao, consumoUsinaMes, faturaEnergia, adicionalCuo], () => {
-  agendarPreview()
-})
-
-onBeforeUnmount(() => {
-  if (previewTimer) clearTimeout(previewTimer)
-})
+// Confirmado no modal: recarrega o ano e fecha.
+async function aoConfirmarApuracao() {
+  apuracaoModalAberto.value = false
+  apuracaoMesAlvo.value = null
+  await carregarAno()
+}
 
 // ---------------------------------------------------------------- ações
-function iniciarRefaturamento() {
-  modoEdicao.value = true
-  reidratarFormulario()
-}
-
-function cancelarRefaturamento() {
-  modoEdicao.value = false
-  reidratarFormulario()
-}
-
-function aoClicarFaturar() {
-  tocado.consumo = true
-  tocado.fatura = true
-  if (!formValido.value) return
-  // Guard de sobrescrita (F1): mês já faturado SEMPRE passa pelo diff.
-  if (mesFaturado.value) {
-    dialogRefaturarAberto.value = true
-    return
-  }
-  executarFaturamento()
-}
-
-async function executarFaturamento() {
-  dialogRefaturarAberto.value = false
-  if (!usina.value?.usi_id || !formValido.value) return
-
-  isSalvando.value = true
-  try {
-    // 1) UPSERT do consumo do mês (não zera os outros 11 meses — F2).
-    await api.salvarConsumoMes(usina.value.usi_id, ano.value, mesIndex.value, consumoUsinaMes.value)
-
-    // 2) Lançamento: o backend calcula e persiste (payload só com inputs).
-    await api.salvarCalculo(usina.value.usi_id, ano.value, mesIndex.value, {
-      geracaoBrutaKwh: mesGeracao.value,
-      consumo: consumoUsinaMes.value,
-      faturaEnergia: faturaEnergia.value,
-      adicionalCuo: adicionalCuo.value,
-    })
-
-    const valorFinal = previewMes.value?.termos?.valor_final_reais
-    swal.fire({
-      icon: 'success',
-      title: 'Faturamento registrado',
-      text:
-        valorFinal != null
-          ? `${competenciaLabel.value} faturado: ${formatReais(valorFinal)}`
-          : `${competenciaLabel.value} faturado.`,
-    })
-
-    modoEdicao.value = false
-    await carregarAno()
-    reidratarFormulario()
-  } catch (error) {
-    const mensagem =
-      error.response?.data?.error ||
-      error.response?.data?.message ||
-      'Não foi possível salvar o faturamento. Verifique os dados e tente de novo.'
-    swal.fire({ icon: 'error', title: `Erro ao faturar ${competenciaLabel.value}`, text: mensagem })
-  } finally {
-    isSalvando.value = false
-  }
-}
-
 async function confirmarEstorno(chaveMes) {
   const label = `${MESES[chaveMes]}/${ano.value}`
   const resultado = await swal.fire({
@@ -643,9 +528,7 @@ async function confirmarEstorno(chaveMes) {
       title: 'Lançamento revertido',
       text: `${label} voltou a ficar pendente e pode ser faturado novamente.`,
     })
-    modoEdicao.value = false
     await carregarAno()
-    reidratarFormulario()
   } catch (error) {
     const mensagem = error.response?.data?.error || 'Não foi possível reverter o lançamento.'
     swal.fire({ icon: 'error', title: 'Erro ao reverter', text: mensagem })
@@ -654,20 +537,20 @@ async function confirmarEstorno(chaveMes) {
   }
 }
 
+// PDF do mês JÁ faturado (card LancamentoReadonly): usa os inputs persistidos.
 async function baixarPdf() {
-  // Observações entram no diálogo do PDF (deixou de ser campo solto na página).
   const resultado = await swal.fire({
     title: `Baixar PDF — ${competenciaLabel.value}`,
     input: 'textarea',
     inputLabel: 'Observações (opcional)',
-    inputValue: observacoes.value,
     inputPlaceholder: 'Texto exibido no PDF da fatura',
     showCancelButton: true,
     confirmButtonText: 'Gerar PDF',
     cancelButtonText: 'Cancelar',
   })
   if (!resultado.isConfirmed) return
-  observacoes.value = resultado.value || ''
+  const observacoes = resultado.value || ''
+  const faturaSalva = numeroOuNulo(inputsSalvos.value?.[mes.value]?.fatura_energia)
 
   try {
     swal.fire({
@@ -678,11 +561,11 @@ async function baixarPdf() {
     })
 
     const blob = await api.gerarPdfUsina(usina.value.usi_id, {
-      observacoes: observacoes.value,
+      observacoes,
       mes: mesIndex.value,
       ano: ano.value,
-      fatura: faturaEnergia.value ?? 0,
-      adicionalCuo: adicionalCuo.value,
+      fatura: faturaSalva ?? 0,
+      adicionalCuo: null,
     })
 
     swal.close()
@@ -704,417 +587,337 @@ async function baixarPdf() {
     })
   }
 }
-
-// ---------------------------------------------------------------- abas
-const ABAS = [
-  { id: 'apuracao', label: 'Apuração' },
-  { id: 'expectativa', label: 'Expectativa anual' },
-  { id: 'historico', label: 'Histórico' },
-]
-
-function aoNavegarAbas(evento) {
-  const atual = ABAS.findIndex((a) => a.id === aba.value)
-  if (evento.key === 'ArrowRight') {
-    aba.value = ABAS[(atual + 1) % ABAS.length].id
-  } else if (evento.key === 'ArrowLeft') {
-    aba.value = ABAS[(atual - 1 + ABAS.length) % ABAS.length].id
-  } else {
-    return
-  }
-  evento.preventDefault()
-  // Roving tabindex (WAI-ARIA): o foco acompanha a aba ativa.
-  nextTick(() => document.getElementById(`tab-${aba.value}`)?.focus())
-}
 </script>
 
 <template>
-  <div class="faturar">
-    <!-- ============================ Nível 1: seleção de usina ============================ -->
-    <div v-if="!usinaIdRota" class="faturar__selecao">
-      <SectionCard eyebrow="Faturamento" title="Selecione a usina para faturar">
-        <p class="faturar__selecao-texto">
-          Busque pelo nome do cliente. O estado de {{ MESES[chaveMesAtual] }} e a média de
-          geração contratada aparecem ao lado de cada usina.
-        </p>
-
-        <div v-if="erroUsinas" class="faturar__erro" role="alert">
-          <p>{{ erroUsinas }}</p>
-          <BaseButton variant="secondary" size="sm" @click="carregarUsinas">Tentar de novo</BaseButton>
-        </div>
-        <p v-else-if="carregandoUsinas" class="faturar__carregando">Carregando usinas…</p>
-        <UsinaCombobox
-          v-else
-          :usinas="usinas"
-          :model-value="null"
-          :estados-mes="estadosMesUsinas"
-          :mes-label="MESES[chaveMesAtual]"
-          @update:model-value="selecionarUsina"
-        />
-      </SectionCard>
+  <div class="workspace">
+    <!-- Erro/carregamento da página inteira (usina não resolvida) -->
+    <div v-if="erroPagina" class="workspace__erro" role="alert">
+      <p>{{ erroPagina }}</p>
+      <BaseButton variant="secondary" size="sm" @click="carregarUsina(usinaIdRota)">
+        Tentar de novo
+      </BaseButton>
     </div>
+    <p v-else-if="carregandoPagina && !usina" class="workspace__carregando">Carregando usina…</p>
 
-    <!-- ============================ Nível 2: workspace ============================ -->
-    <template v-else>
-      <ContextHeader
-        :usina="usina"
-        :fio-b="usina ? fioB : null"
-        :percentual-lei="usina ? percentualLei : null"
-        :reserva-total="reservaTotal"
-        @trocar-usina="trocarUsina"
-      />
+    <template v-else-if="usina">
+      <!-- ============ 1) Hero da usina ============ -->
+      <header class="hero">
+        <div class="hero__identidade">
+          <span class="hero__eyebrow">Usina parceira</span>
+          <h1 class="hero__nome">{{ nomeCliente }}</h1>
+          <p class="hero__subtitulo">{{ subtituloUsina }}</p>
+        </div>
 
-      <div class="faturar__workspace">
-        <div v-if="erroPagina" class="faturar__erro" role="alert">
-          <p>{{ erroPagina }}</p>
-          <BaseButton variant="secondary" size="sm" @click="carregarUsina(usinaIdRota)">
-            Tentar de novo
+        <div class="hero__lado">
+          <dl class="hero__chips">
+            <div v-for="chip in chipsContrato" :key="chip.label" class="hero__chip">
+              <dt class="hero__chip-label">{{ chip.label }}</dt>
+              <dd class="hero__chip-valor">{{ chip.valor }}</dd>
+            </div>
+          </dl>
+          <BaseButton variant="ghost" size="sm" @click="trocarUsina">
+            <svg
+              width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="1.75" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true"
+            >
+              <path d="M16 3h5v5" />
+              <path d="M21 3 9 15" />
+              <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
+            </svg>
+            Trocar usina
           </BaseButton>
         </div>
-        <p v-else-if="carregandoPagina" class="faturar__carregando">Carregando usina…</p>
+      </header>
 
-        <template v-else-if="usina">
-          <CompetenciaSelector
-            :ano="ano"
-            :mes="mes"
-            :estados-por-mes="estadosPorMes"
-            :min-ano="MIN_ANO"
-            @update:ano="(novoAno) => navegar(usina.usi_id, novoAno, mes)"
-            @update:mes="(novoMes) => navegar(usina.usi_id, ano, novoMes)"
+      <!-- ============ 2) Faixa de stat-cards ============ -->
+      <div class="stat-grid">
+        <div class="stat-grid__card stat-grid__card--destaque">
+          <StatValue
+            label="Reserva total acumulada"
+            :loading="carregandoAno"
+            :value="reservaTotal == null ? '—' : formatKwh(reservaTotal)"
+          />
+        </div>
+        <div class="stat-grid__card">
+          <StatValue
+            label="Último faturamento"
+            :loading="carregandoAno"
+            :value="ultimoFaturamento ? formatReais(ultimoFaturamento.valor) : '—'"
+            :hint="ultimoFaturamento ? ultimoFaturamento.competencia : 'Nenhum lançamento no ano'"
+          />
+        </div>
+        <div class="stat-grid__card">
+          <StatValue
+            label="Créditos distribuídos no ano"
+            :loading="carregandoAno"
+            :value="formatReais(creditosNoAno)"
+          />
+        </div>
+        <div class="stat-grid__card">
+          <StatValue
+            label="Meses faturados"
+            :loading="carregandoAno"
+            :value="`${mesesFaturados} / 12`"
+          />
+        </div>
+      </div>
+
+      <!-- ============ 3) Card de Apuração ============ -->
+      <SectionCard eyebrow="Apuração" :title="`Apuração de ${competenciaLabel}`">
+        <CompetenciaSelector
+          :ano="ano"
+          :mes="mes"
+          :estados-por-mes="estadosPorMes"
+          :min-ano="MIN_ANO"
+          @update:ano="(novoAno) => navegar(usina.usi_id, novoAno, mes)"
+          @update:mes="(novoMes) => navegar(usina.usi_id, ano, novoMes)"
+        />
+
+        <div v-if="erroAno" class="workspace__erro workspace__erro--inline" role="alert">
+          <p>{{ erroAno }}</p>
+          <BaseButton variant="secondary" size="sm" @click="carregarAno">Tentar de novo</BaseButton>
+        </div>
+
+        <p v-else-if="carregandoAno" class="workspace__carregando">Carregando dados do mês…</p>
+
+        <template v-else>
+          <!-- Estado JÁ FATURADO (leitura): resumo + refaturar abre o modal. -->
+          <LancamentoReadonly
+            v-if="mesFaturado"
+            class="apuracao__lancamento"
+            :dados="dadosLancamento"
+            :competencia-label="competenciaLabel"
+            :revertivel="mesRevertivel"
+            @refaturar="abrirApuracao"
+            @reverter="confirmarEstorno(mes)"
+            @pdf="baixarPdf"
           />
 
-          <div v-if="erroAno" class="faturar__erro" role="alert">
-            <p>{{ erroAno }}</p>
-            <BaseButton variant="secondary" size="sm" @click="carregarAno">Tentar de novo</BaseButton>
+          <!-- Estado PENDENTE: a entrada de dados acontece no modal de apuração. -->
+          <div v-else class="apuracao__pendente">
+            <p class="apuracao__pendente-texto">
+              {{ competenciaLabel }} ainda não foi faturado. Abra a conferência para
+              informar geração, consumo e fatura, ver a simulação e confirmar.
+            </p>
+            <BaseButton variant="primary" glow @click="abrirApuracao">
+              Apurar {{ competenciaLabel }}
+            </BaseButton>
           </div>
+        </template>
+      </SectionCard>
 
-          <!-- Abas -->
-          <div
-            class="faturar__tabs"
-            role="tablist"
-            aria-label="Seções do faturamento"
-            @keydown="aoNavegarAbas"
-          >
-            <button
-              v-for="abaItem in ABAS"
-              :id="`tab-${abaItem.id}`"
-              :key="abaItem.id"
-              class="faturar__tab"
-              :class="{ 'faturar__tab--ativa': aba === abaItem.id }"
-              type="button"
-              role="tab"
-              :aria-selected="aba === abaItem.id ? 'true' : 'false'"
-              :aria-controls="`painel-${abaItem.id}`"
-              :tabindex="aba === abaItem.id ? 0 : -1"
-              @click="aba = abaItem.id"
-            >
-              {{ abaItem.label }}
-            </button>
-          </div>
+      <!-- ============ 4) Card Histórico ============ -->
+      <SectionCard eyebrow="Histórico" :title="`Lançamentos de ${ano}`">
+        <p class="workspace__explicacao">
+          Geração do mês (bruta, em kWh). A competência segue a seleção de ano acima.
+        </p>
 
-          <!-- ============ Aba: Apuração ============ -->
-          <div
-            v-show="aba === 'apuracao'"
-            id="painel-apuracao"
-            role="tabpanel"
-            aria-labelledby="tab-apuracao"
-            class="faturar__painel"
-          >
-            <SectionCard eyebrow="Apuração" :title="`Apuração de ${competenciaLabel}`">
-              <p v-if="carregandoAno" class="faturar__carregando">Carregando dados do mês…</p>
-
-              <!-- Estado JÁ FATURADO (leitura) -->
-              <LancamentoReadonly
-                v-else-if="mesFaturado && !modoEdicao"
-                :dados="dadosLancamento"
-                :competencia-label="competenciaLabel"
-                :revertivel="mesRevertivel"
-                @refaturar="iniciarRefaturamento"
-                @reverter="confirmarEstorno(mes)"
-                @pdf="baixarPdf"
-              />
-
-              <!-- Estado A FATURAR / refaturando (formulário) -->
-              <template v-else>
-                <div
-                  v-if="modoEdicao"
-                  class="faturar__aviso-refaturamento"
-                  role="status"
+        <p v-if="carregandoAno" class="workspace__carregando">Carregando lançamentos…</p>
+        <template v-else>
+          <DataTable :columns="colunasHistorico" :rows="linhasHistorico">
+            <template #cell-detalhes="{ row }">
+              <button
+                type="button"
+                class="historico__detalhes-toggle"
+                :aria-expanded="row._detalhes ? 'true' : 'false'"
+                :aria-controls="`detalhes-${row.chave}`"
+                :aria-label="`Detalhes do lançamento de ${row.mes}`"
+                @click="alternarDetalhes(row.chave)"
+              >
+                <svg
+                  class="historico__chevron"
+                  :class="{ 'historico__chevron--aberto': row._detalhes }"
+                  width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="1.75" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true"
                 >
-                  <BaseBadge variant="warning" dot>Refaturando {{ competenciaLabel }}</BaseBadge>
-                  <span>
-                    Os campos foram preenchidos com os valores do lançamento. Ao salvar, você
-                    confirma a substituição em um diálogo com o comparativo.
-                  </span>
-                  <BaseButton variant="ghost" size="sm" @click="cancelarRefaturamento">
-                    Cancelar refaturamento
-                  </BaseButton>
-                </div>
-
-                <div class="faturar__campos">
-                  <BaseField
-                    label="Geração bruta"
-                    :hint="geracaoVemDoCadastro ? 'Pré-preenchido do cadastro de geração real.' : 'Sem geração cadastrada para este mês — informe o valor medido.'"
-                  >
-                    <NumberInput
-                      v-model="mesGeracao"
-                      suffix="kWh"
-                      :min="0"
-                      placeholder="0,00"
-                    />
-                  </BaseField>
-
-                  <div @focusout="tocado.consumo = true">
-                    <BaseField label="Consumo da usina" required :error="erroConsumo">
-                      <NumberInput
-                        v-model="consumoUsinaMes"
-                        suffix="kWh"
-                        :min="0"
-                        placeholder="0,00"
-                      />
-                    </BaseField>
+                  <polyline points="9 6 15 12 9 18" />
+                </svg>
+              </button>
+            </template>
+            <!-- Auditoria do mês em modo LEITURA (blueprint §5): inputs salvos +
+                 a MESMA composição do preview (4 termos / FIFO / expiração)
+                 relida via obterPreview(inputsSalvos). -->
+            <template #row-details="{ row }">
+              <div :id="`detalhes-${row.chave}`" class="historico__detalhes">
+                <p class="historico__detalhes-titulo">Inputs do lançamento de {{ row.mes }}/{{ ano }}</p>
+                <dl class="historico__detalhes-pares">
+                  <div class="historico__detalhes-par">
+                    <dt>Geração bruta</dt>
+                    <dd>{{ row.geracao }}</dd>
                   </div>
-
-                  <div @focusout="tocado.fatura = true">
-                    <BaseField label="Fatura de energia" required :error="erroFatura">
-                      <NumberInput
-                        v-model="faturaEnergia"
-                        prefix="R$"
-                        :min="0"
-                        placeholder="0,00"
-                      />
-                    </BaseField>
+                  <div class="historico__detalhes-par">
+                    <dt>Consumo da usina</dt>
+                    <dd>{{ row.consumoInput }}</dd>
                   </div>
-
-                  <BaseField
-                    label="Adicional CUO"
-                    optional-label
-                    hint="Use valores negativos para abater."
-                  >
-                    <NumberInput v-model="adicionalCuo" prefix="R$" placeholder="0,00" />
-                  </BaseField>
-                </div>
+                  <div class="historico__detalhes-par">
+                    <dt>Fatura de energia</dt>
+                    <dd>{{ row.faturaInput }}</dd>
+                  </div>
+                </dl>
 
                 <PreviewPanel
-                  class="faturar__preview"
-                  :preview="previewMes"
-                  :loading="previewLoading"
-                  :error="previewError"
-                  @retry="carregarPreview"
+                  class="historico__detalhes-preview"
+                  :preview="previewHistorico[row.chave]?.dados ?? null"
+                  :loading="previewHistorico[row.chave]?.loading ?? false"
+                  :error="previewHistorico[row.chave]?.error ?? ''"
+                  @retry="carregarPreviewHistorico(row.chave)"
                 />
 
                 <AuditoriaAccordion
-                  class="faturar__auditoria"
-                  :preview="previewMes"
-                  :parametros="parametrosAuditoria"
+                  class="historico__detalhes-auditoria"
+                  :preview="previewHistorico[row.chave]?.dados ?? null"
+                  :parametros="montarParametros(previewHistorico[row.chave]?.dados ?? null)"
                 />
+              </div>
+            </template>
+            <template #cell-estado>
+              <BaseBadge variant="success" dot>Faturado</BaseBadge>
+            </template>
+            <template #cell-acao="{ row }">
+              <BaseButton
+                v-if="row.revertivel"
+                variant="danger-soft"
+                size="sm"
+                :loading="isRevertendo"
+                @click="confirmarEstorno(row.chave)"
+              >
+                Reverter
+              </BaseButton>
+              <span
+                v-else
+                class="historico__acao-bloqueada"
+                title="Apenas o último lançamento pode ser revertido"
+                aria-label="Bloqueado: apenas o último lançamento pode ser revertido"
+              >
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="1.75" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </span>
+            </template>
+            <template #empty>Nenhum lançamento registrado em {{ ano }}.</template>
+          </DataTable>
 
-                <footer class="faturar__rodape-card">
-                  <BaseButton variant="secondary" @click="baixarPdf">Baixar PDF</BaseButton>
-                  <BaseButton
-                    variant="primary"
-                    glow
-                    :loading="isSalvando"
-                    :disabled="!formValido || previewLoading"
-                    @click="aoClicarFaturar"
-                  >
-                    Faturar {{ competenciaLabel }}
-                  </BaseButton>
-                </footer>
-              </template>
-            </SectionCard>
+          <details v-if="linhasTrilha.length" class="historico__trilha">
+            <summary class="historico__trilha-summary">
+              <svg
+                class="historico__trilha-chevron"
+                width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.75" stroke-linecap="round"
+                stroke-linejoin="round" aria-hidden="true"
+              >
+                <polyline points="9 6 15 12 9 18" />
+              </svg>
+              Trilha de auditoria (lançamentos e reversões)
+            </summary>
+            <div class="historico__trilha-conteudo">
+              <DataTable :columns="colunasTrilha" :rows="linhasTrilha" />
+            </div>
+          </details>
+        </template>
+      </SectionCard>
+
+      <!-- ============ 5) Card Expectativa anual ============ -->
+      <SectionCard eyebrow="Expectativa" :title="`Expectativa anual de ${ano}`">
+        <p class="workspace__explicacao">
+          Previsão baseada na <strong>geração projetada</strong> da usina. O CUO considera
+          apenas o Fio B — a fatura real de cada mês entra na apuração mensal.
+        </p>
+
+        <p v-if="carregandoAno" class="workspace__carregando">Carregando projeção…</p>
+        <template v-else>
+          <div v-if="resumoExpectativa" class="expectativa__resumo">
+            <StatValue
+              label="Total projetado no ano"
+              :value="formatReais(resumoExpectativa.total)"
+            />
+            <StatValue
+              v-if="resumoExpectativa.melhor"
+              label="Melhor mês"
+              tone="success"
+              :value="formatReais(resumoExpectativa.melhor.valor)"
+              :hint="resumoExpectativa.melhor.mes"
+            />
+            <StatValue
+              v-if="resumoExpectativa.pior"
+              label="Pior mês"
+              tone="danger"
+              :value="formatReais(resumoExpectativa.pior.valor)"
+              :hint="resumoExpectativa.pior.mes"
+            />
           </div>
 
-          <!-- ============ Aba: Expectativa anual ============ -->
-          <div
-            v-show="aba === 'expectativa'"
-            id="painel-expectativa"
-            role="tabpanel"
-            aria-labelledby="tab-expectativa"
-            class="faturar__painel"
-          >
-            <SectionCard eyebrow="Expectativa" :title="`Expectativa anual de ${ano}`">
-              <p class="faturar__explicacao">
-                Previsão baseada na <strong>geração projetada</strong> da usina. O CUO considera
-                apenas o Fio B — a fatura real de cada mês entra na apuração mensal.
-              </p>
+          <div class="expectativa__grid">
+            <div class="expectativa__tabela">
+              <DataTable :columns="colunasExpectativa" :rows="linhasExpectativa">
+                <template #cell-mes="{ row, value }">
+                  <span
+                    class="expectativa__mes"
+                    :class="{ 'expectativa__mes--corrente': row.ehMesCorrente }"
+                  >{{ value }}</span>
+                </template>
+                <template #cell-geracao="{ row, value }">
+                  <span :class="{ 'expectativa__menor': row.geracaoEhMenor }">{{ value }}</span>
+                </template>
+                <template #empty>Sem projeção disponível para {{ ano }}.</template>
+              </DataTable>
+            </div>
 
-              <p v-if="carregandoAno" class="faturar__carregando">Carregando projeção…</p>
-              <template v-else>
-                <DataTable :columns="colunasExpectativa" :rows="linhasExpectativa">
-                  <template #cell-geracao="{ row, value }">
-                    <span :class="{ 'faturar__menor-geracao': row.geracaoEhMenor }">{{ value }}</span>
-                  </template>
-                  <template #empty>Sem projeção disponível para {{ ano }}.</template>
-                </DataTable>
-
-                <div v-if="chartData" class="faturar__grafico">
-                  <Bar :data="chartData" :options="chartOptions" />
-                </div>
-              </template>
-            </SectionCard>
-          </div>
-
-          <!-- ============ Aba: Histórico ============ -->
-          <div
-            v-show="aba === 'historico'"
-            id="painel-historico"
-            role="tabpanel"
-            aria-labelledby="tab-historico"
-            class="faturar__painel"
-          >
-            <SectionCard eyebrow="Histórico" :title="`Lançamentos de ${ano}`">
-              <p class="faturar__explicacao">
-                Geração do mês (bruta, em kWh). A competência segue a seleção de ano acima.
-              </p>
-
-              <p v-if="carregandoAno" class="faturar__carregando">Carregando lançamentos…</p>
-              <template v-else>
-                <DataTable :columns="colunasHistorico" :rows="linhasHistorico">
-                  <template #cell-detalhes="{ row }">
-                    <button
-                      type="button"
-                      class="faturar__detalhes-toggle"
-                      :aria-expanded="row._detalhes ? 'true' : 'false'"
-                      :aria-controls="`detalhes-${row.chave}`"
-                      :aria-label="`Detalhes do lançamento de ${row.mes}`"
-                      @click="alternarDetalhes(row.chave)"
-                    >
-                      <svg
-                        class="faturar__detalhes-chevron"
-                        :class="{ 'faturar__detalhes-chevron--aberto': row._detalhes }"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.75"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <polyline points="9 6 15 12 9 18" />
-                      </svg>
-                    </button>
-                  </template>
-                  <template #row-details="{ row }">
-                    <div :id="`detalhes-${row.chave}`" class="faturar__detalhes-lancamento">
-                      <p class="faturar__detalhes-titulo">Inputs do lançamento de {{ row.mes }}/{{ ano }}</p>
-                      <dl class="faturar__detalhes-pares">
-                        <div class="faturar__detalhes-par">
-                          <dt>Geração bruta</dt>
-                          <dd>{{ row.geracao }}</dd>
-                        </div>
-                        <div class="faturar__detalhes-par">
-                          <dt>Consumo da usina</dt>
-                          <dd>{{ row.consumoInput }}</dd>
-                        </div>
-                        <div class="faturar__detalhes-par">
-                          <dt>Fatura de energia</dt>
-                          <dd>{{ row.faturaInput }}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </template>
-                  <template #cell-estado>
-                    <BaseBadge variant="success" dot>Faturado</BaseBadge>
-                  </template>
-                  <template #cell-acao="{ row }">
-                    <BaseButton
-                      v-if="row.revertivel"
-                      variant="danger-soft"
-                      size="sm"
-                      :loading="isRevertendo"
-                      @click="confirmarEstorno(row.chave)"
-                    >
-                      Reverter
-                    </BaseButton>
-                    <span
-                      v-else
-                      class="faturar__acao-bloqueada"
-                      title="Apenas o último lançamento pode ser revertido"
-                    >—</span>
-                  </template>
-                  <template #empty>Nenhum lançamento registrado em {{ ano }}.</template>
-                </DataTable>
-
-                <details v-if="linhasTrilha.length" class="faturar__trilha">
-                  <summary class="faturar__trilha-summary">
-                    <svg
-                      class="faturar__trilha-chevron"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.75"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <polyline points="9 6 15 12 9 18" />
-                    </svg>
-                    Trilha de auditoria (lançamentos e reversões)
-                  </summary>
-                  <div class="faturar__trilha-conteudo">
-                    <DataTable :columns="colunasTrilha" :rows="linhasTrilha" />
-                  </div>
-                </details>
-              </template>
-            </SectionCard>
+            <div v-if="chartData" class="expectativa__grafico">
+              <Bar :data="chartData" :options="chartOptions" />
+            </div>
           </div>
         </template>
-      </div>
-
-      <ConfirmRefaturarDialog
-        :aberto="dialogRefaturarAberto"
-        :competencia-label="competenciaLabel"
-        :atual="dadosLancamento"
-        :novo="novoLancamento"
-        @confirmar="executarFaturamento"
-        @cancelar="dialogRefaturarAberto = false"
-      />
+      </SectionCard>
     </template>
+
+    <!-- Modal de Apuração (blueprint §4): inputs → preview → auditoria →
+         confirmar/refaturar/PDF. Abre na competência selecionada ou na linha
+         pendente; ao confirmar recarrega o ano e fecha. -->
+    <ApurarMesModal
+      v-if="usina"
+      :aberto="apuracaoModalAberto"
+      :usina="usina"
+      :ano="ano"
+      :mes="apuracaoMes"
+      :geracao-cadastrada="apuracaoGeracaoCadastrada"
+      :inputs-salvos="apuracaoInputsSalvos"
+      :modo-refaturar="apuracaoMesFaturado"
+      :parametros-auditoria="parametrosAuditoria"
+      @confirmado="aoConfirmarApuracao"
+      @fechar="fecharApuracao"
+    />
   </div>
 </template>
 
 <style scoped>
-.faturar {
-  font-family: var(--font-body);
-  color: var(--color-ink);
-}
-
-/* ---------- Nível 1 ---------- */
-.faturar__selecao {
-  max-width: 640px;
-  margin: var(--space-9) auto;
-  padding: 0 var(--space-5);
-}
-
-.faturar__selecao-texto {
-  margin: 0 0 var(--space-4);
-  font-size: var(--fs-sm);
-  color: var(--color-graphite);
-}
-
-/* ---------- Nível 2 ---------- */
-.faturar__workspace {
+.workspace {
   max-width: var(--max-w-app);
   margin: 0 auto;
   padding: var(--space-6) var(--space-5) var(--space-10);
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-7);
+  font-family: var(--font-body);
+  color: var(--color-ink);
 }
 
 /* ---------- Estados de carga/erro ---------- */
-.faturar__carregando {
+.workspace__carregando {
   margin: 0;
   padding: var(--space-4) 0;
   font-size: var(--fs-sm);
   color: var(--color-slate);
 }
 
-.faturar__erro {
+.workspace__erro {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1124,111 +927,165 @@ function aoNavegarAbas(evento) {
   border-radius: var(--radius-md);
 }
 
-.faturar__erro p {
+.workspace__erro--inline {
+  margin-top: var(--space-5);
+}
+
+.workspace__erro p {
   margin: 0;
   font-size: var(--fs-sm);
   color: var(--color-danger);
 }
 
-/* ---------- Abas ---------- */
-.faturar__tabs {
-  display: flex;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--color-mist);
-}
-
-.faturar__tab {
-  border: none;
-  background: transparent;
-  padding: var(--space-3) var(--space-4);
-  font-family: var(--font-body);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-bold);
-  color: var(--color-graphite);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  cursor: pointer;
-  transition:
-    color var(--dur-hover) var(--ease-standard),
-    border-color var(--dur-hover) var(--ease-standard);
-}
-
-.faturar__tab:hover {
-  color: var(--color-primary-deep);
-}
-
-.faturar__tab:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-  border-radius: var(--radius-sm);
-}
-
-.faturar__tab--ativa {
-  color: var(--color-primary-deep);
-  border-bottom-color: var(--color-primary);
-}
-
-.faturar__painel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-/* ---------- Apuração ---------- */
-.faturar__aviso-refaturamento {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-5);
-  background: var(--color-warning-soft);
-  border-radius: var(--radius-md);
-  font-size: var(--fs-sm);
-  color: var(--color-graphite);
-}
-
-.faturar__campos {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-5);
-  margin-bottom: var(--space-5);
-}
-
-.faturar__preview {
-  margin-bottom: var(--space-5);
-}
-
-.faturar__rodape-card {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  margin-top: var(--space-6);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--color-mist);
-}
-
-/* ---------- Expectativa ---------- */
-.faturar__explicacao {
+.workspace__explicacao {
   margin: 0 0 var(--space-4);
   font-size: var(--fs-sm);
   color: var(--color-graphite);
 }
 
-.faturar__menor-geracao {
-  color: var(--color-danger);
+/* ---------- 1) Hero ---------- */
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-5) var(--space-6);
+  background: var(--color-paper);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}
+
+.hero__identidade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.hero__eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--fs-eyebrow);
   font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-primary-deep);
 }
 
-.faturar__grafico {
-  width: 100%;
-  height: 380px;
-  margin-top: var(--space-6);
+.hero__nome {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-h3, 24px);
+  font-weight: 800;
+  line-height: var(--lh-snug);
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
 }
 
-/* ---------- Histórico ---------- */
-.faturar__detalhes-toggle {
+.hero__subtitulo {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  color: var(--color-slate);
+}
+
+.hero__lado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.hero__chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-linen);
+  border: 1px solid var(--color-mist);
+  border-radius: var(--radius-md);
+  min-width: 96px;
+}
+
+.hero__chip-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-slate);
+  white-space: nowrap;
+}
+
+.hero__chip-valor {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+/* ---------- 2) Stat-cards ---------- */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-5);
+}
+
+.stat-grid__card {
+  background: var(--color-paper);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+}
+
+/* Único card colorido da tela (grad-sun com parcimônia). */
+.stat-grid__card--destaque {
+  background: var(--grad-sun);
+}
+
+.stat-grid__card--destaque :deep(.stat-value__label),
+.stat-grid__card--destaque :deep(.stat-value__valor) {
+  color: var(--color-ink);
+}
+
+/* ---------- 3) Apuração ---------- */
+.apuracao__lancamento {
+  margin-top: var(--space-5);
+}
+
+.apuracao__pendente {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  background: var(--color-linen);
+  border-radius: var(--radius-lg);
+}
+
+.apuracao__pendente-texto {
+  margin: 0;
+  max-width: 52ch;
+  font-size: var(--fs-sm);
+  color: var(--color-graphite);
+}
+
+/* ---------- 4) Histórico ---------- */
+.historico__detalhes-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1241,30 +1098,34 @@ function aoNavegarAbas(evento) {
   cursor: pointer;
 }
 
-.faturar__detalhes-toggle:hover {
+.historico__detalhes-toggle:hover {
   color: var(--color-primary-deep);
 }
 
-.faturar__detalhes-toggle:focus-visible {
+.historico__detalhes-toggle:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);
 }
 
-.faturar__detalhes-chevron {
+.historico__chevron {
   transition: transform var(--dur-hover) var(--ease-standard);
 }
 
-.faturar__detalhes-chevron--aberto {
+.historico__chevron--aberto {
   transform: rotate(90deg);
 }
 
-.faturar__detalhes-lancamento {
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-linen);
+.historico__detalhes {
+  padding: var(--space-4);
+  background: var(--color-paper);
+  border: 1px solid var(--color-mist);
   border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.faturar__detalhes-titulo {
+.historico__detalhes-titulo {
   margin: 0 0 var(--space-3);
   font-size: var(--fs-xs);
   font-weight: var(--fw-bold);
@@ -1273,20 +1134,20 @@ function aoNavegarAbas(evento) {
   color: var(--color-graphite);
 }
 
-.faturar__detalhes-pares {
+.historico__detalhes-pares {
   margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-4);
 }
 
-.faturar__detalhes-par {
+.historico__detalhes-par {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.faturar__detalhes-par dt {
+.historico__detalhes-par dt {
   font-size: var(--fs-xs);
   font-weight: var(--fw-bold);
   text-transform: uppercase;
@@ -1294,7 +1155,7 @@ function aoNavegarAbas(evento) {
   color: var(--color-slate);
 }
 
-.faturar__detalhes-par dd {
+.historico__detalhes-par dd {
   margin: 0;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -1303,18 +1164,21 @@ function aoNavegarAbas(evento) {
   color: var(--color-ink);
 }
 
-.faturar__acao-bloqueada {
+.historico__acao-bloqueada {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   color: var(--color-smoke);
   cursor: help;
 }
 
-.faturar__trilha {
+.historico__trilha {
   margin-top: var(--space-5);
   border: 1px solid var(--color-mist);
   border-radius: var(--radius-md);
 }
 
-.faturar__trilha-summary {
+.historico__trilha-summary {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -1327,33 +1191,82 @@ function aoNavegarAbas(evento) {
   border-radius: var(--radius-md);
 }
 
-.faturar__trilha-summary::-webkit-details-marker {
+.historico__trilha-summary::-webkit-details-marker {
   display: none;
 }
 
-.faturar__trilha-summary:focus-visible {
+.historico__trilha-summary:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);
 }
 
-.faturar__trilha-chevron {
+.historico__trilha-chevron {
   flex: none;
   color: var(--color-slate);
   transition: transform var(--dur-hover) var(--ease-standard);
 }
 
-.faturar__trilha[open] > .faturar__trilha-summary .faturar__trilha-chevron {
+.historico__trilha[open] > .historico__trilha-summary .historico__trilha-chevron {
   transform: rotate(90deg);
 }
 
-.faturar__trilha-conteudo {
+.historico__trilha-conteudo {
   padding: 0 var(--space-4) var(--space-4);
 }
 
+/* ---------- 5) Expectativa ---------- */
+.expectativa__resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-mist);
+}
+
+.expectativa__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.expectativa__tabela {
+  min-width: 0;
+}
+
+.expectativa__grafico {
+  width: 100%;
+  height: 360px;
+}
+
+.expectativa__mes--corrente {
+  display: inline-block;
+  font-weight: var(--fw-bold);
+  border-left: 2px solid var(--color-primary);
+  padding-left: var(--space-2);
+  margin-left: calc(-1 * var(--space-2));
+}
+
+.expectativa__menor {
+  color: var(--color-danger);
+  font-weight: var(--fw-bold);
+}
+
+@media (max-width: 1024px) {
+  .expectativa__grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Gráfico primeiro quando empilha (<1024px). */
+  .expectativa__grafico {
+    order: -1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .faturar__tab,
-  .faturar__trilha-chevron,
-  .faturar__detalhes-chevron {
+  .historico__chevron,
+  .historico__trilha-chevron {
     transition: none;
   }
 }
