@@ -372,7 +372,6 @@ body.compact .extra{display:none}
 .bar.neg{background:#dc2626} .bar.pos{background:#2563eb}
 .barwrap span{position:relative}
 details:target{outline:2px solid #d97706;outline-offset:2px}
-table.sticky thead th{position:sticky;top:42px;z-index:10}
 a.uclink{color:#2563eb;text-decoration:none;font-weight:600} a.uclink:hover{text-decoration:underline}
 </style></head><body class="compact"><div class="wrap">
 <nav class="topnav">
@@ -403,7 +402,7 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 (<code>geracao_faturamento_pdf</code>) para parte dos meses; as maiores correções de crédito caem em meses recentes não cobertos lá.</p>
 
 <h2 id="tipos">Por tipo de erro</h2>
-<table class="sticky"><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Quem perde</th></tr></thead><tbody>
+<table><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Quem perde</th></tr></thead><tbody>
 <?php foreach ($porTipo as $tipo=>$x): ?>
 <tr><td><?=$badge($tipo)?></td><td class="num"><?=$x['n']?></td>
 <td class="num <?=$x['soma']<0?'neg':'pos'?>">R$ <?=$fmt($x['soma'])?></td>
@@ -421,7 +420,7 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 <h2 id="usinas">Resumo por usina</h2>
 <p class="legenda">Clique na UC para abrir o drill-down completo da usina. Barra = proporção do impacto.</p>
 <?php $maxAbs = max(array_map(fn($x)=>abs($x['diff']), $porUsina) ?: [1]); ?>
-<table class="sticky"><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Proporção</th></tr></thead><tbody>
+<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Proporção</th></tr></thead><tbody>
 <?php foreach ($porUsina as $uc=>$x): $pctBar = $maxAbs>0 ? round(abs($x['diff'])/$maxAbs*100) : 0; ?>
 <tr><td><a class="uclink" href="#u-<?=htmlspecialchars($uc)?>" onclick="abrirUsina('u-<?=htmlspecialchars($uc)?>')"><?=htmlspecialchars($uc)?></a></td>
 <td><?=htmlspecialchars($x['cliente'])?></td>

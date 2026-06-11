@@ -43,7 +43,6 @@ body.compact .extra{display:none}
 .bar.neg{background:#dc2626} .bar.pos{background:#2563eb}
 .barwrap span{position:relative}
 details:target{outline:2px solid #d97706;outline-offset:2px}
-table.sticky thead th{position:sticky;top:42px;z-index:10}
 a.uclink{color:#2563eb;text-decoration:none;font-weight:600} a.uclink:hover{text-decoration:underline}
 </style></head><body class="compact"><div class="wrap">
 <nav class="topnav">
@@ -73,7 +72,7 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 (<code>geracao_faturamento_pdf</code>) para parte dos meses; as maiores correções de crédito caem em meses recentes não cobertos lá.</p>
 
 <h2 id="tipos">Por tipo de erro</h2>
-<table class="sticky"><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Quem perde</th></tr></thead><tbody>
+<table><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Quem perde</th></tr></thead><tbody>
 <tr><td><span class="bdg" style="background:#dc2626" title="Geração líquida ≥ média: não faltava energia, mas o sistema creditou. Prejuízo ao consórcio.">Crédito sem déficit</span></td><td class="num">43</td>
 <td class="num neg">R$ -63.115,34</td>
 <td class="muted" style="font-size:11.5px">Consórcio (creditou a mais)</td></tr>
@@ -97,7 +96,7 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 
 <h2 id="usinas">Resumo por usina</h2>
 <p class="legenda">Clique na UC para abrir o drill-down completo da usina. Barra = proporção do impacto.</p>
-<table class="sticky"><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Proporção</th></tr></thead><tbody>
+<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Proporção</th></tr></thead><tbody>
 <tr><td><a class="uclink" href="#u-24969592" onclick="abrirUsina('u-24969592')">24969592</a></td>
 <td>Floresta Material de Construção e Artefatos Ltda</td>
 <td class="num">5</td>
@@ -10962,7 +10961,7 @@ Déficit sem reserva disponível é pago à concessionária (não vira crédito)
 <td>Sem desconto de rede aplicável (assume 0). —</td></tr>
 </tbody></table>
 
-<p class="legenda right">Gerado em 11/06/2026 18:45 · fonte: cópia do banco de produção ·
+<p class="legenda right">Gerado em 11/06/2026 18:49 · fonte: cópia do banco de produção ·
 motor de domínio único · energia em kWh · valores financeiros em R$</p>
 </div>
 <script>
