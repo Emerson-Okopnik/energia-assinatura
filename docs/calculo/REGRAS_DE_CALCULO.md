@@ -238,5 +238,11 @@ Usados como oráculo nos testes automatizados:
 
 ## Changelog
 
+- **1.1** (2026-06-11) — Implementação concluída (Fases 0-7). Cálculo unificado numa fonte única
+  (`App\Domain\Faturamento\CalculadoraGeracaoLinear`); ledger `credito_ledger` com expiração; precisão decimal;
+  frontend e PDF apenas leem; save e preview no mesmo motor (engine antigo removido). Esclarecida a expiração
+  (paga indo pra frente, perde no backfill retroativo) e a inexistência de saldos iniciais migrados (reserva
+  sempre nasce em 0). Relatório de consolidação em `storage/reconstrucao/RELATORIO_FINAL.md` e antes×depois em
+  `relatorio.html` (impacto −R$ 65.265 creditados a mais). 61 testes verdes.
 - **1.0** (2026-06-11) — Versão inicial. Formaliza fórmula de 4 termos, FIFO cross-ano, expiração→receita (180 dias),
   ledger de auditoria, precisão decimal, geração líquida no backend. Baseada na investigação em `storage/CALCULO_CONTEXTO.md`.
