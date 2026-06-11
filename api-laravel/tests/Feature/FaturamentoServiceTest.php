@@ -227,6 +227,42 @@ class FaturamentoServiceTest extends TestCase
         $this->assertSame($apos1, $apos2, '2x o mesmo mês não duplica lançamentos no ledger.');
     }
 
+    public function test_mes_usa_reserva_no_inicio_do_mes_nao_o_saldo_atual(): void
+    {
+        // Regressão: calcular um mês deve usar a reserva COMO ESTAVA no início dele,
+        // não o saldo total atual (que já reflete o consumo de meses posteriores).
+        $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');
+        $usiId = (int) $usina->usi_id;
+
+        // Abril: geração alta (12000) -> guarda excedente 2000 na reserva.
+        $this->service()->calcularMes(
+            $usina, 2026, 4,
+            ['geracao_bruta_kwh' => 12000, 'consumo' => 0, 'fatura_energia' => 0],
+            persistir: true, userId: $this->userId, idempotencyKey: 'abr'
+        );
+
+        // Maio: geração baixa (8000, faltante 2000) -> consome os 2000 de abril.
+        $this->service()->calcularMes(
+            $usina, 2026, 5,
+            ['geracao_bruta_kwh' => 8000, 'consumo' => 0, 'fatura_energia' => 0],
+            persistir: true, userId: $this->userId, idempotencyKey: 'mai'
+        );
+
+        // Saldo TOTAL atual agora é 0 (abril guardou 2000, maio consumiu 2000).
+        $this->assertEqualsWithDelta(0.0, (float) CreditoLedger::where('usi_id', $usiId)->sum('kwh'), 0.001);
+
+        // PREVIEW de maio de novo: deve usar a reserva NO INÍCIO de maio (2000 de abril),
+        // creditando 2000 × 0,50 = R$ 1.000 — NÃO zero (que seria o saldo total atual).
+        $preview = $this->service()->calcularMes(
+            $usina, 2026, 5,
+            ['geracao_bruta_kwh' => 8000, 'consumo' => 0, 'fatura_energia' => 0],
+            persistir: false
+        );
+
+        $this->assertEqualsWithDelta(1000.0, $preview->resultado->credito->emReais(), 0.001,
+            'Maio deve creditar contra a reserva do início do mês (2000 de abril), não o saldo total (0).');
+    }
+
     public function test_recalculo_que_reduz_lancamentos_nao_deixa_orfaos(): void
     {
         $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');

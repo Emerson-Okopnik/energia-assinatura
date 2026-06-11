@@ -88,7 +88,10 @@ final class FaturamentoService
         [$entrada, $consumoKwh, $rede, $descontoKwh] =
             $this->montarEntrada($usina, $competencia, $mesNome, $input);
 
-        $lotes = $this->ledger->lotesEmAbertoDaUsina((int) $usina->usi_id);
+        // Reserva NO INÍCIO deste mês (ponto no tempo) — não o saldo total atual.
+        // Garante que calcular/recalcular um mês use o estado correto da reserva,
+        // independente da ordem em que os meses foram processados.
+        $lotes = $this->ledger->lotesEmAbertoNoInicioDe((int) $usina->usi_id, $competencia);
         $saldoAntes = $this->somarLotes($lotes);
 
         $resultado = $this->calculadora->calcular($entrada, $lotes);
@@ -360,8 +363,10 @@ final class FaturamentoService
         // quando um recálculo produz menos lançamentos (ex.: CREDITO vira CONSUMO),
         // o que deixaria a coluna materializada divergente do saldo real do ledger.
         // Re-rodar o mesmo mês fica idempotente: remove o anterior e grava o atual.
+        // whereDate: a coluna é cast 'date' (armazenada como datetime), então comparar
+        // só a parte da data garante o match independente do formato de armazenamento.
         CreditoLedger::where('usi_id', $usiId)
-            ->where('competencia_evento', $this->data($evento))
+            ->whereDate('competencia_evento', $this->data($evento))
             ->delete();
 
         // 1) CREDITO do mês (entrada) — gravado primeiro para que consumos/expirações

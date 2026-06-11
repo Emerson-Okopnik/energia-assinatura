@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Faturamento\Contracts;
 
 use App\Domain\Faturamento\Ledger\LoteReserva;
+use App\Domain\Faturamento\ValueObject\Competencia;
 
 /**
  * Porta de persistência do ledger de reserva (DIP — REGRAS_DE_CALCULO.md §8).
@@ -36,6 +37,19 @@ interface LedgerRepository
      * @return LoteReserva[]
      */
     public function lotesEmAbertoDaUsina(int $usiId): array;
+
+    /**
+     * Lotes de reserva em aberto NO INÍCIO de uma competência (ponto no tempo).
+     *
+     * Diferente de {@see lotesEmAbertoDaUsina} (saldo total atual), considera
+     * apenas o estado da reserva ANTES do mês informado: créditos de origem
+     * anterior, menos consumos/expirações ocorridos antes do mês. Essencial para
+     * calcular/recalcular um mês específico de forma consistente, independente da
+     * ordem em que os meses são processados (REGRAS_DE_CALCULO.md §6).
+     *
+     * @return LoteReserva[]
+     */
+    public function lotesEmAbertoNoInicioDe(int $usiId, Competencia $competencia): array;
 
     /**
      * Marca lançamentos como estornados (não destrutivo — REGRAS_DE_CALCULO.md §10).

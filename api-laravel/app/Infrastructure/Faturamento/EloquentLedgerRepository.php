@@ -46,12 +46,46 @@ final class EloquentLedgerRepository implements LedgerRepository
 
     public function lotesEmAbertoDaUsina(int $usiId): array
     {
-        // Saldo por origem = soma dos kwh não-estornados (entradas e saídas)
-        // agrupados pela competência de origem. Vencimento = o mais cedo gravado
-        // entre as linhas da origem (CREDITO/SALDO_INICIAL definem o vencimento).
-        $linhas = CreditoLedger::query()
+        // Saldo TOTAL atual por origem (todos os lançamentos não-estornados).
+        $query = CreditoLedger::query()
+            ->doUsina($usiId)
+            ->naoEstornado();
+
+        return $this->montarLotes($query);
+    }
+
+    public function lotesEmAbertoNoInicioDe(int $usiId, Competencia $competencia): array
+    {
+        $inicioMes = sprintf('%04d-%02d-01', $competencia->ano, $competencia->mes);
+
+        // Reserva como estava ANTES do mês: créditos de origem anterior, menos
+        // consumos/expirações que ocorreram (evento) antes do mês. Lançamentos do
+        // próprio mês (ou futuros) não entram — assim cada mês é calculado contra o
+        // estado correto da reserva, independente da ordem de processamento.
+        $query = CreditoLedger::query()
             ->doUsina($usiId)
             ->naoEstornado()
+            ->where('competencia_origem', '<', $inicioMes)
+            ->where(function ($q) use ($inicioMes): void {
+                $q->whereIn('tipo', [
+                    CreditoLedger::TIPO_CREDITO,
+                    CreditoLedger::TIPO_SALDO_INICIAL,
+                ])->orWhere('competencia_evento', '<', $inicioMes);
+            });
+
+        return $this->montarLotes($query);
+    }
+
+    /**
+     * Agrupa por origem, soma os kwh, descarta saldo <= 0 e monta os LoteReserva.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     *
+     * @return LoteReserva[]
+     */
+    private function montarLotes($query): array
+    {
+        $linhas = $query
             ->selectRaw('competencia_origem')
             ->selectRaw('SUM(kwh) as saldo_kwh')
             ->selectRaw('MIN(vencimento) as vencimento')
