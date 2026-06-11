@@ -260,7 +260,6 @@ if ($ucFiltro) {
 echo "=== RESUMO ===\n";
 echo "Usinas analisadas: ".count($usinas)." | com divergência: ".count($usinasAfetadas)."\n";
 echo "Linhas divergentes: ".count($linhas)."\n";
-echo "Usinas migradas (saldo inicial): ".count($dq['saldo_inicial'])."\n";
 $impactoCredito = array_sum(array_map(fn($l)=>$l['diff'], $linhas));
 printf("Impacto líquido no crédito (cobertura completa): R\$ %s\n", number_format($impactoCredito,2,',','.'));
 printf("Impacto no valor final (PARCIAL, só meses com PDF): R\$ %s\n", number_format($totDiffFinal,2,',','.'));
@@ -293,21 +292,38 @@ foreach ($linhas as $l) {
 uasort($porUsina, fn($a,$b)=>$a['diff']<=>$b['diff']);
 
 $fmt = fn($v)=>number_format((float)$v, 2, ',', '.');
-$fk  = fn($v)=>number_format((float)$v, 2, ',', '.'); // kWh
+$fk  = fn($v)=>number_format((float)$v, 0, ',', '.'); // kWh inteiro (geração é sempre inteira)
+// competência ISO "2025-12" -> "Dez/25" (consistente com o resto do relatório)
+$fcomp = fn(string $iso)=>$MES_LABEL[(int)substr($iso,5,2)].'/'.substr($iso,2,2);
 $cores = ['Crédito sem déficit'=>'#dc2626','Creditou além do déficit'=>'#ea580c',
     'Creditou além da reserva'=>'#d97706','Creditou a menos (FIFO não usou reserva antiga)'=>'#2563eb',
     'Divergência de valor'=>'#6b7280'];
-$badge = function($tipo) use ($cores) {
+// rótulo curto no badge; explicação completa no tooltip (title)
+$rotuloCurto = ['Creditou a menos (FIFO não usou reserva antiga)'=>'Creditou a menos'];
+$explicacao = [
+    'Crédito sem déficit'=>'Geração líquida ≥ média: não faltava energia, mas o sistema creditou. Prejuízo ao consórcio.',
+    'Creditou além do déficit'=>'Creditou mais do que o necessário para atingir a média. Prejuízo ao consórcio.',
+    'Creditou além da reserva'=>'Creditou energia que não estava guardada na reserva. Prejuízo ao consórcio.',
+    'Creditou a menos (FIFO não usou reserva antiga)'=>'Havia reserva antiga disponível que o sistema não usou. Prejuízo ao cliente.',
+    'Divergência de valor'=>'Valores divergem sem se encaixar nos padrões acima.',
+];
+$badge = function($tipo) use ($cores, $rotuloCurto, $explicacao) {
     if ($tipo === null) { return '<span class="ok">ok</span>'; }
     $cor = $cores[$tipo] ?? '#6b7280';
-    return "<span class=\"bdg\" style=\"background:$cor\">".htmlspecialchars($tipo)."</span>";
+    $rotulo = $rotuloCurto[$tipo] ?? $tipo;
+    $tip = htmlspecialchars($explicacao[$tipo] ?? $tipo);
+    return "<span class=\"bdg\" style=\"background:$cor\" title=\"$tip\">".htmlspecialchars($rotulo)."</span>";
 };
-// diff financeiro formatado e em R$
-$diffCell = function($a, $b) use ($fmt) {
-    if ($a === null) { return '<td class="num muted">—</td><td class="num">R$ '.$fmt($b).'</td><td class="num muted">—</td>'; }
+// trio A/D/Δ: Δ=0 vira "—" (menos ruído); $extra marca colunas ocultáveis; $grp abre grupo visual
+$diffCell = function($a, $b, bool $extra = false, bool $grp = true) use ($fmt) {
+    $cx = ($extra ? ' extra' : '').($grp ? ' grp' : '');
+    if ($a === null) {
+        return '<td class="num muted'.$cx.'">—</td><td class="num'.($extra?' extra':'').'">R$ '.$fmt($b).'</td><td class="num muted'.($extra?' extra':'').'">—</td>';
+    }
     $d = round($b - $a, 2);
-    $cls = abs($d) < 0.01 ? 'muted' : ($d < 0 ? 'neg' : 'pos');
-    return '<td class="num muted">R$ '.$fmt($a).'</td><td class="num">R$ '.$fmt($b).'</td><td class="num '.$cls.'">R$ '.$fmt($d).'</td>';
+    $dTxt = abs($d) < 0.01 ? '<span class="muted">—</span>' : 'R$ '.$fmt($d);
+    $cls = abs($d) < 0.01 ? '' : ($d < 0 ? ' neg' : ' pos');
+    return '<td class="num muted'.$cx.'">R$ '.$fmt($a).'</td><td class="num'.($extra?' extra':'').'">R$ '.$fmt($b).'</td><td class="num'.$cls.($extra?' extra':'').'">'.$dTxt.'</td>';
 };
 
 ob_start(); ?>
@@ -343,10 +359,37 @@ summary .meta{font-weight:400;color:#64748b;font-size:12.5px}
 .sub2{font-size:12px;color:#64748b;margin:2px 0 10px}
 .led{font-size:11.5px;color:#475569} .led b{color:#0f172a}
 .scroll{overflow-x:auto}
-</style></head><body><div class="wrap">
-<h1>Auditoria de Crédito de Geração — Antes × Depois <span style="font-size:14px;color:#64748b">(detalhado)</span></h1>
-<p class="sub">Reconstrução pelo motor de cálculo único (geração líquida §9, FIFO cross-ano §6, expiração §7,
-saldo inicial migrado §12). ANTES = sistema; DEPOIS = regra correta. Gerado de cópia fiel do banco de produção.</p>
+.veredito{background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #d97706;border-radius:10px;padding:14px 18px;margin:0 0 20px;font-size:14.5px;line-height:1.6}
+.topnav{position:sticky;top:0;z-index:50;background:rgba(248,250,252,.95);backdrop-filter:blur(4px);border-bottom:1px solid #e2e8f0;margin:0 -32px 20px;padding:10px 32px;display:flex;gap:18px;font-size:13px}
+.topnav a{color:#475569;text-decoration:none;font-weight:500} .topnav a:hover{color:#0f172a}
+.grp{border-left:2px solid #e2e8f0}
+body.compact .extra{display:none}
+.toolbar{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap;align-items:center}
+.toolbar button{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer;color:#334155}
+.toolbar button:hover{background:#f1f5f9}
+.contador{font-size:12px;color:#64748b;margin-left:auto}
+.barwrap{position:relative;min-width:120px} .bar{position:absolute;inset:2px auto 2px 0;border-radius:3px;opacity:.15}
+.bar.neg{background:#dc2626} .bar.pos{background:#2563eb}
+.barwrap span{position:relative}
+details:target{outline:2px solid #d97706;outline-offset:2px}
+table.sticky thead th{position:sticky;top:42px;z-index:10}
+a.uclink{color:#2563eb;text-decoration:none;font-weight:600} a.uclink:hover{text-decoration:underline}
+</style></head><body class="compact"><div class="wrap">
+<nav class="topnav">
+<a href="#visao">Visão geral</a><a href="#tipos">Tipos de erro</a><a href="#usinas">Por usina</a>
+<a href="#detalhe">Divergências</a><a href="#drill">Drill-down</a><a href="#qualidade">Qualidade de dados</a>
+</nav>
+<h1 id="visao">Auditoria de Crédito de Geração — Antes × Depois <span style="font-size:14px;color:#64748b">(detalhado)</span></h1>
+<p class="sub">Reconstrução pelo motor de cálculo único (geração líquida §9, FIFO cross-ano §6, expiração §7).
+Reserva reconstruída <b>do zero</b> a partir dos excedentes de geração — déficit sem reserva é pago à concessionária, não compensado.
+ANTES = sistema; DEPOIS = regra correta. Gerado de cópia fiel do banco de produção.</p>
+
+<?php $impactoLiq = $creditoAMenos - $creditoAMais; $tipoDominante = array_key_first($porTipo); ?>
+<div class="veredito">
+  <b>Veredito:</b> o sistema creditou <b>R$ <?=$fmt(abs($impactoLiq))?> <?=$impactoLiq<0?'a MAIS':'a MENOS'?></b> do que a regra correta permite,
+  em <b><?=$totAfetadas?> de <?=$totUsinas?></b> usinas (<?=count($linhas)?> meses divergentes).
+  Erro dominante: <?=$badge($tipoDominante)?> com R$ <?=$fmt($porTipo[$tipoDominante]['soma'] ?? 0)?>.
+</div>
 
 <div class="cards">
   <div class="card"><div class="lbl">Usinas analisadas</div><div class="val"><?=$totUsinas?></div></div>
@@ -359,31 +402,40 @@ saldo inicial migrado §12). ANTES = sistema; DEPOIS = regra correta. Gerado de 
 O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é parcial, pois só há demonstrativo persistido
 (<code>geracao_faturamento_pdf</code>) para parte dos meses; as maiores correções de crédito caem em meses recentes não cobertos lá.</p>
 
-<h2>Por tipo de erro</h2>
-<table><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th></tr></thead><tbody>
+<h2 id="tipos">Por tipo de erro</h2>
+<table class="sticky"><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Quem perde</th></tr></thead><tbody>
 <?php foreach ($porTipo as $tipo=>$x): ?>
 <tr><td><?=$badge($tipo)?></td><td class="num"><?=$x['n']?></td>
-<td class="num <?=$x['soma']<0?'neg':'pos'?>">R$ <?=$fmt($x['soma'])?></td></tr>
+<td class="num <?=$x['soma']<0?'neg':'pos'?>">R$ <?=$fmt($x['soma'])?></td>
+<td class="muted" style="font-size:11.5px"><?=$x['soma']<0?'Consórcio (creditou a mais)':'Cliente (creditou a menos)'?></td></tr>
 <?php endforeach; ?>
 </tbody></table>
 <p class="legenda">
 <b>Crédito sem déficit:</b> geração líquida ≥ média, não faltava energia, mas o sistema creditou.<br>
 <b>Creditou além do déficit:</b> creditou mais do que o necessário para atingir a média.<br>
 <b>Creditou além da reserva:</b> creditou energia que não estava guardada.<br>
-<b>Creditou a menos (FIFO):</b> havia reserva antiga (de anos anteriores) que não foi usada.
+<b>Creditou a menos:</b> havia reserva antiga (de anos anteriores) que não foi usada via FIFO.<br>
+<span class="neg">Vermelho</span> = creditado a mais (prejuízo ao consórcio) · <span class="pos">Azul</span> = creditado a menos (prejuízo ao cliente). Ambos são erros.
 </p>
 
-<h2>Resumo por usina</h2>
-<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th></tr></thead><tbody>
-<?php foreach ($porUsina as $uc=>$x): ?>
-<tr><td><?=htmlspecialchars($uc)?></td><td><?=htmlspecialchars($x['cliente'])?></td>
+<h2 id="usinas">Resumo por usina</h2>
+<p class="legenda">Clique na UC para abrir o drill-down completo da usina. Barra = proporção do impacto.</p>
+<?php $maxAbs = max(array_map(fn($x)=>abs($x['diff']), $porUsina) ?: [1]); ?>
+<table class="sticky"><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Proporção</th></tr></thead><tbody>
+<?php foreach ($porUsina as $uc=>$x): $pctBar = $maxAbs>0 ? round(abs($x['diff'])/$maxAbs*100) : 0; ?>
+<tr><td><a class="uclink" href="#u-<?=htmlspecialchars($uc)?>" onclick="abrirUsina('u-<?=htmlspecialchars($uc)?>')"><?=htmlspecialchars($uc)?></a></td>
+<td><?=htmlspecialchars($x['cliente'])?></td>
 <td class="num"><?=$x['casos']?></td>
-<td class="num <?=$x['diff']<0?'neg':'pos'?>">R$ <?=$fmt($x['diff'])?></td></tr>
+<td class="num <?=$x['diff']<0?'neg':'pos'?>">R$ <?=$fmt($x['diff'])?></td>
+<td class="barwrap"><div class="bar <?=$x['diff']<0?'neg':'pos'?>" style="width:<?=$pctBar?>%"></div></td></tr>
 <?php endforeach; ?>
 </tbody></table>
 
-<h2>Detalhe — divergências com transparência da geração líquida (<?=count($linhas)?>)</h2>
-<input id="busca" placeholder="🔎 Filtrar por UC, cliente, mês ou tipo de erro..." onkeyup="filtrar()">
+<h2 id="detalhe">Detalhe — divergências com transparência da geração líquida (<?=count($linhas)?>)</h2>
+<div class="toolbar">
+<input id="busca" style="margin:0;flex:1" placeholder="🔎 Filtrar por UC, cliente, mês ou tipo de erro (filtra também o drill-down)..." onkeyup="filtrar()">
+<span class="contador" id="contador">mostrando <?=count($linhas)?> de <?=count($linhas)?> divergências</span>
+</div>
 <div class="scroll">
 <table id="tab"><thead><tr>
 <th>UC</th><th>Cliente</th><th>Período</th>
@@ -411,12 +463,17 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 </tbody></table>
 </div>
 
-<h2>Drill-down por usina — 4 termos &amp; ledger FIFO</h2>
-<p class="legenda">As usinas com divergência abrem expandidas; as demais ficam recolhidas para auditoria sob demanda.
-Cada R$ de crédito é rastreável ao mês-origem consumido via FIFO.
+<h2 id="drill">Drill-down por usina — 4 termos &amp; ledger FIFO</h2>
+<p class="legenda">Cada R$ de crédito é rastreável ao mês-origem consumido via FIFO.
 Nos 4 termos: <b>A</b> = antes (sistema), <b>D</b> = depois (correto), <b>Δ</b> = diferença. Colunas <span class="muted">—</span>
 indicam meses sem demonstrativo persistido (o termo ANTES não existe no banco para comparar).
 O CUO DEPOIS reconcilia a <code>faturaEnergia</code> a partir do CUO ANTES, isolando o efeito em crédito/variável.</p>
+<div class="toolbar">
+<button onclick="expandir(true)">Expandir divergentes</button>
+<button onclick="expandir(false)">Expandir todas</button>
+<button onclick="recolher()">Recolher todas</button>
+<button id="btnTermos" onclick="alternarTermos()">Mostrar todos os termos</button>
+</div>
 <?php
 // ordena: divergentes primeiro (por impacto), depois as ok
 uasort($usinasReport, function($a,$b){
@@ -425,44 +482,42 @@ uasort($usinasReport, function($a,$b){
     return $a['diff_credito'] <=> $b['diff_credito'];
 });
 foreach ($usinasReport as $uc=>$ur):
-    $aberto = $ur['casos'] > 0 ? ' open' : '';
-    $tagMig = $ur['migrada'] ? ' <span class="tagm">saldo inicial</span>' : '';
 ?>
-<details<?=$aberto?>>
-<summary><span><?=htmlspecialchars($uc)?> · <?=htmlspecialchars($ur['cliente'])?><?=$tagMig?></span>
-<span class="meta"><?=$ur['casos']?> caso(s) · crédito Δ R$ <?=$fmt($ur['diff_credito'])?> · rede <?=htmlspecialchars($ur['rede']?:'—')?></span></summary>
+<details id="u-<?=htmlspecialchars($uc)?>" data-div="<?=$ur['casos']>0?1:0?>">
+<summary><span><?=htmlspecialchars($uc)?> · <?=htmlspecialchars($ur['cliente'])?></span>
+<span class="meta"><?=$ur['casos']>0 ? $ur['casos'].' caso(s) · crédito Δ <b class="'.($ur['diff_credito']<0?'neg':'pos').'">R$ '.$fmt($ur['diff_credito']).'</b>' : '<span class="ok">sem divergência</span>'?> · rede <?=htmlspecialchars($ur['rede']?:'—')?></span></summary>
 
 <h3>4 termos — Antes × Depois</h3>
 <div class="scroll">
 <table><thead><tr>
 <th>Período</th>
-<th class="right" colspan="3">Fixo (R$)</th>
-<th class="right" colspan="3">Variável (R$)</th>
-<th class="right" colspan="3">Crédito (R$)</th>
-<th class="right" colspan="3">CUO (R$)</th>
-<th class="right" colspan="3">Valor final (R$)</th>
+<th class="right extra grp" colspan="3">Fixo (R$)</th>
+<th class="right extra grp" colspan="3">Variável (R$)</th>
+<th class="right grp" colspan="3">Crédito (R$)</th>
+<th class="right extra grp" colspan="3">CUO (R$)</th>
+<th class="right grp" colspan="3">Valor final (R$)</th>
 </tr><tr>
 <th></th>
-<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
-<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
-<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
-<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
-<th class="right">A</th><th class="right">D</th><th class="right">Δ</th>
+<th class="right extra grp">A</th><th class="right extra">D</th><th class="right extra">Δ</th>
+<th class="right extra grp">A</th><th class="right extra">D</th><th class="right extra">Δ</th>
+<th class="right grp">A</th><th class="right">D</th><th class="right">Δ</th>
+<th class="right extra grp">A</th><th class="right extra">D</th><th class="right extra">Δ</th>
+<th class="right grp">A</th><th class="right">D</th><th class="right">Δ</th>
 </tr></thead><tbody>
 <?php foreach ($ur['timeline'] as $t): ?>
 <tr>
 <td><?=$MES_LABEL[$t['mes']]?>/<?=$t['ano']?></td>
-<?=$diffCell($t['fixoA'],$t['fixoD'])?>
-<?=$diffCell($t['varA'],$t['varD'])?>
+<?=$diffCell($t['fixoA'],$t['fixoD'],true)?>
+<?=$diffCell($t['varA'],$t['varD'],true)?>
 <?=$diffCell($t['credA'],$t['credD'])?>
-<?=$diffCell($t['cuoA'],$t['cuoD'])?>
+<?=$diffCell($t['cuoA'],$t['cuoD'],true)?>
 <?=$diffCell($t['finalA'],$t['finalD'])?>
 </tr>
 <?php endforeach; ?>
 </tbody></table>
 </div>
 
-<h3>Ledger da reserva (FIFO) &amp; geração líquida</h3>
+<h3>Ledger da reserva (FIFO) &amp; geração líquida <span class="muted" style="font-weight:400">— energia em kWh</span></h3>
 <div class="scroll">
 <table><thead><tr>
 <th>Período</th><th class="right">Bruta</th><th class="right">Consumo</th><th class="right">Desc. rede</th>
@@ -470,8 +525,8 @@ foreach ($usinasReport as $uc=>$ur):
 <th>Consumiu (origem→kWh)</th><th>Expirou</th><th class="right">Saldo reserva</th>
 </tr></thead><tbody>
 <?php foreach ($ur['timeline'] as $t):
-    $cons = $t['consumos'] ? implode(' · ', array_map(fn($c)=>$c['origem'].'→'.$fk($c['kwh']), $t['consumos'])) : '—';
-    $exp = $t['expirou'] ? implode(' · ', array_map(fn($e)=>$e['origem'].'→'.$fk($e['kwh']), $t['expirou'])) : '—';
+    $cons = $t['consumos'] ? implode(' · ', array_map(fn($c)=>'<b>'.$fcomp($c['origem']).'</b>→'.$fk($c['kwh']), $t['consumos'])) : '—';
+    $exp = $t['expirou'] ? implode(' · ', array_map(fn($e)=>'<b>'.$fcomp($e['origem']).'</b>→'.$fk($e['kwh']), $t['expirou'])) : '—';
 ?>
 <tr>
 <td><?=$MES_LABEL[$t['mes']]?>/<?=$t['ano']?></td>
@@ -491,35 +546,60 @@ foreach ($usinasReport as $uc=>$ur):
 </details>
 <?php endforeach; ?>
 
-<h2>Qualidade de dados &amp; saldos iniciais</h2>
+<h2 id="qualidade">Qualidade de dados</h2>
 <table><thead><tr><th>Item</th><th class="right">Qtde</th><th>Observação</th></tr></thead><tbody>
 <tr><td>Consumos duplicados (usina, ano)</td><td class="num"><?=$consumoDup?></td>
 <td>Resolvido pegando o registro mais recente (<code>updated_at</code>). O upsert do app deve passar a ser único por (usina, ano).</td></tr>
-<tr><td>Usinas com saldo inicial migrado</td><td class="num"><?=count($dq['saldo_inicial'])?></td>
-<td>Déficit histórico &gt; excedente: receberam lote <code>SALDO_INICIAL</code> (total da reserva do ano mais antigo). Conferir caso a caso.</td></tr>
+<tr><td>Saldo inicial migrado</td><td class="num">0</td>
+<td>Nenhum lote inicial é injetado: a reserva começa em zero e só cresce com excedentes reais de geração.
+Déficit sem reserva disponível é pago à concessionária (não vira crédito).</td></tr>
 <tr><td>Usinas sem tipo de rede</td><td class="num"><?=count($dq['sem_rede'])?></td>
 <td>Sem desconto de rede aplicável (assume 0). <?=$dq['sem_rede']?htmlspecialchars(implode(', ',$dq['sem_rede'])):'—'?></td></tr>
 </tbody></table>
-
-<?php if ($dq['saldo_inicial']): ?>
-<h3>Saldos iniciais injetados (conferência manual)</h3>
-<div class="scroll">
-<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Ano base</th><th class="right">Saldo inicial (kWh)</th></tr></thead><tbody>
-<?php foreach ($dq['saldo_inicial'] as $s): ?>
-<tr><td><?=htmlspecialchars($s['uc'])?></td><td><?=htmlspecialchars($s['cliente'])?></td>
-<td class="num"><?=$s['ano']?></td><td class="num"><?=$fk($s['kwh'])?></td></tr>
-<?php endforeach; ?>
-</tbody></table>
-</div>
-<?php endif; ?>
 
 <p class="legenda right">Gerado em <?=date('d/m/Y H:i')?> · fonte: cópia do banco de produção ·
 motor de domínio único · energia em kWh · valores financeiros em R$</p>
 </div>
 <script>
-function filtrar(){var q=document.getElementById('busca').value.toLowerCase();
-document.querySelectorAll('#tab tbody tr').forEach(function(tr){
-tr.style.display=tr.innerText.toLowerCase().includes(q)?'':'none';});}
+var totalLinhas = document.querySelectorAll('#tab tbody tr').length;
+function filtrar(){
+  var q = document.getElementById('busca').value.toLowerCase();
+  var visiveis = 0;
+  document.querySelectorAll('#tab tbody tr').forEach(function(tr){
+    var ok = tr.innerText.toLowerCase().includes(q);
+    tr.style.display = ok ? '' : 'none';
+    if (ok) visiveis++;
+  });
+  // filtra também o drill-down pelo cabeçalho (UC + cliente)
+  var usinasVis = 0, usinasTot = 0;
+  document.querySelectorAll('details[id^="u-"]').forEach(function(d){
+    usinasTot++;
+    var ok = !q || d.querySelector('summary').innerText.toLowerCase().includes(q);
+    d.style.display = ok ? '' : 'none';
+    if (ok) usinasVis++;
+  });
+  document.getElementById('contador').textContent =
+    'mostrando ' + visiveis + ' de ' + totalLinhas + ' divergências · ' + usinasVis + ' de ' + usinasTot + ' usinas';
+}
+function expandir(soDivergentes){
+  document.querySelectorAll('details[id^="u-"]').forEach(function(d){
+    if (soDivergentes) { d.open = d.dataset.div === '1'; } else { d.open = true; }
+  });
+}
+function recolher(){
+  document.querySelectorAll('details[id^="u-"]').forEach(function(d){ d.open = false; });
+}
+function alternarTermos(){
+  var compacto = document.body.classList.toggle('compact');
+  document.getElementById('btnTermos').textContent =
+    compacto ? 'Mostrar todos os termos' : 'Mostrar só Crédito e Valor final';
+}
+function abrirUsina(id){
+  var d = document.getElementById(id);
+  if (d) { d.open = true; }
+}
+// abre a usina se a página carregar com âncora #u-...
+if (location.hash && location.hash.indexOf('#u-') === 0) { abrirUsina(location.hash.slice(1)); }
 </script>
 </body></html>
 <?php
