@@ -4,31 +4,43 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Domain\Faturamento\Ledger\LoteReserva;
-use App\Domain\Faturamento\Ledger\MotorFifo;
-use App\Domain\Faturamento\Ledger\ServicoExpiracao;
+use App\Application\Faturamento\FaturamentoService;
 use App\Domain\Faturamento\ValueObject\Competencia;
-use App\Domain\Faturamento\ValueObject\Kwh;
-use App\Domain\Faturamento\ValueObject\Tarifa;
 use App\Models\CreditoLedger;
+use App\Models\Usina;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Fase 3 — BACKFILL do ledger de reserva (REGRAS_DE_CALCULO.md §6, §7, §8, §12).
  *
- * Reconstrói o {@see CreditoLedger} de cada usina a partir da GERAÇÃO REAL mês a
- * mês (não dos saldos atuais, que estão corrompidos — §12), replicando a regra
- * canônica: excedente vira CREDITO; déficit consome a reserva via FIFO cross-ano
- * ({@see MotorFifo}); o que sobra e vence vira EXPIRACAO ({@see ServicoExpiracao}).
+ * RE-MATERIALIZA, por usina e por mês em ordem CRONOLÓGICA, o estado completo de
+ * faturamento a partir da GERAÇÃO REAL (não dos saldos atuais, que estão
+ * corrompidos — §12), delegando ao MESMO motor que a tela usa em preview/save:
+ * {@see FaturamentoService::calcularMes} com `persistir: true`.
  *
- * As 21 usinas com déficit histórico maior que o excedente (saldo migrado, §12)
- * recebem um lançamento SALDO_INICIAL de abertura, detectado em dois passes: o
- * primeiro mede o déficit não atendido; o segundo re-roda o replay já com o lote
- * de abertura, para que os CONSUMO referenciem corretamente esse saldo.
+ * Por que delegar (DRY, P1): o backfill antigo escrevia SÓ no `credito_ledger`,
+ * deixando as colunas materializadas que a tela lê (`creditos_distribuidos.<mes>`,
+ * `faturamento_usina.<mes>`, `valor_acumulado_reserva.<mes>`/`.total`) com o dado
+ * antigo/buggado de produção — 65% das usinas divergiam do que o motor calcula.
+ * Como `calcularMes` grava, na MESMA transação, o ledger + as colunas materializadas
+ * + o cache de PDF a partir do resultado único do motor, reconstruir por aqui faz
+ * as colunas ficarem IDÊNTICAS ao preview/projeção, eliminando a divergência.
  *
- * Esta classe é a camada de APLICAÇÃO: orquestra Eloquent + núcleo de domínio.
- * O domínio (app/Domain) permanece PURO — aqui ele é só consumido.
+ * Garantias de correção:
+ *   - Ordem cronológica + `lotesEmAbertoNoInicioDe` (reserva ponto-no-tempo lida do
+ *     ledger): cada mês é calculado contra o estado correto da reserva, montado pelos
+ *     meses anteriores já persistidos nesta mesma rodada.
+ *   - Idempotência: `calcularMes` limpa os lançamentos do evento e faz updateOrCreate
+ *     por competência nas colunas/cache — re-rodar produz o mesmo estado.
+ *   - Mês sem geração (0/null) NÃO escreve nada (não entra na timeline).
+ *
+ * Entradas por mês: geracao_bruta de `dados_geracao_real` (timeline); consumo de
+ * `dados_consumo_usina` (dedup mais recente, resolvido dentro do FaturamentoService);
+ * fatura_energia = 0 — o histórico não tem fatura real, então a parcela de fatura é
+ * neutra no backfill (a tela permite reabrir o mês e informá-la depois, §9).
+ *
+ * Esta classe é a camada de APLICAÇÃO: orquestra Eloquent + serviço de aplicação.
  */
 final class ReconstruirLedgerReserva extends Command
 {
@@ -49,8 +61,7 @@ final class ReconstruirLedgerReserva extends Command
     ];
 
     public function __construct(
-        private readonly MotorFifo $motorFifo = new MotorFifo(),
-        private readonly ServicoExpiracao $servicoExpiracao = new ServicoExpiracao(),
+        private readonly FaturamentoService $faturamento,
     ) {
         parent::__construct();
     }
@@ -94,7 +105,13 @@ final class ReconstruirLedgerReserva extends Command
     }
 
     /**
-     * Reconstrói uma usina e devolve a linha de reconciliação.
+     * Reconstrói uma usina RE-MATERIALIZANDO ledger + colunas via FaturamentoService.
+     *
+     * Itera a timeline em ordem cronológica e, para cada mês com geração, chama
+     * {@see FaturamentoService::calcularMes} com `persistir: true`. Cada chamada lê a
+     * reserva ponto-no-tempo do ledger (montada pelos meses já processados nesta
+     * rodada) e grava, na mesma transação, ledger + colunas materializadas + cache
+     * PDF — exatamente o que a tela lê. Assim as colunas ficam idênticas ao motor.
      *
      * @param object $usina linha com usi_id, uc, cliente, valor_kwh, media, menor_geracao
      *
@@ -103,8 +120,6 @@ final class ReconstruirLedgerReserva extends Command
     private function reconstruirUsina(object $usina, bool $dryRun): array
     {
         $usiId = (int) $usina->usi_id;
-        $media = (float) $usina->media;
-        $tarifa = Tarifa::de((float) $usina->valor_kwh);
 
         $timeline = $this->montarTimeline($usiId);
 
@@ -112,174 +127,64 @@ final class ReconstruirLedgerReserva extends Command
             return $this->linhaReconciliacao($usina, 0.0, 0.0, 0, false);
         }
 
-        // Reserva começa em ZERO — fiel ao cadastro (não há saldo inicial: a reserva
-        // sempre nasce em 0, ver CalculoGeracaoService::criarPacoteAnual). Um déficit
-        // sem reserva é PAGO à concessionária (não compensado), então o "não atendido"
-        // não gera lançamento de crédito — não existe SALDO_INICIAL/crédito migrado.
-        $resultado = $this->replay($timeline, $media, $tarifa, Kwh::zero());
-
-        $lancamentos = $resultado['lancamentos'];
-        $saldoFinalLedger = $this->saldoFinal($lancamentos);
-
-        if (! $dryRun) {
-            $this->persistir($usiId, $lancamentos);
+        // Em dry-run nada é gravado: calcularMes(persistir:false) por mês não altera
+        // a reserva ponto-no-tempo (não escreve no ledger), então não simulamos o
+        // encadeamento — apenas reportamos que a usina tem timeline a reconstruir.
+        if ($dryRun) {
+            return $this->linhaReconciliacao(
+                $usina,
+                0.0,
+                $this->saldoLegado($usiId),
+                count($timeline),
+                false,
+            );
         }
 
-        $legado = $this->saldoLegado($usiId);
-        $deficitPagoKwh = $resultado['naoAtendidoTotal']->valor();
+        $modelo = Usina::with(['comercializacao', 'dadoGeracao'])->findOrFail($usiId);
+
+        $eventos = 0;
+        foreach ($timeline as $mes) {
+            $competencia = $mes['competencia'];
+
+            // fatura_energia = 0: o histórico não tem fatura real (documentado no
+            // cabeçalho). consumo NÃO é passado: o FaturamentoService resolve o
+            // dados_consumo_usina dedup (mais recente) do ano internamente (§9).
+            $this->faturamento->calcularMes(
+                $modelo,
+                $competencia->ano,
+                $competencia->mes,
+                ['geracao_bruta_kwh' => $mes['geracao'], 'fatura_energia' => 0.0],
+                persistir: true,
+                idempotencyKey: $this->idempotencyMes($usiId, $competencia),
+            );
+
+            $eventos++;
+        }
+
+        // Saldo final do ledger reconstruído (soma dos kwh não-estornados) e o legado,
+        // para a reconciliação do relatório (§12).
+        $saldoFinalLedger = round(
+            (float) CreditoLedger::doUsina($usiId)->naoEstornado()->sum('kwh'),
+            4,
+        );
 
         return $this->linhaReconciliacao(
             $usina,
             $saldoFinalLedger,
-            $legado,
-            count($lancamentos),
-            $deficitPagoKwh > 1e-6,
+            $this->saldoLegado($usiId),
+            $eventos,
+            false,
         );
     }
 
     /**
-     * Replay cronológico mês a mês reusando o núcleo de domínio.
-     *
-     * Mantém o saldo vivo de cada origem num mapa mutável (LoteReserva é
-     * imutável). A cada mês monta os LoteReserva a partir do saldo vivo, delega
-     * o consumo ao MotorFifo e a expiração ao ServicoExpiracao, e registra os
-     * lançamentos do ledger correspondentes.
-     *
-     * @param array<int, array{competencia: Competencia, geracao: float}> $timeline
-     * @param Competencia|null $compAbertura competência do SALDO_INICIAL (mês anterior à 1ª geração)
-     *
-     * @return array{lancamentos: array<int, array<string, mixed>>, naoAtendidoTotal: Kwh}
+     * Idempotency-key determinística do snapshot de estorno por (usi_id, competência).
+     * Re-rodar o backfill referencia a mesma chave (sem semântica de conflito aqui —
+     * o snapshot é só auditoria; o estado é regravado de forma idempotente).
      */
-    private function replay(
-        array $timeline,
-        float $media,
-        Tarifa $tarifa,
-        Kwh $saldoAbertura,
-        ?Competencia $compAbertura = null,
-    ): array {
-        /** @var array<string, array{competencia: Competencia, saldo: float, vencimento: \DateTimeImmutable, origemTipo: string}> $lotesVivos */
-        $lotesVivos = [];
-        $lancamentos = [];
-        $naoAtendidoTotal = 0.0;
-
-        // Lote de abertura (SALDO_INICIAL): mês anterior à primeira geração,
-        // sem vencimento (não expira — preserva o crédito migrado, §12).
-        if ($saldoAbertura->valor() > 1e-6 && $compAbertura !== null) {
-            $abertura = $this->competenciaAnterior($compAbertura);
-            $chave = (string) $abertura;
-            $lotesVivos[$chave] = [
-                'competencia' => $abertura,
-                'saldo' => $saldoAbertura->valor(),
-                'vencimento' => $this->vencimentoDistante(),
-                'origemTipo' => CreditoLedger::TIPO_SALDO_INICIAL,
-            ];
-            $lancamentos[] = $this->lancamentoEntrada(
-                CreditoLedger::TIPO_SALDO_INICIAL,
-                $abertura,
-                $abertura,
-                $saldoAbertura,
-                $tarifa,
-                null,
-            );
-        }
-
-        foreach ($timeline as $mes) {
-            $evento = $mes['competencia'];
-            $geracao = $mes['geracao'];
-
-            if ($geracao >= $media) {
-                $excedente = $geracao - $media;
-                if ($excedente > 1e-6) {
-                    $chave = (string) $evento;
-                    $vencimento = $evento->vencimentoEmDias(self::PRAZO_VENCIMENTO_DIAS);
-                    $lotesVivos[$chave] = [
-                        'competencia' => $evento,
-                        'saldo' => $excedente,
-                        'vencimento' => $vencimento,
-                        'origemTipo' => CreditoLedger::TIPO_CREDITO,
-                    ];
-                    $lancamentos[] = $this->lancamentoEntrada(
-                        CreditoLedger::TIPO_CREDITO,
-                        $evento,
-                        $evento,
-                        Kwh::de($excedente),
-                        $tarifa,
-                        $vencimento,
-                    );
-                }
-            } else {
-                $faltante = Kwh::de($media - $geracao);
-                $lotes = $this->lotesReserva($lotesVivos);
-
-                $consumo = $this->motorFifo->consumir($lotes, $faltante, $evento);
-                $naoAtendidoTotal += $consumo['naoAtendidoKwh']->valor();
-
-                foreach ($consumo['consumos'] as $c) {
-                    $chave = (string) $c['origem'];
-                    $lotesVivos[$chave]['saldo'] -= $c['kwh']->valor();
-
-                    $lancamentos[] = $this->lancamentoSaida(
-                        CreditoLedger::TIPO_CONSUMO,
-                        $c['origem'],
-                        $evento,
-                        $c['kwh'],
-                        $tarifa,
-                    );
-                }
-            }
-
-            // Expiração: aplicada DEPOIS do consumo (§7) sobre o saldo remanescente.
-            $expiracao = $this->servicoExpiracao->aplicar(
-                $this->lotesReserva($lotesVivos),
-                $evento,
-                $tarifa,
-            );
-
-            foreach ($expiracao['expirados'] as $e) {
-                $chave = (string) $e['origem'];
-                $lotesVivos[$chave]['saldo'] = 0.0;
-
-                $lancamentos[] = $this->lancamentoSaida(
-                    CreditoLedger::TIPO_EXPIRACAO,
-                    $e['origem'],
-                    $evento,
-                    $e['kwh'],
-                    $tarifa,
-                );
-            }
-        }
-
-        return [
-            'lancamentos' => $lancamentos,
-            'naoAtendidoTotal' => Kwh::de($naoAtendidoTotal),
-        ];
-    }
-
-    /**
-     * Converte o mapa de saldos vivos em LoteReserva (entrada do domínio),
-     * descartando origens sem saldo positivo (invariante §8: saldo nunca < 0).
-     *
-     * @param array<string, array{competencia: Competencia, saldo: float, vencimento: \DateTimeImmutable, origemTipo: string}> $lotesVivos
-     *
-     * @return LoteReserva[]
-     */
-    private function lotesReserva(array $lotesVivos): array
+    private function idempotencyMes(int $usiId, Competencia $competencia): string
     {
-        $lotes = [];
-
-        foreach ($lotesVivos as $lote) {
-            if ($lote['saldo'] <= 1e-6) {
-                continue;
-            }
-
-            $lotes[] = LoteReserva::de(
-                $lote['competencia'],
-                Kwh::de($lote['saldo']),
-                $lote['vencimento'],
-            );
-        }
-
-        return $lotes;
+        return sprintf('backfill:%d:%04d-%02d', $usiId, $competencia->ano, $competencia->mes);
     }
 
     /**
@@ -330,148 +235,6 @@ final class ReconstruirLedgerReserva extends Command
         );
 
         return $timeline;
-    }
-
-    /**
-     * Persiste os lançamentos numa transação, de forma IDEMPOTENTE.
-     *
-     * Resolve `ref_lancamento_id` (rastreabilidade FIFO) após gravar as ENTRADAS
-     * (CREDITO/SALDO_INICIAL): as SAÍDAS (CONSUMO/EXPIRACAO) apontam para o cl_id
-     * da entrada de mesma origem. updateOrCreate por idempotency_key garante que
-     * re-rodar não duplica.
-     *
-     * @param array<int, array<string, mixed>> $lancamentos
-     */
-    private function persistir(int $usiId, array $lancamentos): void
-    {
-        DB::transaction(function () use ($usiId, $lancamentos): void {
-            $idsPorOrigem = [];
-
-            // 1) ENTRADAS primeiro, para resolver as referências das saídas.
-            foreach ($lancamentos as $lancamento) {
-                if (! in_array($lancamento['tipo'], [
-                    CreditoLedger::TIPO_CREDITO,
-                    CreditoLedger::TIPO_SALDO_INICIAL,
-                ], true)) {
-                    continue;
-                }
-
-                $registro = $this->upsert($usiId, $lancamento);
-                $idsPorOrigem[$lancamento['competencia_origem']] = (int) $registro->cl_id;
-            }
-
-            // 2) SAÍDAS referenciando a entrada de origem.
-            foreach ($lancamentos as $lancamento) {
-                if (! in_array($lancamento['tipo'], [
-                    CreditoLedger::TIPO_CONSUMO,
-                    CreditoLedger::TIPO_EXPIRACAO,
-                ], true)) {
-                    continue;
-                }
-
-                $lancamento['ref_lancamento_id'] = $idsPorOrigem[$lancamento['competencia_origem']] ?? null;
-                $this->upsert($usiId, $lancamento);
-            }
-        });
-    }
-
-    /**
-     * @param array<string, mixed> $lancamento
-     */
-    private function upsert(int $usiId, array $lancamento): CreditoLedger
-    {
-        $chave = $this->idempotencyKey($usiId, $lancamento);
-
-        return CreditoLedger::updateOrCreate(
-            ['idempotency_key' => $chave],
-            array_merge($lancamento, [
-                'usi_id' => $usiId,
-                'idempotency_key' => $chave,
-            ]),
-        );
-    }
-
-    /**
-     * Idempotency-key determinística por (usi_id, tipo, origem, evento).
-     *
-     * Garante que re-rodar o backfill produz exatamente o mesmo estado. Para o
-     * par CONSUMO/EXPIRACAO de mesma origem×evento o tipo distingue as linhas.
-     *
-     * @param array<string, mixed> $lancamento
-     */
-    private function idempotencyKey(int $usiId, array $lancamento): string
-    {
-        return sprintf(
-            'backfill:%d:%s:%s:%s',
-            $usiId,
-            $lancamento['tipo'],
-            $lancamento['competencia_origem'],
-            $lancamento['competencia_evento'],
-        );
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function lancamentoEntrada(
-        string $tipo,
-        Competencia $origem,
-        Competencia $evento,
-        Kwh $kwh,
-        Tarifa $tarifa,
-        ?\DateTimeImmutable $vencimento,
-    ): array {
-        return [
-            'tipo' => $tipo,
-            'competencia_origem' => $this->dataCompetencia($origem),
-            'competencia_evento' => $this->dataCompetencia($evento),
-            'kwh' => round($kwh->valor(), 4),
-            'tarifa_kwh' => $tarifa->valor(),
-            'valor_reais' => round($kwh->vezesTarifa($tarifa)->emReais(), 2),
-            'vencimento' => $vencimento?->format('Y-m-d'),
-            'ref_lancamento_id' => null,
-        ];
-    }
-
-    /**
-     * Saída: kwh NEGATIVO (§8), aponta para o CREDITO de origem (ref resolvida na persistência).
-     *
-     * @return array<string, mixed>
-     */
-    private function lancamentoSaida(
-        string $tipo,
-        Competencia $origem,
-        Competencia $evento,
-        Kwh $kwh,
-        Tarifa $tarifa,
-    ): array {
-        return [
-            'tipo' => $tipo,
-            'competencia_origem' => $this->dataCompetencia($origem),
-            'competencia_evento' => $this->dataCompetencia($evento),
-            'kwh' => -round($kwh->valor(), 4),
-            'tarifa_kwh' => $tarifa->valor(),
-            'valor_reais' => -round($kwh->vezesTarifa($tarifa)->emReais(), 2),
-            'vencimento' => null,
-            'ref_lancamento_id' => null,
-        ];
-    }
-
-    /**
-     * Saldo final do ledger reconstruído = soma dos kwh (entradas − saídas),
-     * que é exatamente o saldo remanescente da reserva.
-     *
-     * @param array<int, array<string, mixed>> $lancamentos
-     */
-    private function saldoFinal(array $lancamentos): float
-    {
-        $total = 0.0;
-
-        foreach ($lancamentos as $lancamento) {
-            $total += (float) $lancamento['kwh'];
-        }
-
-        return round($total, 4);
     }
 
     /**
@@ -615,32 +378,5 @@ final class ReconstruirLedgerReserva extends Command
             'lancamentos' => $lancamentos,
             'tem_saldo_inicial' => $temSaldoInicial,
         ];
-    }
-
-    private function competenciaAnterior(Competencia $competencia): Competencia
-    {
-        $ano = $competencia->ano;
-        $mes = $competencia->mes - 1;
-
-        if ($mes < 1) {
-            $mes = 12;
-            $ano--;
-        }
-
-        return Competencia::de($ano, $mes);
-    }
-
-    private function dataCompetencia(Competencia $competencia): string
-    {
-        return sprintf('%04d-%02d-01', $competencia->ano, $competencia->mes);
-    }
-
-    /**
-     * Vencimento "distante" para o SALDO_INICIAL: não deve expirar (§12 — o crédito
-     * migrado é preservado). 100 anos à frente cobre todo horizonte de replay.
-     */
-    private function vencimentoDistante(): \DateTimeImmutable
-    {
-        return new \DateTimeImmutable('2200-01-01 00:00:00');
     }
 }

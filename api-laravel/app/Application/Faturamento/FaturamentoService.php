@@ -358,20 +358,25 @@ final class FaturamentoService
             $faturamento = FaturamentoUsina::findOrFail($vinculo->fa_id);
             $geracao = DadosGeracaoReal::findOrFail($dgrVinculo->dgr_id);
 
-            // Snapshot ANTES de qualquer mutação (reuse do padrão de estorno).
-            HistoricoEstorno::create([
-                'usi_id' => $usiId,
-                'ano' => $ano,
-                'mes' => $competencia->mes,
-                'mes_nome' => $mesNome,
-                'user_id' => $userId ?? 0,
-                'idempotency_key' => $idempotencyKey,
-                'snapshot_reserva_atual' => $reserva->attributesToArray(),
-                'snapshot_reserva_anterior' => null,
-                'snapshot_credito_mes' => (float) ($credito->$mesNome ?? 0),
-                'snapshot_faturamento_mes' => (float) ($faturamento->$mesNome ?? 0),
-                'snapshot_geracao_mes' => (float) ($geracao->$mesNome ?? 0),
-            ]);
+            // Snapshot ANTES de qualquer mutação (para estorno de ação do usuário, §10).
+            // Operação de sistema (backfill, userId null) NÃO gera snapshot: ele só serve
+            // para reverter ações manuais, e criá-lo a cada rodada de backfill poluiria a
+            // auditoria com duplicatas (re-rodar o backfill ficaria não-idempotente).
+            if ($userId !== null) {
+                HistoricoEstorno::create([
+                    'usi_id' => $usiId,
+                    'ano' => $ano,
+                    'mes' => $competencia->mes,
+                    'mes_nome' => $mesNome,
+                    'user_id' => $userId,
+                    'idempotency_key' => $idempotencyKey,
+                    'snapshot_reserva_atual' => $reserva->attributesToArray(),
+                    'snapshot_reserva_anterior' => null,
+                    'snapshot_credito_mes' => (float) ($credito->$mesNome ?? 0),
+                    'snapshot_faturamento_mes' => (float) ($faturamento->$mesNome ?? 0),
+                    'snapshot_geracao_mes' => (float) ($geracao->$mesNome ?? 0),
+                ]);
+            }
 
             $ids = $this->gravarLedger($usiId, $competencia, $entrada->tarifa, $resultado, $userId);
 
