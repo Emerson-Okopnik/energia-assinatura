@@ -201,7 +201,13 @@ Desconto de rede por tipo de conexão:
 
 - Cada lançamento mensal exige um header `Idempotency-Key`; repetição com o mesmo payload retorna o resultado já gravado; payload diferente com a mesma chave → conflito (409).
 - Todo o processamento ocorre em **transação atômica**.
-- **Estorno:** revertido via marcação `estornado_em` nos lançamentos do ledger (não destrutivo). Limite atual: último mês lançado.
+- **Estorno (reversão de lançamento):** restaura o estado **exato** anterior ao lançamento, como se o mês nunca tivesse sido processado. É **não destrutivo** e cobre tudo:
+  - **Ledger** (fonte de verdade): marca `estornado_em` em **todos** os lançamentos cujo `competencia_evento` é o mês revertido — o `CREDITO` guardado, os `CONSUMO` e as `EXPIRACAO` daquele mês. Como o saldo por origem soma apenas linhas não-estornadas, estornar um `CONSUMO`/`EXPIRACAO` **devolve a energia ao lote de origem** (um crédito que havia expirado **ressuscita**).
+  - **Colunas materializadas** (cache de leitura: crédito, faturamento, geração, reserva/`total`): restauradas a partir do snapshot capturado **antes** da mutação no lançamento (`historico_estorno`).
+  - **Cache de PDF** (`geracao_faturamento_pdf`, `demonstrativo_creditos_pdf`): removido para o mês.
+  - **Idempotência:** a `Idempotency-Key` do lançamento é apagada, permitindo re-lançar; `gravarLedger` apaga fisicamente as linhas do evento antes de regravar, então re-lançar **não duplica** nem soma linhas estornadas.
+  - **Histórico/auditoria:** `historico_estorno` registra o lançamento (snapshot + autor) e a reversão (`revertido_em` + `user_id_estorno`).
+  - **Limite:** apenas o **último mês lançado** é reversível (garante que nenhum mês posterior consumiu créditos ressuscitados — sem referências órfãs).
 
 ---
 
@@ -238,6 +244,14 @@ Usados como oráculo nos testes automatizados:
 
 ## Changelog
 
+- **1.2** (2026-06-11) — Estorno auditado contra o motor novo (§10). Garantido que reverter um lançamento
+  restaura o estado exato anterior em **todas** as camadas — ledger, colunas materializadas, cache de PDF,
+  idempotência e histórico — incluindo a **ressurreição de créditos expirados** ao reverter um mês que expirou
+  lotes. Corrigido bug: a limpeza do cache de PDF no estorno usava match exato de `competencia` (datetime),
+  deixando o cache órfão — agora usa `whereDate`. Removido ramo morto de restauração de reserva do ano anterior
+  (`snapshot_reserva_anterior` nunca era gravado; a coluna do ano anterior não é mutada no lançamento). Testes de
+  garantia: round-trip lançar→reverter→re-lançar, bloqueio de reverter mês não-último, e reverter mês com
+  expiração. 65 testes verdes.
 - **1.1** (2026-06-11) — Implementação concluída (Fases 0-7). Cálculo unificado numa fonte única
   (`App\Domain\Faturamento\CalculadoraGeracaoLinear`); ledger `credito_ledger` com expiração; precisão decimal;
   frontend e PDF apenas leem; save e preview no mesmo motor (engine antigo removido). Esclarecida a expiração

@@ -295,6 +295,138 @@ class FaturamentoServiceTest extends TestCase
         $this->assertEqualsWithDelta(0.0, $saldoLedger, 0.001, 'Sem excedente nem reserva, saldo é zero');
     }
 
+    /**
+     * GARANTIA: reverter um lançamento restaura EXATAMENTE o estado anterior —
+     * ledger, colunas materializadas, cache PDF — como se o mês nunca tivesse sido
+     * lançado, e o histórico registra lançamento + reversão.
+     */
+    public function test_reverter_lancamento_restaura_estado_exato_anterior(): void
+    {
+        $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');
+        $usiId = (int) $usina->usi_id;
+
+        // Constrói a reserva VIA O MOTOR (jan com excedente 3370) — assim colunas e
+        // ledger nascem consistentes (como em produção), não via helper que burla.
+        $this->service()->calcularMes(
+            $usina, 2026, 1,
+            ['geracao_bruta_kwh' => 13370, 'consumo' => 0, 'fatura_energia' => 0],
+            persistir: true, userId: $this->userId, idempotencyKey: 'jan'
+        );
+
+        $vinculo = \App\Models\CreditosDistribuidosUsina::where('usi_id', $usiId)->where('ano', 2026)->firstOrFail();
+        $colCredito = fn () => (float) \App\Models\CreditosDistribuidos::find($vinculo->cd_id)->maio;
+        $colFatur   = fn () => (float) \App\Models\FaturamentoUsina::find($vinculo->fa_id)->maio;
+        $colReserva = fn () => (float) (\App\Models\ValorAcumuladoReserva::find($vinculo->var_id)->total ?? 0);
+        $ledgerVivo = fn () => (float) CreditoLedger::where('usi_id', $usiId)->whereNull('estornado_em')->sum('kwh');
+
+        // ---- ESTADO ANTES DO LANÇAMENTO DE MAIO (pós-janeiro: reserva 3370) ----
+        $antes = [
+            'credito' => $colCredito(),
+            'fatur' => $colFatur(),
+            'reserva' => $colReserva(),
+            'ledger' => $ledgerVivo(),
+        ];
+        $this->assertEqualsWithDelta(3370.0, $antes['ledger'], 0.001, 'Reserva de janeiro = 3370');
+        $this->assertEqualsWithDelta(3370.0, $antes['reserva'], 0.001, 'Coluna reserva consistente com o ledger (P1)');
+
+        // ---- LANÇA maio/2026 (com userId -> gera snapshot) ----
+        $this->service()->calcularMes(
+            $usina, 2026, 5,
+            ['geracao_bruta_kwh' => 8600, 'consumo' => 200, 'fatura_energia' => 0],
+            persistir: true, userId: $this->userId, idempotencyKey: 'lanc-mai'
+        );
+        // Mudou de fato? (crédito 750, ledger consumiu 1500 -> 1870, +1 CONSUMO do lote de jan)
+        $this->assertEqualsWithDelta(750.0, $colCredito(), 0.01, 'Lançamento mudou o crédito');
+        $this->assertEqualsWithDelta(1870.0, $ledgerVivo(), 0.001, 'Lançamento consumiu a reserva');
+        $this->assertSame(2, \App\Models\HistoricoEstorno::where('usi_id', $usiId)->whereNull('revertido_em')->count(), 'jan + maio em aberto');
+
+        // ---- REVERTE maio/2026 ----
+        app(\App\Services\EstornoGeracaoService::class)->estornar($usina, 2026, 5, $this->userId);
+
+        // ---- ESTADO DEPOIS DA REVERSÃO == ANTES DO LANÇAMENTO ----
+        $this->assertEqualsWithDelta($antes['credito'], $colCredito(), 0.001, 'Crédito voltou ao anterior');
+        $this->assertEqualsWithDelta($antes['fatur'], $colFatur(), 0.001, 'Faturamento voltou ao anterior');
+        $this->assertEqualsWithDelta($antes['reserva'], $colReserva(), 0.001, 'Reserva total voltou ao anterior');
+        $this->assertEqualsWithDelta($antes['ledger'], $ledgerVivo(), 0.001, 'Saldo do ledger voltou (3370): consumos estornados devolvem a energia');
+
+        // Lançamentos do mês ficaram marcados estornados (não some, fica auditável §10).
+        $estornados = CreditoLedger::where('usi_id', $usiId)
+            ->whereDate('competencia_evento', '2026-05-01')->whereNotNull('estornado_em')->count();
+        $this->assertSame(1, $estornados, 'O CONSUMO de maio ficou estornado');
+
+        // Cache PDF do mês removido.
+        $this->assertSame(0, \App\Models\GeracaoFaturamentoPdf::where('usi_id', $usiId)->whereDate('competencia', '2026-05-01')->count());
+
+        // Histórico: maio marcado como revertido; jan continua em aberto (auditoria lançamento+reversão).
+        $this->assertSame(1, \App\Models\HistoricoEstorno::where('usi_id', $usiId)->whereNull('revertido_em')->count(), 'jan permanece em aberto');
+        $maioRev = \App\Models\HistoricoEstorno::where('usi_id', $usiId)->where('mes', 5)->whereNotNull('revertido_em')->first();
+        $this->assertNotNull($maioRev, 'maio registrado como revertido');
+        $this->assertSame($this->userId, (int) $maioRev->user_id_estorno, 'reversão registra quem estornou');
+
+        // ---- RE-LANÇAR após reverter funciona e reproduz o mesmo resultado ----
+        $this->service()->calcularMes(
+            $usina, 2026, 5,
+            ['geracao_bruta_kwh' => 8600, 'consumo' => 200, 'fatura_energia' => 0],
+            persistir: true, userId: $this->userId, idempotencyKey: 'relanc-mai'
+        );
+        $this->assertEqualsWithDelta(750.0, $colCredito(), 0.01, 'Re-lançar reproduz o crédito');
+        $this->assertEqualsWithDelta(1870.0, $ledgerVivo(), 0.001, 'Re-lançar reproduz o saldo (sem duplicar)');
+    }
+
+    public function test_reverter_so_o_ultimo_mes_lancado(): void
+    {
+        $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');
+        $this->lote((int) $usina->usi_id, '2026-01-01', 5000, 0.50);
+
+        // Lança abril e depois maio.
+        $this->service()->calcularMes($usina, 2026, 4, ['geracao_bruta_kwh' => 8600, 'consumo' => 0, 'fatura_energia' => 0], persistir: true, userId: $this->userId, idempotencyKey: 'abr');
+        $this->service()->calcularMes($usina, 2026, 5, ['geracao_bruta_kwh' => 8600, 'consumo' => 0, 'fatura_energia' => 0], persistir: true, userId: $this->userId, idempotencyKey: 'mai');
+
+        // Reverter ABRIL (não é o último) deve falhar.
+        $this->expectException(\InvalidArgumentException::class);
+        app(\App\Services\EstornoGeracaoService::class)->estornar($usina, 2026, 4, $this->userId);
+    }
+
+    /**
+     * GARANTIA do caminho mais arriscado: reverter um mês que EXPIROU créditos
+     * deve RESSUSCITAR o crédito expirado — o lote volta a ter saldo disponível,
+     * como se a expiração nunca tivesse ocorrido.
+     */
+    public function test_reverter_mes_que_expirou_creditos_ressuscita_o_lote(): void
+    {
+        $usina = $this->usina(media: 16740, menor: 9000, tarifa: 0.51, rede: 'Trifásico');
+        $usiId = (int) $usina->usi_id;
+
+        // ago/2025 vence em 2026-01-28; ao lançar fev/2026 expira inteiro (11800 kWh).
+        $this->lote($usiId, '2025-08-01', 11800, 0.51);
+
+        $saldoVivo = fn () => (float) CreditoLedger::where('usi_id', $usiId)->whereNull('estornado_em')->sum('kwh');
+        $this->assertEqualsWithDelta(11800.0, $saldoVivo(), 1e-6, 'Antes: lote inteiro disponível');
+
+        // LANÇA fev/2026 -> expira o lote (saldo vivo cai a 0: +CREDITO 11800, -EXPIRACAO 11800).
+        $this->service()->calcularMes(
+            $usina, 2026, 2,
+            ['geracao_bruta_kwh' => 16740, 'consumo' => 0, 'fatura_energia' => 0],
+            persistir: true, userId: $this->userId, idempotencyKey: 'exp-lanc'
+        );
+        $this->assertEqualsWithDelta(0.0, $saldoVivo(), 1e-6, 'Após expirar: saldo vivo zerado');
+        $this->assertSame(1, CreditoLedger::where('usi_id', $usiId)->where('tipo', CreditoLedger::TIPO_EXPIRACAO)->whereNull('estornado_em')->count());
+
+        // REVERTE fev/2026 -> a EXPIRACAO é estornada e o lote ressuscita.
+        app(\App\Services\EstornoGeracaoService::class)->estornar($usina, 2026, 2, $this->userId);
+
+        $this->assertEqualsWithDelta(11800.0, $saldoVivo(), 1e-6, 'Reverter ressuscita o crédito expirado');
+        $this->assertSame(0, CreditoLedger::where('usi_id', $usiId)->where('tipo', CreditoLedger::TIPO_EXPIRACAO)->whereNull('estornado_em')->count(), 'EXPIRACAO ficou estornada');
+
+        // E o saldo do mês seguinte enxerga o crédito de volta (re-expira se relançado).
+        $r2 = $this->service()->calcularMes(
+            $usina, 2026, 2,
+            ['geracao_bruta_kwh' => 16740, 'consumo' => 0, 'fatura_energia' => 0],
+            persistir: true, userId: $this->userId, idempotencyKey: 'exp-relanc'
+        )->resultado;
+        $this->assertSame(601800, $r2->receitaExpiracao->emCentavos(), 'Re-lançar reproduz a expiração 6018,00 (sem duplicar)');
+    }
+
     // ----------------------------------------------------------------------
     // Scaffolding de banco (mesma cadeia de FKs do CreditoLedgerPersistenceTest).
     // ----------------------------------------------------------------------

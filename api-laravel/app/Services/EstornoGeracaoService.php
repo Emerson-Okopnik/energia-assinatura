@@ -13,6 +13,7 @@ use App\Models\{
     HistoricoEstorno,
     GeracaoFaturamentoPdf,
     DemonstrativoCreditosPdf,
+    CreditoLedger,
     IdempotencyKey,
 };
 use Illuminate\Support\Carbon;
@@ -68,20 +69,11 @@ class EstornoGeracaoService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            // A coluna `total` da reserva é o saldo corrente: o snapshot capturou-a
+            // ANTES do lançamento (FaturamentoService:373), então restaurá-la devolve
+            // o saldo exato pré-lançamento. A fonte de verdade do saldo segue sendo o
+            // ledger (revertido abaixo); esta coluna é cache de leitura.
             $this->restaurarReserva($reserva, $snapshot->snapshot_reserva_atual);
-
-            if ($snapshot->snapshot_reserva_anterior) {
-                $vinculoAnterior = CreditosDistribuidosUsina::where('usi_id', $usina->usi_id)
-                    ->where('ano', $ano - 1)
-                    ->first();
-
-                if ($vinculoAnterior) {
-                    $reservaAnterior = ValorAcumuladoReserva::find($vinculoAnterior->var_id);
-                    if ($reservaAnterior) {
-                        $this->restaurarReserva($reservaAnterior, $snapshot->snapshot_reserva_anterior);
-                    }
-                }
-            }
 
             $mesNome = $snapshot->mes_nome;
 
@@ -96,12 +88,26 @@ class EstornoGeracaoService
 
             $competencia = Carbon::createFromDate($ano, $mes, 1)->startOfMonth()->toDateString();
 
+            // Reverte o LEDGER (§10): marca como estornados TODOS os lançamentos cujo
+            // EVENTO é este mês — o CREDITO guardado no mês, e os CONSUMO/EXPIRACAO que
+            // ocorreram neste mês (que consumiram/expiraram lotes de origem anterior).
+            // Marcar estornado devolve a energia aos lotes de origem (o saldo por origem
+            // soma só os não-estornados), retornando a reserva ao estado pré-lançamento.
+            // Seguro porque só o ÚLTIMO mês lançado é reversível: nenhum mês posterior
+            // consumiu deste, então não há referência órfã.
+            CreditoLedger::where('usi_id', $usina->usi_id)
+                ->whereDate('competencia_evento', $competencia)
+                ->whereNull('estornado_em')
+                ->update(['estornado_em' => now()]);
+
+            // whereDate: a coluna é cast 'date' e pode armazenar com hora; match exato
+            // por string falharia e deixaria o cache órfão (mesma classe do bug do ledger).
             GeracaoFaturamentoPdf::where('usi_id', $usina->usi_id)
-                ->where('competencia', $competencia)
+                ->whereDate('competencia', $competencia)
                 ->delete();
 
             DemonstrativoCreditosPdf::where('usi_id', $usina->usi_id)
-                ->where('competencia', $competencia)
+                ->whereDate('competencia', $competencia)
                 ->delete();
 
             if ($snapshot->idempotency_key) {
