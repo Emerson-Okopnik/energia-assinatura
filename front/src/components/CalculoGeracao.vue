@@ -12,16 +12,18 @@
     </div>
 
     <h4 class="my-4">Cálculo de Geração da Usina - Expectativa</h4>
-    <div class="row mb-3">
-      <div class="col-md-4">
-        <label for="fatura">Fatura de Energia da Usina (R$)</label>
-        <input id="fatura" type="number" step="0.01" class="form-control" v-model.number="faturaEnergia" @input="agendarProjecao(); agendarPreview()" />
+    <div class="row mb-3 align-items-end">
+      <div class="col-md-6">
+        <small class="text-muted">
+          Previsão baseada na <strong>geração projetada</strong> da usina. O CUO considera apenas o Fio B —
+          a fatura real de cada mês entra na <strong>apuração mensal</strong> abaixo.
+        </small>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <label>Fio B (R$)</label>
         <div class="campo-info">{{ formatReais(fioB) }}</div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <label>Percentual Lei 14300/23 (%)</label>
         <div class="campo-info">{{ formatNumero(percentualLei) }}%</div>
       </div>
@@ -90,7 +92,7 @@
     </div>
 
     <div class="row mb-4">
-      <div class="col-md-5">
+      <div class="col-md-4">
         <label for="consumoUsinaMes">Consumo da usina em {{ meses[mesSelecionado] || 'Mês' }} (kWh)</label>
         <input
           id="consumoUsinaMes"
@@ -100,6 +102,18 @@
           v-model.number="consumoUsinaMes"
           :disabled="!mesSelecionado || !usina"
           required
+        />
+      </div>
+      <div class="col-md-4">
+        <label for="fatura">Fatura de Energia da Usina (R$) — {{ meses[mesSelecionado] || 'mês' }}</label>
+        <input
+          id="fatura"
+          type="number"
+          step="0.01"
+          class="form-control"
+          v-model.number="faturaEnergia"
+          :disabled="!mesSelecionado || !usina"
+          @input="agendarPreview"
         />
       </div>
       <div class="col-md-4">
@@ -372,13 +386,14 @@ export default {
   watch: {
     mesSelecionado() {
       // Pré-preenche a geração com o valor já cadastrado do mês (se houver) e dispara
-      // o preview, para a "Expectativa" aparecer automaticamente ao trocar de mês.
+      // o preview do mês. A fatura é por-mês: começa zerada para o operador informar.
       const geracaoCadastrada = Number(this.dadosGeracaoRealMensal?.[this.mesSelecionado]) || 0;
       this.mesGeracao = geracaoCadastrada;
       this.consumoUsinaMes = null;
+      this.faturaEnergia = 0;
       this.adicionalCuo = 0;
       this.previewMes = null;
-      this.chartData = null;
+      // chartData NÃO é zerado: o gráfico é a projeção anual (independe do mês).
       if (this.usina?.usi_id && this.mesSelecionado && geracaoCadastrada > 0) {
         this.agendarPreview();
       }
@@ -555,12 +570,10 @@ export default {
       const baseURL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem('token');
       try {
+        // Projeção é uma PREVISÃO: não usa fatura real (CUO só com Fio B).
         const response = await axios.get(
           `${baseURL}/usinas/${this.usina.usi_id}/projecao/${this.anoFaturamento}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { fatura_energia: Number(this.faturaEnergia) || 0 },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         this.projecaoAnual = response.data?.data ?? [];
         this.gerarGrafico();
