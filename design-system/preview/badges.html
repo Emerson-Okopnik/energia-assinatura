@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- @dsCard group="Components" name="Badges" subtitle="Status pills for portal + marketing" viewport="700x130" --><html><head><meta charset="utf-8"><title>Badges</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 26px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; background: var(--color-linen); }
+  .b { font-family: var(--font-body); font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .success { background: var(--color-success-soft); color: var(--color-accent-leaf-deep); }
+  .warning { background: var(--color-warning-soft); color: #6b4d05; }
+  .danger { background: var(--color-danger-soft); color: var(--color-danger); }
+  .info { background: var(--color-info-soft); color: var(--color-info); }
+  .primary { background: var(--color-primary-soft); color: var(--color-primary-deep); }
+  .neutral { background: var(--color-mist); color: var(--color-graphite); }
+</style>
+</head><body>
+  <span class="b success"><span class="dot" style="background:var(--color-success)"></span>Ativo</span>
+  <span class="b warning"><span class="dot" style="background:var(--color-warning)"></span>Aguardando usina</span>
+  <span class="b danger"><span class="dot" style="background:var(--color-danger)"></span>Pagamento pendente</span>
+  <span class="b info">Novo</span>
+  <span class="b primary">Economia 28%</span>
+  <span class="b neutral">Contrato ativo</span>
+</body></html>

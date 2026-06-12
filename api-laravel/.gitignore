@@ -21,3 +21,9 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Relatórios gerados pelo backfill/reconstrução (artefatos, não versionar)
+storage/reconstrucao/*.csv
+storage/reconstrucao/*.html
+storage/reconstrucao/Dockerfile.php
+.env.staging

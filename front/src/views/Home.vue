@@ -5,9 +5,9 @@
     </div>
     <div class="resumo-geracao mb-4">
       <h5>Resumo de Distribuição</h5>
-      <p><strong>Geração Média Total:</strong> {{ geracaoTotal }} kWh</p>
-      <p><strong>Consumo Alocado:</strong> {{ consumoTotal }} kWh</p>
-      <p><strong>Saldo Disponível:</strong> <span :class="creditosClasse">{{ saldoDisponivel }} kWh</span></p>
+      <p><strong>Geração Média Total:</strong> {{ formatKwh(geracaoTotal) }}</p>
+      <p><strong>Consumo Alocado:</strong> {{ formatKwh(consumoTotal) }}</p>
+      <p><strong>Saldo Disponível:</strong> <span :class="creditosClasse">{{ formatKwh(saldoDisponivel) }}</span></p>
     </div>
 
     <h4 class="mt-5">Relatório de Usinas e Consumidores</h4>
@@ -31,8 +31,8 @@
             <td>{{ usina.usina.cliente.nome }}</td>
             <td>{{ usina.usina.cliente.endereco.cidade }}</td>
             <td>{{ usina.usina.dado_geracao.media }} kWh</td>
-            <td>{{ totalConsumo(usinaId).toFixed(2) }} kWh</td>
-            <td :class="classeSaldo(usinaId)"><b>{{ saldoDisponivelUsina(usinaId).toFixed(2) }} kWh</b></td>
+            <td>{{ formatKwh(totalConsumo(usinaId)) }}</td>
+            <td :class="classeSaldo(usinaId)"><b>{{ formatKwh(saldoDisponivelUsina(usinaId)) }}</b></td>
             <td>{{ usina.usina.vendedor.nome }}</td>
             <td>{{ usina.usina.comercializacao.cia_energia }}</td>
             <td><button class="btn btn-orange" @click.stop="gerarPDFConsumidores(usinaId)">PDF</button></td>
@@ -70,9 +70,10 @@
 </template>
 
 <script>
-import Swal from 'sweetalert2';
+import Swal from '../utils/swal.js';
 import axios from 'axios';
 import { clearAuthSession, isAuthorizationError } from '@/utils/auth.js';
+import { formatKwh } from '@/utils/formatters.js';
 
 export default {
   data() {
@@ -95,6 +96,7 @@ export default {
     }
   },
   methods: {
+    formatKwh,
     classeSaldo(usi_id) {
       const saldo = this.saldoDisponivelUsina(usi_id);
       if (saldo > 0) return 'text-success';
@@ -156,7 +158,6 @@ export default {
           icon: "error",
           title: "Erro ao gerar PDF",
           text: "Não foi possível gerar o PDF.",
-          confirmButtonColor: "#d33",
           confirmButtonText: "Fechar"
         });
       }
@@ -176,9 +177,9 @@ export default {
         });
       });
 
-      this.geracaoTotal = geracao.toFixed(2);
-      this.consumoTotal = consumo.toFixed(2);
-      this.saldoDisponivel = (geracao - consumo).toFixed(2);
+      this.geracaoTotal = geracao;
+      this.consumoTotal = consumo;
+      this.saldoDisponivel = geracao - consumo;
     },
     /*gerarCorPastel() {
       const r = Math.floor(Math.random() * 40 + 215);
@@ -238,7 +239,6 @@ export default {
           icon: 'warning',
           title: 'Sessão expirada',
           text: 'Sua sessão expirou. Faça login novamente.',
-          confirmButtonColor: '#d33'
         });
         return;
       }
@@ -247,7 +247,6 @@ export default {
         icon: 'error',
         title: 'Erro ao carregar dados',
         text: 'Não foi possível carregar os dados. Tente novamente.',
-        confirmButtonColor: '#d33'
       });
     }
   }
@@ -337,7 +336,7 @@ table .text-dark {
 
 
 .create-account a {
-  color: #f28c1f;
+  color: var(--color-primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -348,12 +347,12 @@ table .text-dark {
 
 .btn-orange{
   color: white;
-  background-color: #f28c1f;
+  background-color: var(--color-primary);
 }
 
 .btn-orange:hover{
   color: white;
-  background-color: #d97706;
+  background-color: var(--color-primary-deep);
 }
 
 @media (max-width: 768px) {

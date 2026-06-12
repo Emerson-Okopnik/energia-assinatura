@@ -1,0 +1,228 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "ui_kits/marketing/**",
+              "ui_kits/portal/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Nunito|JetBrains Mono))/i]",
+        "message": "Font not provided by the design system. Available: Nunito, JetBrains Mono."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--color-accent-leaf",
+      "--color-accent-leaf-deep",
+      "--color-danger",
+      "--color-danger-soft",
+      "--color-graphite",
+      "--color-info",
+      "--color-info-soft",
+      "--color-ink",
+      "--color-ink-overlay",
+      "--color-linen",
+      "--color-mist",
+      "--color-paper",
+      "--color-primary",
+      "--color-primary-deep",
+      "--color-primary-soft",
+      "--color-primary-warm",
+      "--color-slate",
+      "--color-smoke",
+      "--color-success",
+      "--color-success-soft",
+      "--color-warning",
+      "--color-warning-soft",
+      "--dur-enter",
+      "--dur-hover",
+      "--dur-press",
+      "--dur-section",
+      "--ease-out-quart",
+      "--ease-standard",
+      "--font-body",
+      "--font-display",
+      "--font-mono",
+      "--fs-body",
+      "--fs-display",
+      "--fs-eyebrow",
+      "--fs-h1",
+      "--fs-h2",
+      "--fs-h3",
+      "--fs-h4",
+      "--fs-lead",
+      "--fs-sm",
+      "--fs-xs",
+      "--fw-black",
+      "--fw-bold",
+      "--fw-extra",
+      "--fw-medium",
+      "--fw-regular",
+      "--fw-semibold",
+      "--grad-dawn",
+      "--grad-sun",
+      "--gutter-lg",
+      "--gutter-md",
+      "--gutter-sm",
+      "--lh-normal",
+      "--lh-relaxed",
+      "--lh-snug",
+      "--lh-tight",
+      "--max-w-app",
+      "--max-w-content",
+      "--radius-lg",
+      "--radius-md",
+      "--radius-pill",
+      "--radius-sm",
+      "--radius-xl",
+      "--shadow-focus",
+      "--shadow-glow",
+      "--shadow-lg",
+      "--shadow-md",
+      "--shadow-sm",
+      "--shadow-xl",
+      "--shadow-xs",
+      "--space-1",
+      "--space-10",
+      "--space-11",
+      "--space-12",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-7",
+      "--space-8",
+      "--space-9"
+    ],
+    "tokenKinds": {
+      "--color-primary": "color",
+      "--color-primary-deep": "color",
+      "--color-primary-warm": "color",
+      "--color-primary-soft": "color",
+      "--color-accent-leaf": "color",
+      "--color-accent-leaf-deep": "color",
+      "--color-ink": "color",
+      "--color-graphite": "color",
+      "--color-slate": "color",
+      "--color-smoke": "color",
+      "--color-mist": "color",
+      "--color-linen": "color",
+      "--color-paper": "color",
+      "--color-ink-overlay": "color",
+      "--color-success": "color",
+      "--color-success-soft": "color",
+      "--color-warning": "color",
+      "--color-warning-soft": "color",
+      "--color-danger": "color",
+      "--color-danger-soft": "color",
+      "--color-info": "color",
+      "--color-info-soft": "color",
+      "--grad-sun": "other",
+      "--grad-dawn": "other",
+      "--radius-sm": "radius",
+      "--radius-md": "radius",
+      "--radius-lg": "radius",
+      "--radius-xl": "radius",
+      "--radius-pill": "radius",
+      "--space-1": "spacing",
+      "--space-2": "spacing",
+      "--space-3": "spacing",
+      "--space-4": "spacing",
+      "--space-5": "spacing",
+      "--space-6": "spacing",
+      "--space-7": "spacing",
+      "--space-8": "spacing",
+      "--space-9": "spacing",
+      "--space-10": "spacing",
+      "--space-11": "spacing",
+      "--space-12": "spacing",
+      "--shadow-xs": "shadow",
+      "--shadow-sm": "shadow",
+      "--shadow-md": "shadow",
+      "--shadow-lg": "shadow",
+      "--shadow-xl": "shadow",
+      "--shadow-glow": "shadow",
+      "--shadow-focus": "shadow",
+      "--font-display": "font",
+      "--font-body": "font",
+      "--font-mono": "font",
+      "--fs-display": "other",
+      "--fs-h1": "other",
+      "--fs-h2": "other",
+      "--fs-h3": "other",
+      "--fs-h4": "spacing",
+      "--fs-lead": "spacing",
+      "--fs-body": "spacing",
+      "--fs-sm": "spacing",
+      "--fs-xs": "spacing",
+      "--fs-eyebrow": "spacing",
+      "--fw-regular": "other",
+      "--fw-medium": "other",
+      "--fw-semibold": "other",
+      "--fw-bold": "other",
+      "--fw-extra": "other",
+      "--fw-black": "other",
+      "--lh-tight": "other",
+      "--lh-snug": "other",
+      "--lh-normal": "other",
+      "--lh-relaxed": "other",
+      "--ease-out-quart": "other",
+      "--ease-standard": "other",
+      "--dur-hover": "other",
+      "--dur-press": "other",
+      "--dur-enter": "other",
+      "--dur-section": "other",
+      "--max-w-content": "spacing",
+      "--max-w-app": "spacing",
+      "--gutter-sm": "spacing",
+      "--gutter-md": "spacing",
+      "--gutter-lg": "spacing"
+    },
+    "fontFamilies": [
+      "JetBrains Mono",
+      "Nunito"
+    ]
+  }
+}

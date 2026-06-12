@@ -1,4 +1,8 @@
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+import './assets/tokens.css'
 import './assets/main.css'
+import './assets/bootstrap-overrides.css'
 
 import { createApp } from 'vue'
 import App from './App.vue'
@@ -12,8 +16,7 @@ import {
   isTokenExpired,
   onAuthChange,
 } from './utils/auth.js'
-import 'bootstrap/dist/css/bootstrap.min.css'
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+import swal from './utils/swal.js'
 
 const token = getAuthToken()
 if (token && isTokenExpired(token)) {
@@ -98,5 +101,6 @@ axios.interceptors.response.use(
 const app = createApp(App)
 
 app.use(router)
+app.provide('swal', swal)
 
 app.mount('#app')

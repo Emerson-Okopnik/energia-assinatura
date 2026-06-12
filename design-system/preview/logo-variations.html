@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Logo · Variations" subtitle="Color, solid, white, black — on their allowed surfaces" viewport="700x220" --><html><head><meta charset="utf-8"><title>Logo · Variations</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 0; overflow: hidden; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; }
+  .cell { display: flex; align-items: center; justify-content: center; padding: 16px; position: relative; }
+  .cell img { max-width: 85%; max-height: 80px; object-fit: contain; }
+  .tag { position: absolute; top: 8px; left: 10px; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--color-slate); }
+  .light { background: var(--color-linen); }
+  .dark  { background: var(--color-ink); }
+  .dark .tag { color: rgba(255,255,255,0.5); }
+  .orange { background: var(--color-primary); }
+  .orange .tag { color: rgba(255,255,255,0.85); }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="cell light"><span class="tag">Color · on Linen</span><img src="../assets/logo-color.png"></div>
+    <div class="cell light"><span class="tag">Solid orange</span><img src="../assets/logo-solid.png"></div>
+    <div class="cell dark"><span class="tag">White · on Ink</span><img src="../assets/logo-white.png"></div>
+    <div class="cell orange"><span class="tag">Black · on Orange</span><img src="../assets/logo-black.png"></div>
+  </div>
+</body></html>

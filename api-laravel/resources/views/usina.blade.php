@@ -2,700 +2,457 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Fatura - {{ $usina->cliente->nome }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+  <title>Demonstrativo de geração - {{ $usina->cliente->nome }}</title>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
+    /* ============================================================
+       Tokens — design-system/colors_and_type.css (fonte única; DRY)
+    ============================================================ */
+    :root {
+      --color-primary: #F39325;
+      --color-primary-deep: #D97613;
+      --color-primary-warm: #F9B566;
+      --color-primary-soft: #FDE6CB;
+      --color-accent-leaf: #5FB53A;
+      --color-accent-leaf-deep: #3F8F22;
+      --color-ink: #3D3D3D;
+      --color-graphite: #5C5C5C;
+      --color-slate: #7A7A7A;
+      --color-smoke: #B0B0B0;
+      --color-mist: #E5E0D9;
+      --color-linen: #FAF6F1;
+      --color-paper: #FFFFFF;
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --radius-pill: 999px;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+      --shadow-xs: 0 1px 2px rgba(61,61,61,0.06);
+      --shadow-sm: 0 2px 6px rgba(61,61,61,0.08);
+      --font-display: 'Nunito', system-ui, sans-serif;
+      --font-body: 'Nunito', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     }
+
+    /* Fontes embutidas (zero rede) — geradas pelo PDFController. */
+    {!! $fontFaceCss !!}
+
+    html, body { margin: 0; padding: 0; }
 
     body {
-      font-family: Arial, sans-serif;
-      background-color: #ffffff;
-      font-size: 8pt;
+      font-family: var(--font-body);
+      background: var(--color-linen);
+      color: var(--color-ink);
+      font-size: 8.5pt;
+      line-height: 1.35;
     }
 
-    .wrapper {
-      min-height: 100%;
-      display: flex;
-      flex-direction: column;
+    .page { padding: 14px 20px 56px; } /* reserva o rodapé fixo */
+
+    .num { font-family: var(--font-mono); }
+
+    /* ---------- Cards (DS: branco, radius-lg, shadow-sm, sem borda) ---------- */
+    .card {
+      background: var(--color-paper);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: var(--space-3) var(--space-4);
     }
 
-    .content {
-      flex: 1 0 auto;
+    /* ---------- Rótulo de seção único e discreto (eco do header de tabela) ---------- */
+    .section-label {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 7pt;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-slate);
+      margin: var(--space-5) 0 var(--space-2);
     }
+    .card .section-label { margin: 0 0 var(--space-2); }
 
-    .rodape {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 10;
-    }
-
-    .body-2 {
-      padding: 10px;
-    }
-
-    .logo img {
-      height: 80px;
-    }
-
-    .header-2 {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background-color: #ededed;
-      padding: 10px;
-      border-radius: 12px 12px 0px 0px;
-      max-width: 1200px;
-      height: 10%;
-      margin-bottom: 6px;
-    }
-
-    .header-3 {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 8pt;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 8px; 
-    }
-
-    .info-box {
+    /* ---------- Cabeçalho ---------- */
+    .header {
       display: flex;
       align-items: center;
-      background-color: #ededed;
-      border-radius: 0px 0px 12px 12px;
-      padding: 10px 18px;
-      margin: 0;
-      font-family: 'Montserrat', sans-serif;
-      color: #333;
-      gap: 12px;
-      flex-wrap: wrap;
+      gap: var(--space-3);
     }
-
-    .contact-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 7.5pt;
+    .header .logo img { height: 34px; display: block; }
+    .header .divider { width: 1px; align-self: stretch; background: var(--color-mist); }
+    .company-info h2 {
+      margin: 0 0 2px;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 8.5pt;
+      letter-spacing: -0.01em;
     }
+    .company-info p { margin: 1px 0; font-size: 7pt; color: var(--color-graphite); }
+    .details { font-size: 7.5pt; }
+    .details p { margin: 2px 0; }
+    .details .icon { width: 12px; height: 12px; vertical-align: -2px; margin-right: 3px; }
+    .details strong { color: var(--color-ink); font-weight: 600; }
 
-    .highlight-bar {
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      background: linear-gradient(to right, #ffee58, #fbbc04, #f4511e);
-      padding: 10px 20px;
-      border-radius: 20px 20px 0 0;
-      font-family: 'Montserrat', sans-serif;
-      font-weight: 500;
-      color: #333;
-      gap: 20px;
+    /* Valor a receber: figura discreta no cabeçalho (sem hero) */
+    .valor-bloco { margin-left: auto; text-align: right; }
+    .valor-bloco .valor-label {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 6.5pt;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-slate);
     }
-
-    .demonstrativo-geracao {
-      background: linear-gradient(to right, #ffee58, #fbbc04, #f4511e);
-      text-align: center;
-      padding: 12px;
-      font-family: 'Montserrat', sans-serif;
+    .valor-bloco .valor-num {
+      font-family: var(--font-display);
+      font-weight: 800;
       font-size: 14pt;
-      font-weight: 700;
-      color: #333;
-      border-radius: 0 0 20px 20px;
-      margin-top: 5px;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      color: var(--color-primary-deep);
+      white-space: nowrap;
     }
+    .valor-bloco .valor-mes { font-size: 7pt; color: var(--color-graphite); }
 
-    .highlight-bar p {
-      margin: 0;
-    }
-
-    .highlight-bar strong {
-      font-weight: 700;
-    }
-
-    .geracao-container {
+    .meta-row {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      padding: 20px;
-      max-width: 1200px;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin: var(--space-2) 0 0;
+      font-size: 7pt;
+      color: var(--color-graphite);
     }
+    .meta-row .icon { width: 11px; height: 11px; vertical-align: -2px; margin-right: 2px; }
+    .meta-row strong { color: var(--color-ink); font-weight: 600; }
+    .contact-item { margin-left: var(--space-3); }
+    .meta-sep { color: var(--color-smoke); margin: 0 var(--space-2); }
 
-    .grafico {
-      flex: 1 1 70%;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .dados-geracao {
-      flex: 1 1 30%;
-      background-color: #ededed;
-      border-radius: 12px;
-      padding: 10px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 10pt;
-      color: #333;
-      text-align: center;
-    }
-
-    .dados-geracao h3 {
-      font-size: 14pt;
-      margin-bottom: 10px;
-      font-weight: 700;
-      color: #333;
-    }
-
+    /* ---------- Geração ---------- */
+    .geracao-container { display: flex; gap: var(--space-3); align-items: stretch; }
+    .grafico { flex: 1 1 62%; }
+    .grafico canvas { width: 100%; max-width: 460px; height: auto; }
+    .dados-geracao { flex: 1 1 38%; }
+    .dados-geracao .kwh-destaque { font-weight: 700; color: var(--color-primary-deep); }
+    .dados-geracao > p { margin: 0 0 var(--space-2); color: var(--color-graphite); }
     .item-geracao {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin: 16px 0;
-      text-align: left;
+      gap: var(--space-3);
+      margin: var(--space-2) 0 0;
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--color-mist);
     }
-
-    .icon-geracao {
-      width: 48px;
-      height: 48px;
+    .item-geracao img { width: 24px; height: 24px; }
+    .stat-line { display: flex; align-items: baseline; gap: var(--space-1); }
+    .stat-num {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 10.5pt;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      color: var(--color-ink);
     }
+    .stat-unit { font-family: var(--font-mono); font-size: 7pt; color: var(--color-graphite); }
+    .stat-caption { font-size: 7.5pt; color: var(--color-graphite); margin-top: 1px; }
 
-    .icon {
-      width: 18px;
-      height: 18px;
-      margin: 0;
-    }
-
+    /* ---------- Tabelas (DS BillsTable: header claro mono/slate) ---------- */
     .data-table {
       width: 100%;
       border-collapse: collapse;
-      font-family: 'Montserrat', sans-serif;
       font-size: 7pt;
       text-align: center;
     }
-
-    .data-table th, .data-table td {
-      padding: 2px 4px;
-      line-height: 1.1;
-      text-align: center;
-      font-size: 7pt;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 8px;
-      background-color: #fbbc04;
-      color: #333;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 8pt;
-      font-weight: 600;
-    }
-
-    /* Borda só no cabeçalho */
     .data-table thead th {
-      border: 1px solid #470b07;
-    }
-
-    /* Borda só no corpo */
-    .data-table tbody td {
-      border: 1px solid #d32f2f;
-    }
-
-    /* Estilo de fundo do cabeçalho */
-    .data-table thead {
-      background: #470b07;
-      color: white;
-    }
-
-    .data-table th {
+      background: transparent;
+      font-family: var(--font-mono);
       font-weight: 700;
+      font-size: 6.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--color-slate);
+      padding: 4px 4px 5px;
+      border: none;
+      border-bottom: 1px solid var(--color-mist);
     }
-
-    .titulo-tabela {
-      background: linear-gradient(to right, #f44336, #fbc02d);
-      color: white;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 10pt;
-      font-weight: 600;
-      text-align: center;
-      padding: 6px;
-      border-radius: 12px 12px 0 0;
+    .data-table tbody td {
+      padding: 4px 4px 5px;
+      border-bottom: 1px solid var(--color-mist);
+      color: var(--color-ink);
     }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+    .data-table .credito { color: var(--color-accent-leaf-deep); font-weight: 600; }
+    .data-table .valor-final { font-weight: 700; color: var(--color-primary-deep); }
 
-    .company-info {
-      flex: 1.5;
-      padding: 0 20px;
-      font-family: 'Montserrat', sans-serif;
-    }
+    /* ---------- Linha inferior ---------- */
+    .linha-final { display: flex; gap: var(--space-3); margin-top: var(--space-5); align-items: flex-start; }
+    .bloco-creditos { flex: 1.4; }
+    .coluna-direita { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); }
 
-    .company-info h2 {
-      margin: 0;
-      font-weight: 500;
-    }
-
-    .company-info p {
-      margin: 2px 0;
-      font-weight: 200;
-    }
-
-    .divider {
-      height: 70px;
-      width: 2px;
-      background-color: #333;
-      margin: 0 15px;
-    }
-
-    .details-2 {
-      display: flex;
-      flex: 1;
-    }
-
-    .details-2 img {
-      margin-top: 6px;
-    }
-
-    .details {
-      flex: 1;
-    }
-
-    .details p {
-      margin: 5px 0;
-    }
-
-    .details strong {
-      display: block;
-      margin-top: 2px;
-    }
-
-    .details .icon {
-      margin-right: 5px;
-    }
-
-    .linha-3-colunas {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 8pt;
-    }
-
-    .bloco {
-      padding: 10px;
-      flex: 1;   
-    }
-
-    .bloco-creditos {
-      background: #fff;
-      flex: 1.2;
-    }
-
-    .bloco-creditos .bloco-titulo {
-      text-align: center;
-      background: linear-gradient(to right, #f44336, #fbc02d);
-      color: #fff;
-      font-weight: bold;
-      border-radius: 8px 8px 0 0;
-      padding: 4px;
-      margin-bottom: 0px;
-      font-size: 9pt;
-    }
-
-    .bloco-titulo {
-      text-align: center;
-      background: linear-gradient(to right, #f44336, #fbc02d);
-      color: #fff;
-      font-weight: bold;
-      border-radius: 8px 8px 0 0;
-      padding: 4px;
-      margin-bottom: 0px;
-      font-size: 9pt;
-    }
-
-    .bloco-creditos table {
-      width: 100%;
-      font-size: 7pt;
-      text-align: center;
-      border-collapse: collapse;
-    }
-
-    .bloco-creditos th {
-      background-color: #e74c3c;
-      border: 1px solid #e74c3c;
-      color: #fff;
-      padding: 2px;
-    }
-
-    .bloco-creditos td {
-      padding: 2px;
-      border: 1px solid #ddd;
-    }
-
-    .bloco-observacoes {
-      background: #eaeaea;
-      flex: 1.3;
-      margin-bottom: 5px;
-      border-radius: 8px;   
-    }
-
-    .bloco-observacoes strong {
-      color: #470b07;
-      display: block;
-      margin-bottom: 5%;
-    }
-
-    .bloco-historico {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .bloco-historico .bloco-titulo {
-      text-align: center;
-      font-weight: bold;
-      margin-top: 16px;
-    }
-
-    .historico-valores {
-      width: 100%;
-      font-size: 7pt;
-      border-collapse: collapse;
-    }
-
+    .historico-valores { width: 100%; border-collapse: collapse; }
     .historico-valores td {
-      padding: 2px 4px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--color-mist);
+      font-size: 7.5pt;
+      color: var(--color-graphite);
+    }
+    .historico-valores tr:last-child td { border-bottom: none; }
+    .historico-valores td:last-child {
       text-align: right;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 8.5pt;
+      letter-spacing: -0.01em;
+      color: var(--color-ink);
+      white-space: nowrap;
     }
+    .historico-valores .total-destaque td:last-child { color: var(--color-primary-deep); }
+    .periodo-nota { margin: var(--space-2) 0 0; font-size: 7pt; color: var(--color-slate); }
 
-    .historico-valores td:first-child {
-      text-align: left;
-    }
+    .bloco-observacoes p { margin: 0; font-size: 7.5pt; color: var(--color-graphite); }
 
-    .historico-valores .saldo {
-      background: #d32f2f;
-      color: #fff;
-      font-weight: bold;
-    }
-
+    /* ---------- Rodapé ---------- */
     .rodape {
-      width: 100%;
-      box-sizing: border-box;
-      background: linear-gradient(to right, #fdd835, #f57c00, #e53935);
-      color: #fff;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 9pt;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--color-ink);
+      color: var(--color-paper);
+      font-size: 7.5pt;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 16px;
-      gap: 8px;
-      flex-wrap: wrap;
-      border-top: 2px solid transparent; /* evita linha branca */
+      padding: var(--space-2) var(--space-4);
     }
-
-    .rodape-esquerda,
-    .rodape-direita {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .rodape .icon {
-      width: 20px;
-      height: 20px;
-      vertical-align: middle;
-    }
-
-    .rodape .icon-social {
-      width: 22px;
-      height: 22px;
-      border-radius: 4px;
-      padding: 2px;
-    }
-
+    .rodape .icon { width: 14px; height: 14px; vertical-align: -3px; margin-right: 4px; }
+    .rodape .icon-social { width: 16px; height: 16px; vertical-align: middle; margin-left: 6px; }
+    .rodape a { color: var(--color-paper); }
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <div class="content">
-      <div class="body-2">
-        <div class="header">
-          <div class="header-2">
-            <div class="logo">
-              <img src="{{ $logo }}" alt="Logo" style="width: 250px;">
-            </div>
+  <div class="page">
 
-            <div class="company-info">
-              <h2><strong>CONSÓRCIO LÍDER ENERGY</strong></h2>
-              <p><strong>CNPJ:</strong> 58.750.788/0001-33</p>
-              <p>R. BRUNISLAU BLONKOVSKI, 131</p>
-              <p>SANTA TEREZINHA/SC</p>
-              <p>89199-000</p>
-            </div>
+    <div class="card header">
+      <div class="logo"><img src="{{ $logo }}" alt="Líder Energy"></div>
+      <div class="divider"></div>
+      <div class="company-info">
+        <h2>CONSÓRCIO LÍDER ENERGY</h2>
+        <p>CNPJ: <span class="num">58.750.788/0001-33</span></p>
+        <p>R. Brunislau Blonkovski, 131</p>
+        <p>Santa Terezinha/SC — <span class="num">89199-000</span></p>
+      </div>
+      <div class="divider"></div>
+      <div class="details">
+        <p><img src="{{ $iconeSol }}" alt="" class="icon"><strong>Produção:</strong> {{ $mesAnoSelecionado }}</p>
+        <p><strong>Usina:</strong> {{ $usina->cliente->nome }}</p>
+        <p><strong>UC:</strong> <span class="num">{{ $uc }}</span></p>
+      </div>
+      <div class="valor-bloco">
+        <div class="valor-label">Valor a receber</div>
+        <div class="valor-num">@reais($valorReceber)</div>
+        <div class="valor-mes">{{ $mesAnoSelecionado }}</div>
+      </div>
+    </div>
 
-            <div class="divider"></div>
+    <div class="meta-row">
+      <span>
+        <img src="{{ $iconeRelogio }}" alt="" class="icon">Data de emissão: <strong class="num">{{ \Carbon\Carbon::now()->format('d/m/Y') }}</strong>
+        <span class="meta-sep">·</span>Fonte de geração: <strong>UFV</strong>
+        <span class="meta-sep">·</span>Valor kWh: <strong class="num">@tarifa($usina->comercializacao->valor_kwh)</strong>
+      </span>
+      <span>
+        <span class="contact-item"><img src="{{ $iconeWeb }}" alt="" class="icon">www.consorcioliderenergy.com.br</span>
+        <span class="contact-item"><img src="{{ $iconeWpp }}" alt="" class="icon"><span class="num">47 99661-4967</span></span>
+        <span class="contact-item"><img src="{{ $iconeEmail }}" alt="" class="icon">contato@liderenergy.com.br</span>
+      </span>
+    </div>
 
-            <div class="details">
-              <div class="details-2">
-                <img src="{{ $iconeSol }}" alt="Ícone de sol" class="icon">
-                <p><strong>Produção:</strong> {{ $mesAnoSelecionado }}</p>
-              </div>
-              <div class="details-2">
-                <img src="{{ $iconeDinheiro }}" alt="Ícone de dinheiro" class="icon">
-                <p><strong>Valor a Receber:</strong> {{ number_format($valorReceber, 2, ',', '.') }}</p>
-              </div>
-            </div>
+    <div class="section-label">Demonstrativo de geração</div>
 
-            <div class="divider"></div>
-
-            <div class="details">
-              <p><strong>Usina:</strong></p>
-              <p>{{ $usina->cliente->nome }}</p>
-            </div>
-          </div>
-
-          <div class="header-3">
-            <div class="info-box">
-              <img src="{{ $iconeRelogio }}" alt="Ícone de Relógio" class="icon">
-              <span>Data de emissão: <strong>{{ \Carbon\Carbon::now()->format('d/m/Y') }}</strong></span>
-            </div>
-            <div class="info-box">
-              <div class="contact-item">
-                <img src="{{ $iconeWeb }}" alt="Ícone Web" class="icon">
-                <span><strong>www.consorcioliderenergy</strong>.com.br</span>
-              </div>
-              <div class="contact-item">
-                <img src="{{ $iconeWpp }}" alt="Ícone WhatsApp" class="icon">
-                <span>47 99661-4967</span>
-              </div>
-              <div class="contact-item">
-                <img src="{{ $iconeEmail }}" alt="Ícone Email" class="icon">
-                <span>contato@<strong>liderenergy</strong>.com.br</span>
-              </div>
-            </div>
+    <div class="geracao-container">
+      <div class="card grafico">
+        <canvas id="graficoGeracao"></canvas>
+      </div>
+      <div class="card dados-geracao">
+        <div class="section-label">Impacto ambiental</div>
+        <p>Sua geração de energia foi de <span class="kwh-destaque num">@kwh($geracaoMes)</span>, isso é igual a:</p>
+        <div class="item-geracao">
+          <img src="{{ $iconeCo2 }}" alt="">
+          <div>
+            <div class="stat-line"><span class="stat-num">@numero($co2Evitado, 0)</span><span class="stat-unit">kg</span></div>
+            <div class="stat-caption">de emissão de CO₂ evitada</div>
           </div>
         </div>
-        <div class="highlight-bar">
-          <p><strong>UC:</strong> {{ $uc }}</p>
-          <p><strong>Fonte de Geração:</strong> UFV</p>
-          <p><strong>Valor kWh:</strong> R$ {{$usina->comercializacao->valor_kwh}}</p>
-          <p><strong>Valor a Receber:</strong> R$ {{ number_format($valorReceber, 2, ',', '.') }}</p>
-        </div>
-      
-        <div class="demonstrativo-geracao">
-          DEMONSTRATIVO DE GERAÇÃO
-        </div>
-
-        @php
-          // Fatores de conversão atualizados
-          $fatorEmissao = 0.4;    // kg CO2 evitado por kWh gerado (média no Brasil)
-          $kgPorArvore = 20;      // kg CO2 capturado por árvore por ano
-
-          // Cálculos
-          $co2Evitado = $geracaoMes * $fatorEmissao; // em kg
-          $arvores = $co2Evitado / $kgPorArvore;
-        @endphp
-
-        <div class="geracao-container">
-          <div class="grafico">
-            <div class="block-title" style="margin-bottom: 10px; font-weight: bold;">Gráfico de Geração da Usina</div>
-            <canvas id="graficoGeracao"  style="width: 100%; max-width: 480px; height: auto;"></canvas>
-          </div>
-
-          <div class="dados-geracao">
-            <h3>Dados de Geração<br>de Energia</h3>
-            <p>Sua geração de energia foi de <span style="color: orangered;"><strong>{{ number_format($geracaoMes, 2, ',', '.') }} kWh</span><br>isso é igual a:</p>
-
-            <div class="item-geracao">
-              <img src="{{ $iconeCo2 }}" alt="Ícone CO2" class="icon-geracao">
-              <span><strong>{{ number_format($co2Evitado, 0, ',', '.') }}Kg</strong> de <strong>emissão de CO₂ evitada</strong></span>
-            </div>
-
-            <div class="item-geracao">
-              <img src="{{ $iconeArvore }}" alt="Ícone Árvore" class="icon-geracao">
-              <span><strong>{{ number_format($arvores, 0, ',', '.') }}</strong> árvores <strong>plantadas</strong></span>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="titulo-tabela">
-            DADOS DE GERAÇÃO E FATURAMENTO
-          </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Mês</th>
-                <th>Geração (kWh)</th>
-                <th>Valor Fixo (R$)</th>
-                <th>Injetado (R$)</th>
-                <th>Creditado (R$)</th>
-                <th>CUO (R$)</th>
-                <th>Valor Final (R$)</th>
-              </tr>
-            </thead>
-            <tbody>
-              @foreach($dadosMensais as $mes => $dados)
-                <tr>
-                  <td>{{ $mes }}</td>
-                  <td>{{ number_format($dados['geracao_kwh'] ?? 0, 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['fixo'], 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['injetado'], 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['creditado'], 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['cuo'], 2, ',', '.') }}</td>
-                  <td>{{ number_format($dados['valor_final'], 2, ',', '.') }}</td>
-                </tr>
-              @endforeach
-            </tbody>
-          </table>
-        </div>
-
-      <div class="linha-3-colunas">
-        <!-- Demonstrativo de Créditos -->
-        <div class="bloco bloco-creditos">
-          <div class="bloco-titulo">DEMONSTRATIVO DE CRÉDITOS</div>
-          @php
-              $ultimos6Meses = collect($dadosFaturamento)->reverse()->take(6)->reverse();
-          @endphp
-
-          <table class="data-table">
-              <thead>
-                  <tr>
-                      <th>Mês</th>
-                      <th>Mês de vencimento</th>
-                      <th>Valor Guardado</th>
-                      <th>Creditado (kWh)</th>
-                      <th>Meses Resgatados</th>
-                  </tr>
-              </thead>
-              <tbody>
-                  @foreach($ultimos6Meses as $mes => $dados)
-                      <tr>
-                          <td>{{ $mes }}</td>
-                          <td>{{ $dados['vencimento'] ?? '-' }}</td>
-                          <td>{{ number_format($dados['guardado'], 2, ',', '.') }} kWh</td>
-                          <td>{{ number_format($dados['creditado_kwh'] ?? 0, 2, ',', '.') }} kWh</td>
-                          <td>{{ $dados['meses_utilizados'] ?? '-' }}</td>
-                      </tr>
-                  @endforeach
-              </tbody>
-          </table>
-        </div>
-
-        <div class="bloco bloco-historico">
-          <div class="bloco-titulo">HISTÓRICO DE VALORES</div>
-          <table class="historico-valores">
-            <thead>
-              <tr>
-                <th>Descrição</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Total acum de energia a receber</td>
-                <td>{{ number_format($totalEnergiaReceber, 2, ',', '.') }} kWh</td>
-              </tr>
-              <tr>
-                <td>Total acum de fatura concessionária</td>
-                <td>R$ {{ number_format($totalFaturaConcessionaria, 2, ',', '.') }}</td>
-              </tr>
-              <tr>
-                <td>Total acum de faturas emitidas</td>
-                <td>R$ {{ number_format($totalFaturasEmitidas, 2, ',', '.') }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="bloco bloco-observacoes">
-            <strong>Observações:</strong>
-            <p>{{ $observacoes }}</p>
+        <div class="item-geracao">
+          <img src="{{ $iconeArvore }}" alt="">
+          <div>
+            <div class="stat-line"><span class="stat-num">@numero($arvores, 0)</span><span class="stat-unit">árvores</span></div>
+            <div class="stat-caption">plantadas, em equivalência</div>
           </div>
         </div>
       </div>
     </div>
 
-    <footer class="rodape">
-      <div class="rodape-esquerda">
-        <img src="{{ $iconeLampada }}" alt="Lâmpada" class="icon">
-        <span>Pense bem antes de imprimir!</span>
+    <div class="section-label">Dados de geração e faturamento</div>
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Mês</th>
+            <th>Geração (kWh)</th>
+            <th>Valor Fixo (R$)</th>
+            <th>Injetado (R$)</th>
+            <th>Creditado (R$)</th>
+            <th>CUO (R$)</th>
+            <th>Valor Final (R$)</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($dadosMensais as $mes => $dados)
+            <tr>
+              <td>{{ $mes }}</td>
+              <td class="num">@kwh($dados['geracao_kwh'] ?? 0)</td>
+              <td class="num">@reais($dados['fixo'])</td>
+              <td class="num">@reais($dados['injetado'])</td>
+              <td class="num credito">@reais($dados['creditado'])</td>
+              <td class="num">@reais($dados['cuo'])</td>
+              <td class="num valor-final">@reais($dados['valor_final'])</td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </div>
+
+    <div class="linha-final">
+      <div class="card bloco-creditos">
+        <div class="section-label">Demonstrativo de créditos</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Vencimento do crédito</th>
+              <th>Guardado (kWh)</th>
+              <th>Creditado (kWh)</th>
+              <th>Meses resgatados</th>
+              @if($temConvertidoReceita)
+                <th>Convertido em receita (R$)</th>
+              @endif
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($dadosCreditos as $mes => $dados)
+              <tr>
+                <td>{{ $mes }}</td>
+                <td class="num">{{ $dados['vencimento'] ?? '-' }}</td>
+                <td class="num">@kwh($dados['guardado'])</td>
+                <td class="num">@kwh($dados['creditado_kwh'] ?? 0)</td>
+                <td class="num">{{ $dados['meses_utilizados'] ?? '-' }}</td>
+                @if($temConvertidoReceita)
+                  <td class="num credito">{{ $dados['convertido_receita'] > 0 ? \App\Support\Format::reais($dados['convertido_receita']) : '-' }}</td>
+                @endif
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
       </div>
-      <div class="rodape-direita">
-        <span>Siga a Lider Energy nas redes sociais:</span>
-        <a href="https://www.linkedin.com/company/liderenergy" target="_blank">
-          <img src="{{ $iconeLinkedin }}" alt="LinkedIn" class="icon-social">
-        </a>
-        <a href="https://www.instagram.com/liderenergy" target="_blank">
-          <img src="{{ $iconeInstagram }}" alt="Instagram" class="icon-social">
-        </a>
+
+      <div class="coluna-direita">
+        <div class="card">
+          <div class="section-label">Histórico de valores</div>
+          <table class="historico-valores">
+            <tbody>
+              <tr>
+                <td>Crédito guardado acumulado (kWh)</td>
+                <td>@kwh($totalGuardadoKwh)</td>
+              </tr>
+              <tr>
+                <td>CUO acumulado (R$)</td>
+                <td>@reais($totalCuo)</td>
+              </tr>
+              <tr class="total-destaque">
+                <td>Valor a receber acumulado (R$)</td>
+                <td>@reais($totalValorFinal)</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="periodo-nota">Período: {{ $mesAnoSelecionado }}</p>
+        </div>
+
+        @if($observacoes !== '')
+          <div class="card bloco-observacoes">
+            <div class="section-label">Observações</div>
+            <p>{{ $observacoes }}</p>
+          </div>
+        @endif
       </div>
-    </footer>
+    </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+  <footer class="rodape">
+    <span><img src="{{ $iconeLampada }}" alt="" class="icon">Pense bem antes de imprimir!</span>
+    <span>
+      Siga a Líder Energy nas redes sociais:
+      <a href="https://www.linkedin.com/company/liderenergy"><img src="{{ $iconeLinkedin }}" alt="LinkedIn" class="icon-social"></a>
+      <a href="https://www.instagram.com/liderenergy"><img src="{{ $iconeInstagram }}" alt="Instagram" class="icon-social"></a>
+    </span>
+  </footer>
+
+  {{-- Chart.js v4 + datalabels LOCAIS, inline (zero rede; ver public/vendor/README.md) --}}
+  <script>{!! $chartJs !!}</script>
+  <script>{!! $datalabelsJs !!}</script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      const valores = {!! json_encode($valoresGeracao) !!};
-      const labels = {!! json_encode($nomesMeses) !!};
+      try {
+        const valores = {!! json_encode($valoresGeracao, JSON_HEX_TAG | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' !!};
+        const labels = {!! json_encode($nomesMeses, JSON_HEX_TAG | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' !!};
+        const maxY = valores.length ? Math.max(...valores) * 1.1 : 10;
 
-      const maxGeracao = Math.max(...valores);
-      const margem = maxGeracao * 0.1;
-      const maxY = maxGeracao + margem;
-
-      const ctx = document.getElementById('graficoGeracao').getContext('2d');
-
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Geração Mensal (kWh)',
-            data: valores,
-            fill: true,
-            borderColor: 'rgb(243, 153, 86)',
-            tension: 0.3,
-            pointBackgroundColor: 'rgb(243, 153, 86)',
-          }]
-        },
-        options: {
-          responsive: true,
-          aspectRatio: 1.8,
-          plugins: {
-            legend: {
-              display: false
+        new Chart(document.getElementById('graficoGeracao').getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Geração Mensal (kWh)',
+              data: valores,
+              fill: true,
+              backgroundColor: 'rgba(243, 147, 37, 0.08)',
+              borderColor: '#F39325',
+              tension: 0.3,
+              pointBackgroundColor: '#F39325',
+            }]
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            aspectRatio: 1.8,
+            plugins: {
+              legend: { display: false },
+              datalabels: {
+                color: '#5C5C5C',
+                anchor: 'end',
+                align: 'top',
+                formatter: (v) => v.toFixed(2),
+                font: { family: 'JetBrains Mono', size: 8, weight: 'bold' }
+              }
             },
-            datalabels: {
-              color: '#4F4F4F',
-              anchor: 'end',
-              align: 'top',
-              formatter: function(value) {
-                return value.toFixed(2);
+            scales: {
+              y: {
+                beginAtZero: true,
+                suggestedMax: maxY,
+                grid: { color: '#E5E0D9' },
+                ticks: { precision: 0, color: '#5C5C5C' }
               },
-              font: {
-                size: 8,
-                weight: 'bold'
+              x: {
+                grid: { display: false },
+                ticks: { color: '#5C5C5C' }
               }
             }
           },
-          scales: {
-            y: {
-              beginAtZero: true,
-              suggestedMax: maxY,
-              ticks: {
-                precision: 0
-              }
-            }
-          }
-        },
-        plugins: [ChartDataLabels]
-      });
-
-      window.chartRendered = true;
+          plugins: [ChartDataLabels]
+        });
+      } catch (e) {
+        window.chartError = String(e); // diagnóstico sem quebrar o contrato de não-travar
+      } finally {
+        window.chartRendered = true; // sinal p/ Browsershot waitForFunction
+      }
     });
   </script>
 </body>

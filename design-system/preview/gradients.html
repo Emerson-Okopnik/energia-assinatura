@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- @dsCard group="Spacing" name="Gradients" subtitle="grad-sun + grad-dawn — orange-family only" viewport="700x200" --><html><head><meta charset="utf-8"><title>Gradients</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 24px; display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+  .g { border-radius: 20px; padding: 18px; min-height: 140px; display: flex; flex-direction: column; justify-content: space-between; color: white; box-shadow: var(--shadow-sm); }
+  .sun { background: var(--grad-sun); }
+  .dawn { background: var(--grad-dawn); color: var(--color-ink); }
+  .name { font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+  .hex { font-family: var(--font-mono); font-size: 11px; opacity: 0.9; }
+</style>
+</head><body>
+  <div class="g sun"><div class="name">grad-sun</div><div class="hex">#F9B566 → #F39325 → #D97613 · 135°</div></div>
+  <div class="g dawn"><div class="name">grad-dawn</div><div class="hex">#FDE6CB → #FAF6F1 · 180°</div></div>
+</body></html>

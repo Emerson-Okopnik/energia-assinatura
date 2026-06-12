@@ -123,7 +123,13 @@ Route::middleware('auth:api')->group(function () {
   Route::patch('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'update']);
   Route::delete('/dados-geracao-real/{id}', [DadosGeracaoRealController::class, 'destroy']);
 
-  Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'calcular']);
+  // Cálculo ÚNICO (núcleo de domínio): preview (não grava) e calculo (grava).
+  // .../calculo agora usa o motor novo (FaturamentoService) — o frontend salva aqui.
+  Route::get('/usinas/{usi_id}/projecao/{ano}', [\App\Http\Controllers\CalculoGeracaoController::class, 'projecao']);
+  Route::get('/usinas/{usi_id}/inputs-salvos/{ano}', [\App\Http\Controllers\CalculoGeracaoController::class, 'inputsSalvos']);
+  Route::post('/usinas/{usi_id}/consumo/{ano}/mes/{mes}', [\App\Http\Controllers\CalculoGeracaoController::class, 'upsertConsumoMes']);
+  Route::get('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/preview', [\App\Http\Controllers\CalculoGeracaoController::class, 'preview']);
+  Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/calculo', [\App\Http\Controllers\CalculoGeracaoController::class, 'processar']);
   Route::post('/usinas/{usi_id}/faturamento/{ano}/mes/{mes}/estorno', [\App\Http\Controllers\EstornoGeracaoController::class, 'estornar']);
   Route::get('/usinas/{usi_id}/historico-estorno', [\App\Http\Controllers\EstornoGeracaoController::class, 'historico']);
   Route::get('/usinas/{usi_id}/ultimo-revertivel', [\App\Http\Controllers\EstornoGeracaoController::class, 'ultimoRevertivel']);

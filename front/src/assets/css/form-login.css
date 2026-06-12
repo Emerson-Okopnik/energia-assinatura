@@ -1,189 +1,292 @@
-.login-centered {
+/* ===================================================================
+   Login — split em dois: formulário (paper) à esquerda, painel da
+   marca animado (grad-sun) à direita. Tokens do DS, zero hardcode.
+=================================================================== */
+
+.login-page {
+  /* Anula o padding de 2rem do #app (ver TheAppShell) p/ ocupar o viewport todo. */
+  margin: -2rem;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-}
-
-.login-box {
-  display: flex;
-  background-color: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  min-height: 100vh;
+  max-height: 100vh;
+  padding: var(--space-6);
+  background: var(--color-linen);
   overflow: hidden;
-  max-width: 850px;
+}
+
+.login-shell {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   width: 100%;
+  max-width: 960px;
+  min-height: 560px;
+  max-height: 100%;
+  background: var(--color-paper);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: login-enter var(--dur-section) var(--ease-out-quart) both;
 }
 
-/* Lado esquerdo com ilustração e cor institucional */
-.login-illustration {
-  flex: 1;
-  background-color: #f28c1f;
+/* ---------- Lado do formulário ---------- */
+.login-form-side {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  color: white;
-  padding: 2rem;
-  text-align: center;
-}
-
-.login-illustration img {
-  max-width: 260px;
-  margin-bottom: 1.5rem;
-}
-
-.tip-text {
-  font-size: 0.95rem;
-  line-height: 1.4;
-  max-width: 300px;
-}
-
-/* Lado direito com formulário */
-.login-form {
-  flex: 1;
-  padding: 2rem 2.5rem;
-  display: flex;
-  flex-direction: column;
   justify-content: center;
-  background-color: #fff;
+  padding: var(--space-9) var(--space-8);
+  overflow-y: auto;
 }
 
-.greeting .small {
-  font-size: 0.85rem;
-  color: #999;
+.login-form-wrap {
+  width: 100%;
+  max-width: 360px;
 }
 
-.greeting h2 {
-  font-size: 1.8rem;
-  margin-bottom: 1.5rem;
-  color: #2e2e2e;
+.login-title {
+  margin: 0 0 var(--space-7);
+  font-family: var(--font-display);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-extra);
+  line-height: var(--lh-snug);
+  color: var(--color-ink);
 }
 
-form {
+.login-form {
   display: flex;
   flex-direction: column;
+  gap: var(--space-5);
 }
 
-form label {
-  font-size: 0.85rem;
-  margin-top: 1rem;
-  margin-bottom: 0.3rem;
-  color: #2e2e2e;
+/* Inputs — espelham preview/inputs.html do DS */
+.login-input {
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--color-mist);
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  transition: border-color var(--dur-hover) var(--ease-standard),
+    box-shadow var(--dur-hover) var(--ease-standard);
 }
 
-form input {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  transition: 0.3s;
+.login-input::placeholder {
+  color: var(--color-smoke);
 }
 
-form input:focus {
-  border-color: #f28c1f;
+.login-input:focus {
+  border-color: var(--color-primary);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(242, 140, 31, 0.2);
+  box-shadow: var(--shadow-focus);
 }
 
-.options {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.5rem;
-}
-
-.options a {
-  font-size: 0.8rem;
-  color: #f28c1f;
-  text-decoration: none;
-}
-
-.options a:hover {
-  text-decoration: underline;
-}
-
-button[type="submit"] {
-  background-color: #f28c1f;
-  color: white;
-  border: none;
-  margin-top: 1.5rem;
-  padding: 12px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-button[type="submit"]:hover {
-  background-color: #d97706;
-}
-
-.create-account {
-  font-size: 0.85rem;
-  text-align: center;
-  margin-top: 1rem;
-  color: #666;
-}
-
-.create-account a {
-  color: #f28c1f;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.password-wrapper {
+/* Senha + toggle */
+.login-password {
   position: relative;
 }
 
-.password-wrapper input {
-  width: 100%;
-  padding-right: 40px;
+.login-password .login-input {
+  padding-right: 44px;
 }
 
-.toggle-password {
+.login-password__toggle {
   position: absolute;
   top: 50%;
-  right: 12px;
+  right: 6px;
   transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-slate);
   cursor: pointer;
-  color: #999;
-  font-size: 1rem;
+  border-radius: var(--radius-sm);
+  transition: color var(--dur-hover) var(--ease-standard);
 }
 
+.login-password__toggle:hover {
+  color: var(--color-primary);
+}
 
-@media (max-width: 768px) {
-  .login-box {
-    flex-direction: column;
+.login-password__toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Link esqueceu senha */
+.login-options {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.login-options a {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.login-options a:hover {
+  color: var(--color-primary-deep);
+  text-decoration: underline;
+}
+
+/* Erro inline */
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-normal);
+}
+
+.login-error__icon {
+  flex: none;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: var(--space-1);
+}
+
+/* ---------- Lado da marca ---------- */
+.login-brand-side {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-9);
+  background: var(--grad-sun);
+  overflow: hidden;
+}
+
+/* Halo radial suave atrás do símbolo */
+.login-brand-side::before {
+  content: '';
+  position: absolute;
+  width: 120%;
+  aspect-ratio: 1;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0) 60%
+  );
+}
+
+.login-brand {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: login-brand-in var(--dur-section) var(--ease-out-quart) 120ms both;
+}
+
+/* Logotipo original (preto — regra DS: black on Orange), com leve flutuar */
+.login-brand__logo {
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  animation: login-float 6s var(--ease-standard) infinite;
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes login-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes login-brand-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes login-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 860px) {
+  /* Stacked layout pode exceder a viewport — libera rolagem da página.
+     Zera a margem negativa p/ não estourar a largura no mobile. */
+  .login-page {
+    margin: 0;
+    max-height: none;
+    overflow: auto;
+  }
+
+  .login-shell {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .login-form-side {
+    overflow-y: visible;
+  }
+
+  /* No mobile a marca vai para o topo, compacta */
+  .login-brand-side {
+    order: -1;
+    padding: var(--space-8) var(--space-6);
+  }
+
+  .login-brand__logo {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-page {
+    padding: 0;
+  }
+
+  .login-shell {
+    max-width: 100%;
+    min-height: 100vh;
     border-radius: 0;
     box-shadow: none;
-    max-width: 100%;
-    height: 100vh;
   }
+}
 
-  .login-illustration {
-    display: none !important;
-  }
-
-  .login-form {
-    flex: 1;
-    padding: 2rem 1.5rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    background-color: #fff;
-    width: 100%;
-  }
-
-  .greeting h2 {
-    font-size: 1.6rem;
-    text-align: center;
-    margin-top: 1rem;
-  }
-
-  form input {
-    font-size: 1rem;
-  }
-
-  .create-account {
-    font-size: 0.85rem;
+@media (prefers-reduced-motion: reduce) {
+  .login-shell,
+  .login-brand,
+  .login-brand__logo {
+    animation: none;
   }
 }

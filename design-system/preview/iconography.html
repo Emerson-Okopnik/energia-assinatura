@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- @dsCard group="Components" name="Iconography" subtitle="Lucide-style stroke icons (CDN substitution)" viewport="700x170" --><html><head><meta charset="utf-8"><title>Iconography</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 26px; display: flex; align-items: center; justify-content: space-around; gap: 18px; background: var(--color-linen); }
+  .i { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .icon { width: 44px; height: 44px; color: var(--color-ink); display: flex; align-items: center; justify-content: center; background: white; border-radius: 14px; box-shadow: var(--shadow-xs); }
+  svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--color-graphite); }
+  .active { color: var(--color-primary); }
+  .note { position: absolute; bottom: 10px; left: 26px; font-family: var(--font-body); font-size: 10px; color: var(--color-slate); }
+</style>
+</head><body>
+  <div class="i"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.64 5.64l1.42 1.42M16.94 16.94l1.42 1.42M5.64 18.36l1.42-1.42M16.94 7.06l1.42-1.42"/><circle cx="12" cy="12" r="4"/></svg></div><span class="label">sun</span></div>
+  <div class="i"><div class="icon"><svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></div><span class="label">home</span></div>
+  <div class="i"><div class="icon active"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div><span class="label">bolt</span></div>
+  <div class="i"><div class="icon"><svg viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0118 0v6M21 19a2 2 0 01-2 2h-1v-6h3zM3 19a2 2 0 002 2h1v-6H3z"/></svg></div><span class="label">support</span></div>
+  <div class="i"><div class="icon"><svg viewBox="0 0 24 24"><path d="M3 3h18v4H3zM3 10h18v11H3zM8 14h8M8 18h5"/></svg></div><span class="label">invoice</span></div>
+  <div class="i"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></div><span class="label">user</span></div>
+</body></html>

@@ -53,7 +53,7 @@
   
 <script>
 import axios from 'axios';
-import Swal from 'sweetalert2';
+import Swal from '../utils/swal.js';
 
 export default {
   name: 'ListaUsinas',
@@ -79,7 +79,6 @@ export default {
           icon: 'error',
           title: 'Erro ao carregar',
           text: 'Não foi possível carregar a lista de usinas.',
-          confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
       }
@@ -91,8 +90,6 @@ export default {
         title: 'Excluir usina?',
         text: 'Esta ação é irreversível. Deseja continuar?',
         showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#aaa',
         confirmButtonText: 'Sim, excluir',
         cancelButtonText: 'Cancelar'
       });
@@ -114,8 +111,7 @@ export default {
         Swal.fire({
           icon: 'success',
           title: 'Usina excluída',
-          text: 'A usina foi removida com sucesso.',
-          confirmButtonColor: '#f28c1f'
+          text: 'A usina foi removida com sucesso.'
         });
 
       } catch (error) {
@@ -125,7 +121,6 @@ export default {
           icon: 'error',
           title: 'Erro ao excluir',
           text: 'Não foi possível excluir a usina.',
-          confirmButtonColor: '#d33',
           confirmButtonText: 'Entendi'
         });
       }

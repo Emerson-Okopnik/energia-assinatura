@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- @dsCard group="Components" name="Buttons" subtitle="Primary pill, secondary, ghost" viewport="700x150" --><html><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; background: var(--color-linen); }
+  .btn { font-family: var(--font-body); font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; border: none; cursor: pointer; padding: 12px 22px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; transition: all .15s var(--ease-out-quart); }
+  .primary { background: var(--color-primary); color: white; box-shadow: var(--shadow-glow); }
+  .primary:hover { background: var(--color-primary-deep); }
+  .secondary { background: white; color: var(--color-ink); border: 1.5px solid var(--color-mist); }
+  .secondary:hover { border-color: var(--color-primary); color: var(--color-primary-deep); }
+  .ghost { background: transparent; color: var(--color-primary-deep); }
+  .ghost:hover { background: rgba(243,147,37,0.1); }
+  .sm { padding: 8px 14px; font-size: 11px; border-radius: 999px; }
+  svg { width: 14px; height: 14px; stroke-width: 2.25; }
+</style>
+</head><body>
+  <button class="btn primary">Converse com um especialista
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+  </button>
+  <button class="btn secondary">Ver planos</button>
+  <button class="btn ghost">Saiba mais →</button>
+  <button class="btn primary sm">Enviar</button>
+</body></html>

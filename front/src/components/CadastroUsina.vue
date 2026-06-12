@@ -389,6 +389,7 @@
 
 <script>
 import axios from "axios";
+import { formatNumero } from "../utils/formatters.js";
 
 export default {
   data() {
@@ -514,11 +515,7 @@ export default {
       return Number(numero.toFixed(2));
     },
     formatCurrency(valor) {
-      const numero = this.arredondarDuasCasas(valor);
-      return new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(numero);
+      return formatNumero(valor);
     },
     formatCpfCnpj(value) {
       let v = (value || '').replace(/\D/g, '');
@@ -863,12 +860,12 @@ export default {
 
 .btn-submit{
   color: white;
-  background-color: #f28c1f;
+  background-color: var(--color-primary);
 }
 
 .btn-submit:hover{
   color: white;
-  background-color: #d97706;
+  background-color: var(--color-primary-deep);
 }
 
 @keyframes fadeOut {

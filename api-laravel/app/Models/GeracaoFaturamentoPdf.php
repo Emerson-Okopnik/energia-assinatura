@@ -18,6 +18,7 @@ class GeracaoFaturamentoPdf extends Model {
     'creditado',
     'cuo',
     'valor_final',
+    'fatura_energia',
   ];
 
   protected $casts = [
@@ -29,6 +30,7 @@ class GeracaoFaturamentoPdf extends Model {
     'creditado' => 'float',
     'cuo' => 'float',
     'valor_final' => 'float',
+    'fatura_energia' => 'float',
   ];
 
   public function usina() {
