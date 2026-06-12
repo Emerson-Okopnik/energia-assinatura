@@ -10,6 +10,8 @@ const props = defineProps({
   preview: { type: Object, default: null },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
+  // true quando exibe um lançamento já persistido (ex.: detalhes do Histórico)
+  salvo: { type: Boolean, default: false },
 })
 
 defineEmits(['retry'])
@@ -36,7 +38,8 @@ const arvores = computed(() => props.preview?.parametros?.arvores_equivalentes)
 <template>
   <section class="preview-panel" aria-live="polite">
     <header class="preview-panel__topo">
-      <BaseBadge variant="warning" dot>Simulação — valores não salvos</BaseBadge>
+      <BaseBadge v-if="salvo" variant="success" dot>Lançamento salvo</BaseBadge>
+      <BaseBadge v-else variant="warning" dot>Simulação — valores não salvos</BaseBadge>
       <span v-if="loading" class="preview-panel__recalculando">Recalculando…</span>
     </header>
 

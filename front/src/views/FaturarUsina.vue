@@ -760,6 +760,7 @@ async function baixarPdf() {
 
                 <PreviewPanel
                   class="historico__detalhes-preview"
+                  salvo
                   :preview="previewHistorico[row.chave]?.dados ?? null"
                   :loading="previewHistorico[row.chave]?.loading ?? false"
                   :error="previewHistorico[row.chave]?.error ?? ''"

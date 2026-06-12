@@ -102,25 +102,18 @@ onBeforeUnmount(() => {
           </ul>
         </div>
       </nav>
-
-      <div class="sidebar-footer">
-        <div class="help-card">
-          <p class="help-title">Precisa de ajuda?</p>
-          <p class="help-text">Fale com o suporte da Líder Energy.</p>
-          <a class="help-cta" href="mailto:suporte@grupoarco.cc">Abrir chat</a>
-        </div>
-
-      </div>
     </aside>
   </div>
 </template>
 
 <style scoped>
 .app-sidebar {
+  position: sticky;
+  top: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
   padding: var(--space-6);
   background: var(--color-paper);
   border-right: 1px solid var(--color-mist);
@@ -202,54 +195,6 @@ onBeforeUnmount(() => {
 }
 
 /* ---------- Rodapé ---------- */
-.sidebar-footer {
-  margin-top: auto;
-  padding-top: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.help-card {
-  background: var(--color-linen);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-}
-
-.help-title {
-  margin: 0 0 var(--space-1);
-  font-family: var(--font-display);
-  font-weight: var(--fw-bold);
-  font-size: var(--fs-sm);
-  color: var(--color-ink);
-}
-
-.help-text {
-  margin: 0 0 var(--space-3);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-normal);
-  color: var(--color-graphite);
-}
-
-.help-cta {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-pill);
-  background: var(--color-primary);
-  color: var(--color-paper);
-  font-family: var(--font-body);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-bold);
-  text-decoration: none;
-  transition: background-color var(--dur-hover) var(--ease-standard);
-}
-
-.help-cta:hover {
-  background: var(--color-primary-deep);
-  color: var(--color-paper);
-}
-
 /* ---------- Overlay (mobile) ---------- */
 .sidebar-overlay {
   display: none;
