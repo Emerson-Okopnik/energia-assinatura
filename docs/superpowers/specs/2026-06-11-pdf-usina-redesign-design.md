@@ -17,6 +17,10 @@ O PDF da usina (fatura/demonstrativo de geração) tem três problemas:
 
 Há também resíduo de não-DRY/SRP no template: hex mágicos repetidos no CSS, um slice de dados (`$ultimos6Meses`) e dois `number_format` crus dentro do Blade.
 
+4. **Layout quebrado (estado atual).** O PDF gera, mas o layout sai quebrado. Causa provável: a Fase 6 adicionou duas tabelas (Auditoria §8 + Parâmetros de Cálculo) a um layout A4 de página única com rodapé `position: fixed` — o conteúdo estoura a página/sobrepõe o rodapé. Decisão do usuário: **essas duas seções NÃO devem aparecer no PDF** (são informação interna de auditoria, não do cliente). A remoção ataca a causa; a reestilização deve garantir que o conteúdo restante caiba em 1 página A4 sem sobreposição (verificar no render final).
+
+5. **Rótulos enganosos nos dados exibidos.** "Valor Guardado" é kWh (não dinheiro); "Total acum de energia a receber" é o crédito guardado em kWh; "Total acum de fatura concessionária" é na verdade o CUO (fatura + fio B + adicional); "Total acum de faturas emitidas" é o Valor Final calculado. E o crédito que vence é **pago como receita** no Valor Final, mas nada no PDF mostra isso (e "expirado" soa como perda para o cliente).
+
 ## 2. Restrições e contexto
 
 - **O cálculo já é única-fonte-de-verdade (Fase 6 do redesenho do motor).** O Blade NÃO recalcula nada: lê de `UsinaPdfViewModel`, que orquestra `FaturamentoService::calcularMes(persistir: false)`. Formatação centralizada em `App\Support\Format` (diretivas `@kwh`, `@reais`, `@tarifa`, `@percentual`). Ver memória `regras-calculo-faturamento`.
@@ -29,6 +33,21 @@ Há também resíduo de não-DRY/SRP no template: hex mágicos repetidos no CSS,
 Refatorar o **design** do PDF para 100% de aderência ao design system Líder Energy, aplicando SOLID/DRY/CLEAN na camada de apresentação, eliminando a latência de rede do Browsershot, e **garantindo que todo valor exibido bate exatamente com o motor de cobrança refatorado** (Fases 0–7).
 
 Fora de escopo: alterar regra de cálculo, fragmentar o Blade em componentes, mexer no `gerarConsumidoresPDF` (PDF de consumidores) ou no merge da fatura Celesc.
+
+### 3.1 Conteúdo do PDF (decisões do usuário, 2026-06-11)
+
+- **REMOVER** as seções "Auditoria de Geração e Créditos" e "Parâmetros de Cálculo" do Blade (e a montagem correspondente no ViewModel pode ser mantida apenas se usada por outra coisa; senão, remover também — manter o ViewModel enxuto).
+- **Demonstrativo de Créditos** (mantém, com correções):
+  - "Valor Guardado" → **"Guardado (kWh)"** (o dado é energia, não dinheiro).
+  - "Mês de vencimento" → **"Vencimento do crédito"**.
+  - Adicionar **"Convertido em receita (R$)"** (crédito vencido pago no Valor Final), exibido apenas quando > 0 no mês. Enquadramento positivo obrigatório: o crédito vencido NÃO é perda — o motor o paga como receita; o rótulo nunca deve usar só "expirado"/"perdido".
+- **Histórico de Valores** (mantém, com rótulos honestos alinhados ao motor):
+  - "Total acum de energia a receber" → **"Crédito guardado acumulado (kWh)"**.
+  - "Total acum de fatura concessionária" → **"CUO acumulado (R$)"**.
+  - "Total acum de faturas emitidas" → **"Valor a receber acumulado (R$)"**.
+  - Separar unidades no rótulo (a coluna "Valor" mistura kWh e R$) e estilizar o `thead` hoje sem estilo.
+- **Tabela "Dados de Geração e Faturamento"** (4 termos do motor) — mantém como está, só reestiliza.
+- **Cabeçalho:** "Valor a Receber" aparece 2× (header + highlight bar); manter 1× no header + 1× em destaque é aceitável — decisão fina de layout na implementação.
 
 ---
 
@@ -101,7 +120,7 @@ Workflow com fan-out nas frentes independentes, depois implementação e revisã
 - `Format::numero()` + diretiva `@numero`.
 - `UsinaPdfViewModel`: expor `dadosCreditos` (6 meses) e qualquer número pré-formatado/derivado que saia do Blade.
 - `PDFController`: `inlineAsset()` genérico; trocar logo; remover `waitUntilNetworkIdle`/`setDelay`; `timeout(30)`; inline de JS/fontes.
-- `usina.blade.php`: `:root` de tokens; reestilização completa pelo mapa; `@font-face` embutido; remover CDNs; trocar `number_format` por diretivas.
+- `usina.blade.php`: remover seções Auditoria + Parâmetros; aplicar correções de conteúdo do §3.1 (rótulos do demonstrativo/histórico, coluna "Convertido em receita"); `:root` de tokens; reestilização completa pelo mapa; `@font-face` embutido; remover CDNs; trocar `number_format` por diretivas; garantir que o conteúdo cabe em 1 página A4 sem sobrepor o rodapé fixo.
 
 **Fase 3 — Revisão adversarial (paralela):**
 - **Revisor de valores** — reexecuta/inspeciona o caso âncora e confere os 4 termos + FIFO + expiração; garante zero recálculo no Blade.
@@ -117,7 +136,9 @@ Workflow com fan-out nas frentes independentes, depois implementação e revisã
 3. **Zero** aritmética de faturamento no Blade; `$ultimos6Meses` e `number_format` saíram do template; `Format` é a fonte única de formatação.
 4. Caso âncora **Eder Mai/2026 = R$ 5.700,65** confere no PDF; os 4 termos + FIFO + expiração + CO₂/árvores batem com o motor.
 5. Blade compila; PDF gera; tempo de geração materialmente menor (meta ~1–2s de render, sem timeouts).
-6. **Validação visual final do PDF é do usuário** (não renderizamos screenshot sem pedido).
+6. Seções Auditoria e Parâmetros de Cálculo **ausentes** do PDF; conteúdo cabe em 1 página A4 sem sobrepor o rodapé (layout quebrado atual resolvido).
+7. Rótulos corrigidos conforme §3.1: "Guardado (kWh)", "Vencimento do crédito", "Convertido em receita (R$)" (só quando > 0), "Crédito guardado acumulado (kWh)", "CUO acumulado (R$)", "Valor a receber acumulado (R$)".
+8. **Validação visual final do PDF é do usuário** (não renderizamos screenshot sem pedido).
 
 ## 7. Riscos
 
