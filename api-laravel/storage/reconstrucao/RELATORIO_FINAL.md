@@ -14,7 +14,7 @@ fórmula distinta — a ponto de o **mesmo mês** aparecer com **quatro valores 
 banco R$ 6.961,71 / tela R$ 6.862,30 / PDF R$ 6.009,22 / correto R$ 5.700,65).
 
 **Impacto financeiro medido** (reconstrução de todas as 67 usinas, comparando o que o sistema creditou
-vs. o que deveria): o sistema **creditou R$ 65.265 a mais** no agregado, dominado por um único bug
+vs. o que deveria): o sistema **creditou R$ 69.554 a mais** no agregado, dominado por um único bug
 (creditar sem haver déficit).
 
 A correção **unificou todo o cálculo numa única fonte de verdade** (um motor de domínio testado),
@@ -44,6 +44,7 @@ apenas **lerem** o resultado — nunca recalcular.
 | E2 | **Precisão `float`** em colunas monetárias (valor_fixo, menor_geracao, fio_b) | erros de centavos |
 | E3 | **Faturamento congelado** — o mês era calculado antes do consumo ser informado e nunca recalculado | Eder Maio calculado com consumo 0 |
 | E4 | **`dados_consumo_usina` duplicado** — cada lançamento/revert criava nova linha (108 pares) | leitura de consumo ambígua |
+| E7 | **Crédito em mês sem geração real registrada** — Valdemar Gremski (UC 98650262), Ago/2025: R$ 4.288,75 creditados sem geração que os justifique | crédito indevido OU geração não importada; requer verificação manual |
 | E5 | **Unidades inconsistentes** — formatadores divergentes (kWh/R$) espalhados | apresentação confusa |
 | E6 | **Cálculo de negócio no template** (PDF) e no frontend | manutenção e divergência |
 
@@ -57,10 +58,11 @@ com o crédito correto (DEPOIS):
 | Tipo de erro | Casos | Impacto |
 |---|---|---|
 | 🔴 Crédito sem déficit | 43 | **−R$ 63.115,34** |
+| 🟣 Crédito sem geração registrada | 1 | −R$ 4.288,75 |
 | 🟠 Creditou além do déficit | 7 | −R$ 3.572,40 |
 | 🟡 Creditou além da reserva | 2 | −R$ 1.694,38 |
 | 🔵 Creditou a menos (FIFO não usou reserva antiga) | 15 | +R$ 3.116,97 |
-| | **67** | **−R$ 65.265,15** (creditado a mais) |
+| | **68** | **−R$ 69.553,90** (creditado a mais) |
 
 > Detalhe por usina em `relatorio.html` (filtrável, apresentável).
 
@@ -96,6 +98,11 @@ Valor Final = Valor Fixo + Valor Variável + Crédito − CUO  (+ Receita de Exp
 
 - **61 testes automatizados** verdes (golden + unitários + integração + persistência).
 - Backfill do ledger validado no staging: **idempotente** (re-rodar não duplica).
+- **Relatório antes×depois auditado e reproduzível** (2026-06-11): regenerado do dump pristino de produção
+  (`energia_antes_20260611_164628.dump`) com resultado byte a byte idêntico; cobertura de crédito verificada por SQL
+  independente (nenhum R$ creditado fica fora — meses sem geração registrada viram o tipo "Crédito sem geração registrada").
+  Regras de exibição honestas: valor final DEPOIS exclui receita de expiração retroativa (não é paga) e é omitido (—)
+  quando não há demonstrativo ANTES para reconciliar a fatura manual do CUO.
 - Descoberta importante: o **valor final é robusto ao consumo** — `Variável + Crédito = (média − menor) × tarifa`
   (a geração líquida se cancela), então o total não depende do valor exato do consumo, só a divisão entre as linhas.
 

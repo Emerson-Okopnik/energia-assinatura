@@ -7,7 +7,16 @@
  *   - Geração líquida = bruta − max(consumo − desconto_rede, 0)            (§9)
  *   - Crédito limitado ao faltante e à reserva, FIFO cross-ano             (§6)
  *   - Expiração 180 dias DEPOIS do consumo FIFO (só o que sobrou)          (§7)
- *   - Saldo inicial migrado para usinas com déficit histórico > excedente  (§12)
+ *   - Reserva começa em ZERO (sem saldo inicial migrado — fiel ao cadastro)
+ *
+ * Garantias de veracidade do relatório (auditoria 2026-06-11):
+ *   - Crédito ANTES em mês SEM geração real registrada vira divergência própria
+ *     ("Crédito sem geração registrada") — nada é pulado silenciosamente.
+ *   - Valor final DEPOIS exclui a receita de expiração retroativa (decisão de
+ *     negócio: expiração retroativa não é paga; o motor só paga indo p/ frente).
+ *   - Sem demonstrativo ANTES (geracao_faturamento_pdf) não há faturaEnergia p/
+ *     reconciliar o CUO: CUO/valor final DEPOIS são omitidos (—), nunca exibidos
+ *     incompletos como se fossem o valor pagável.
  *
  * Roda contra o STAGING (cópia de produção), SEM tocar produção e SEM alterar o staging.
  * Não reimplementa cálculo: o motor é o mesmo que vai para produção (zero duplicação).
@@ -70,6 +79,26 @@ $usinasReport = [];    // uc => timeline detalhada (drill-down)
 $dq = ['saldo_inicial'=>[], 'sem_rede'=>[], 'sem_fat_antes'=>[]]; // qualidade de dados
 $totDiffFinal = 0.0;   // impacto no valor final (depois-antes)
 
+const TIPO_SEM_GERACAO = 'Crédito sem geração registrada';
+
+// Crédito ANTES em meses que o motor não cobre (sem geração real registrada):
+// é divergência auditável (crédito indevido OU geração não importada) — nunca
+// pode sumir do relatório. credD = 0: sem geração não há excedente que o justifique.
+$registrarForaMotor = function (array $u, array $foraMeses) use (&$linhas, &$porTipo, &$usinasAfetadas, $MES_LABEL) {
+    foreach ($foraMeses as $f) {
+        $porTipo[TIPO_SEM_GERACAO]['n'] = ($porTipo[TIPO_SEM_GERACAO]['n'] ?? 0) + 1;
+        $porTipo[TIPO_SEM_GERACAO]['soma'] = ($porTipo[TIPO_SEM_GERACAO]['soma'] ?? 0) - $f['credA'];
+        $usinasAfetadas[$u['uc']] = true;
+        $linhas[] = [
+            'uc'=>$u['uc'], 'cliente'=>$u['cliente'] ?? '-', 'ano'=>$f['ano'], 'mes'=>$MES_LABEL[$f['mes']],
+            'bruta'=>null, 'consumo'=>null, 'liquida'=>null, 'media'=>(float) $u['media'],
+            'faltante'=>null, 'reserva'=>null,
+            'cred_antes'=>round($f['credA'], 2), 'cred_depois'=>0.0, 'diff'=>round(-$f['credA'], 2),
+            'tipo'=>TIPO_SEM_GERACAO,
+        ];
+    }
+};
+
 foreach ($usinas as $u) {
     $usiId = (int) $u['usi_id'];
     $uc = $u['uc'];
@@ -77,12 +106,40 @@ foreach ($usinas as $u) {
     $media = (float) $u['media'];
     if (empty($u['rede'])) { $dq['sem_rede'][] = $uc; }
 
+    // crédito ANTES (creditos_distribuidos — colunas mensais por ano) — fonte mais completa.
+    // Carregado ANTES de qualquer "continue": crédito existente nunca escapa da auditoria.
+    $st = $pdo->prepare("SELECT cdu.ano,cd.* FROM creditos_distribuidos_usina cdu
+        JOIN creditos_distribuidos cd ON cd.cd_id=cdu.cd_id WHERE cdu.usi_id=:u");
+    $st->execute([':u'=>$usiId]);
+    $credAntes = [];
+    foreach ($st as $r) { $credAntes[(int) $r['ano']] = $r; }
+
+    // todos os meses com crédito ANTES > 0 (para reconciliar cobertura no fim)
+    $mesesComCredito = [];
+    foreach ($credAntes as $anoC => $rowC) {
+        foreach ($MESES as $nC => $nomeC) {
+            $cAC = (float) ($rowC[$nomeC] ?? 0);
+            if ($cAC > TOL) { $mesesComCredito[] = ['ano'=>$anoC, 'mes'=>$nC, 'credA'=>$cAC]; }
+        }
+    }
+
     // geração real por ano
     $st = $pdo->prepare("SELECT dgru.ano,dgr.* FROM dados_geracao_real_usina dgru
         JOIN dados_geracao_real dgr ON dgr.dgr_id=dgru.dgr_id WHERE dgru.usi_id=:u ORDER BY dgru.ano");
     $st->execute([':u'=>$usiId]);
     $geracaoPorAno = $st->fetchAll(PDO::FETCH_ASSOC);
-    if (!$geracaoPorAno) { continue; }
+    if (!$geracaoPorAno) {
+        // usina sem nenhuma geração real: qualquer crédito ANTES é divergência
+        if ($mesesComCredito) {
+            $registrarForaMotor($u, $mesesComCredito);
+            $usinasReport[$uc] = ['cliente'=>$u['cliente'] ?? '-', 'rede'=>$u['rede'], 'migrada'=>false,
+                'tarifa'=>$tarifa, 'media'=>$media, 'menor'=>(float)$u['menor_geracao'], 'timeline'=>[],
+                'fora_motor'=>$mesesComCredito,
+                'diff_credito'=>-array_sum(array_column($mesesComCredito, 'credA')),
+                'casos'=>count($mesesComCredito)];
+        }
+        continue;
+    }
 
     // consumo por ano (DEDUP: registro mais recente por (usina,ano))
     $st = $pdo->prepare("SELECT DISTINCT ON (dcu.ano) dcu.ano,dc.* FROM dados_consumo_usina dcu
@@ -91,13 +148,6 @@ foreach ($usinas as $u) {
     $st->execute([':u'=>$usiId]);
     $consumoPorAno = [];
     foreach ($st as $r) { $consumoPorAno[(int) $r['ano']] = $r; }
-
-    // crédito ANTES (creditos_distribuidos — colunas mensais por ano) — fonte mais completa
-    $st = $pdo->prepare("SELECT cdu.ano,cd.* FROM creditos_distribuidos_usina cdu
-        JOIN creditos_distribuidos cd ON cd.cd_id=cdu.cd_id WHERE cdu.usi_id=:u");
-    $st->execute([':u'=>$usiId]);
-    $credAntes = [];
-    foreach ($st as $r) { $credAntes[(int) $r['ano']] = $r; }
 
     // faturamento ANTES por competência (4 termos) — pode faltar o último mês
     $st = $pdo->prepare("SELECT competencia,valor_fixo,injetado,creditado,cuo,valor_final
@@ -142,7 +192,17 @@ foreach ($usinas as $u) {
             ];
         }
     }
-    if (!$mesesRaw) { continue; }
+    if (!$mesesRaw) {
+        if ($mesesComCredito) {
+            $registrarForaMotor($u, $mesesComCredito);
+            $usinasReport[$uc] = ['cliente'=>$u['cliente'] ?? '-', 'rede'=>$u['rede'], 'migrada'=>false,
+                'tarifa'=>$tarifa, 'media'=>$media, 'menor'=>(float)$u['menor_geracao'], 'timeline'=>[],
+                'fora_motor'=>$mesesComCredito,
+                'diff_credito'=>-array_sum(array_column($mesesComCredito, 'credA')),
+                'casos'=>count($mesesComCredito)];
+        }
+        continue;
+    }
 
     // ---- reserva começa em ZERO (fiel ao cadastro: não há saldo inicial/crédito migrado) ----
     // Um déficit sem reserva é PAGO à concessionária, não compensado. Por isso NÃO
@@ -179,9 +239,14 @@ foreach ($usinas as $u) {
 
         $fixoD = $res->valorFixo->emReais();
         $varD  = $res->valorVariavel->emReais();
-        $cuoD  = $res->cuo->emReais();
-        $finalD = $res->valorFinal->emReais();
-        if ($finalA !== null) { $totDiffFinal += round($finalD - $finalA, 2); }
+        // Sem demonstrativo ANTES não há faturaEnergia para reconciliar: CUO/valor
+        // final DEPOIS sairiam incompletos (fatura manual = 0) — omitimos (null → "—")
+        // em vez de exibir um número que NÃO é o valor pagável real.
+        $cuoD  = $fa !== null ? $res->cuo->emReais() : null;
+        // Valor final SEM a receita de expiração retroativa: decisão de negócio é que
+        // expiração retroativa NÃO é paga (o motor só a paga indo para frente).
+        $finalD = $fa !== null ? $res->valorFinal->emReais() - $res->receitaExpiracao->emReais() : null;
+        if ($finalA !== null && $finalD !== null) { $totDiffFinal += round($finalD - $finalA, 2); }
 
         // consumo cru do mês (para a coluna de transparência)
         $consumoCru = 0.0;
@@ -233,12 +298,21 @@ foreach ($usinas as $u) {
         $timeline[] = $linhaTL;
     }
 
+    // reconciliação de cobertura: crédito ANTES em mês fora do motor (sem geração real)
+    $cobertos = [];
+    foreach ($mesesRaw as $mr) { $cobertos[$mr['ano'].'-'.$mr['mes']] = true; }
+    $foraMeses = array_values(array_filter($mesesComCredito,
+        fn($f) => !isset($cobertos[$f['ano'].'-'.$f['mes']])));
+    $registrarForaMotor($u, $foraMeses);
+
     $usinasReport[$uc] = [
         'cliente'=>$u['cliente'] ?? '-', 'rede'=>$u['rede'], 'migrada'=>false,
         'tarifa'=>$tarifa, 'media'=>$media, 'menor'=>(float)$u['menor_geracao'],
         'timeline'=>$timeline,
-        'diff_credito'=>array_sum(array_map(fn($t)=>$t['diff'], $timeline)),
-        'casos'=>count(array_filter($timeline, fn($t)=>$t['tipo']!==null)),
+        'fora_motor'=>$foraMeses,
+        'diff_credito'=>array_sum(array_map(fn($t)=>$t['diff'], $timeline))
+            - array_sum(array_column($foraMeses, 'credA')),
+        'casos'=>count(array_filter($timeline, fn($t)=>$t['tipo']!==null)) + count($foraMeses),
     ];
 }
 
@@ -293,18 +367,21 @@ uasort($porUsina, fn($a,$b)=>$a['diff']<=>$b['diff']);
 
 $fmt = fn($v)=>number_format((float)$v, 2, ',', '.');
 $fk  = fn($v)=>number_format((float)$v, 0, ',', '.'); // kWh inteiro (geração é sempre inteira)
+$fkN  = fn($v)=>$v === null ? '—' : number_format((float)$v, 0, ',', '.'); // null = dado não registrado
 // competência ISO "2025-12" -> "Dez/25" (consistente com o resto do relatório)
 $fcomp = fn(string $iso)=>$MES_LABEL[(int)substr($iso,5,2)].'/'.substr($iso,2,2);
 $cores = ['Crédito sem déficit'=>'#dc2626','Creditou além do déficit'=>'#ea580c',
     'Creditou além da reserva'=>'#d97706','Creditou a menos (FIFO não usou reserva antiga)'=>'#2563eb',
-    'Divergência de valor'=>'#6b7280'];
+    TIPO_SEM_GERACAO=>'#7c3aed','Divergência de valor'=>'#6b7280'];
 // rótulo curto no badge; explicação completa no tooltip (title)
-$rotuloCurto = ['Creditou a menos (FIFO não usou reserva antiga)'=>'Creditou a menos'];
+$rotuloCurto = ['Creditou a menos (FIFO não usou reserva antiga)'=>'Creditou a menos',
+    TIPO_SEM_GERACAO=>'Crédito sem geração'];
 $explicacao = [
     'Crédito sem déficit'=>'Geração líquida ≥ média: não faltava energia, mas o sistema creditou. Prejuízo ao consórcio.',
     'Creditou além do déficit'=>'Creditou mais do que o necessário para atingir a média. Prejuízo ao consórcio.',
     'Creditou além da reserva'=>'Creditou energia que não estava guardada na reserva. Prejuízo ao consórcio.',
     'Creditou a menos (FIFO não usou reserva antiga)'=>'Havia reserva antiga disponível que o sistema não usou. Prejuízo ao cliente.',
+    TIPO_SEM_GERACAO=>'Há crédito lançado num mês SEM geração real registrada: ou o crédito é indevido, ou a geração não foi importada. Requer verificação manual.',
     'Divergência de valor'=>'Valores divergem sem se encaixar nos padrões acima.',
 ];
 $badge = function($tipo) use ($cores, $rotuloCurto, $explicacao) {
@@ -314,9 +391,16 @@ $badge = function($tipo) use ($cores, $rotuloCurto, $explicacao) {
     $tip = htmlspecialchars($explicacao[$tipo] ?? $tipo);
     return "<span class=\"bdg\" style=\"background:$cor\" title=\"$tip\">".htmlspecialchars($rotulo)."</span>";
 };
-// trio A/D/Δ: Δ=0 vira "—" (menos ruído); $extra marca colunas ocultáveis; $grp abre grupo visual
+// trio A/D/Δ: Δ=0 vira "—" (menos ruído); $extra marca colunas ocultáveis; $grp abre grupo visual.
+// $b === null: termo DEPOIS omitido por honestidade (sem faturaEnergia ANTES p/ reconciliar).
 $diffCell = function($a, $b, bool $extra = false, bool $grp = true) use ($fmt) {
     $cx = ($extra ? ' extra' : '').($grp ? ' grp' : '');
+    if ($b === null) {
+        $tip = 'Sem demonstrativo ANTES neste mês: não há fatura manual para reconciliar o CUO, então o valor DEPOIS seria incompleto e não é exibido.';
+        return '<td class="num muted'.$cx.'">'.($a===null?'—':'R$ '.$fmt($a)).'</td>'
+            .'<td class="num muted'.($extra?' extra':'').'" title="'.$tip.'">—</td>'
+            .'<td class="num muted'.($extra?' extra':'').'">—</td>';
+    }
     if ($a === null) {
         return '<td class="num muted'.$cx.'">—</td><td class="num'.($extra?' extra':'').'">R$ '.$fmt($b).'</td><td class="num muted'.($extra?' extra':'').'">—</td>';
     }
@@ -328,60 +412,78 @@ $diffCell = function($a, $b, bool $extra = false, bool $grp = true) use ($fmt) {
 
 ob_start(); ?>
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<title>Auditoria de Crédito — Antes × Depois (detalhado)</title>
+<title>Auditoria de Crédito de Geração — Antes × Depois · Líder Energy</title>
 <style>
-*{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f8fafc;color:#0f172a}
+:root{
+  --laranja:#F39325; --laranja-deep:#D97613; --laranja-soft:#FDE6CB;
+  --ink:#3D3D3D; --graphite:#5C5C5C; --smoke:#B0B0B0; --mist:#E5E0D9; --linen:#FAF6F1; --paper:#fff;
+  --neg:#dc2626; --pos:#2563eb; --roxo:#7c3aed; --verde:#16a34a;
+}
+*{box-sizing:border-box}
+body{font-family:Nunito,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:var(--linen);color:var(--ink)}
 .wrap{max-width:1280px;margin:0 auto;padding:32px}
-h1{font-size:26px;margin:0 0 4px} .sub{color:#64748b;margin:0 0 24px;font-size:14px}
+h1{font-size:26px;margin:0 0 4px} .sub{color:var(--graphite);margin:0 0 8px;font-size:14px;line-height:1.6}
+.proposito{background:var(--paper);border:1px solid var(--mist);border-left:4px solid var(--laranja);border-radius:10px;padding:14px 18px;margin:0 0 20px;font-size:13.5px;line-height:1.65;color:var(--graphite)}
+.proposito b{color:var(--ink)}
 .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:28px}
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px}
-.card .lbl{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
-.card .val{font-size:23px;font-weight:700;margin-top:6px}
-.val.red{color:#dc2626} .val.blue{color:#2563eb} .val.amber{color:#d97706}
-h2{font-size:18px;margin:30px 0 12px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
-h3{font-size:14px;margin:14px 0 6px;color:#334155}
-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12.5px}
-th{background:#f1f5f9;text-align:left;padding:8px 10px;font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:.03em}
-td{padding:7px 10px;border-top:1px solid #f1f5f9}
-tr:hover td{background:#f8fafc}
+.card{background:var(--paper);border:1px solid var(--mist);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(61,61,61,.04)}
+.card .lbl{font-size:11px;color:var(--graphite);text-transform:uppercase;letter-spacing:.04em}
+.card .val{font-size:23px;font-weight:800;margin-top:6px}
+.val.red{color:var(--neg)} .val.blue{color:var(--pos)} .val.amber{color:var(--laranja-deep)}
+h2{font-size:18px;margin:34px 0 4px;border-bottom:2px solid var(--mist);padding-bottom:6px}
+h2 + .secdesc{font-size:12.5px;color:var(--graphite);margin:6px 0 12px;line-height:1.6}
+h3{font-size:14px;margin:14px 0 6px;color:var(--graphite)}
+table{width:100%;border-collapse:collapse;background:var(--paper);border:1px solid var(--mist);border-radius:10px;overflow:hidden;font-size:12.5px}
+th{background:#F4EEE6;text-align:left;padding:8px 10px;font-size:11px;color:var(--graphite);text-transform:uppercase;letter-spacing:.03em}
+td{padding:7px 10px;border-top:1px solid #F4EEE6}
+tr:hover td{background:var(--linen)}
 .num{text-align:right;font-variant-numeric:tabular-nums} .right{text-align:right}
-.neg{color:#dc2626;font-weight:600} .pos{color:#2563eb;font-weight:600}
-.muted{color:#94a3b8}
-.bdg{color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;white-space:nowrap}
-.ok{color:#16a34a;font-size:11px} .tagm{background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:11px}
-input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:8px;font-size:14px}
-.legenda{font-size:12px;color:#64748b;margin:10px 0 0;line-height:1.7}
-details{background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;padding:4px 14px}
-details[open]{box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.neg{color:var(--neg);font-weight:600} .pos{color:var(--pos);font-weight:600}
+.muted{color:var(--smoke)}
+.bdg{color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;white-space:nowrap;cursor:help}
+.ok{color:var(--verde);font-size:11px}
+input{width:100%;padding:10px 12px;border:1px solid var(--mist);border-radius:8px;margin-bottom:8px;font-size:14px;background:var(--paper)}
+input:focus{outline:2px solid var(--laranja);border-color:var(--laranja)}
+.legenda{font-size:12px;color:var(--graphite);margin:10px 0 0;line-height:1.7}
+details{background:var(--paper);border:1px solid var(--mist);border-radius:10px;margin-bottom:10px;padding:4px 14px}
+details[open]{box-shadow:0 1px 3px rgba(61,61,61,.06)}
 summary{cursor:pointer;padding:10px 0;font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
 summary::-webkit-details-marker{display:none}
-summary .meta{font-weight:400;color:#64748b;font-size:12.5px}
-.sub2{font-size:12px;color:#64748b;margin:2px 0 10px}
-.led{font-size:11.5px;color:#475569} .led b{color:#0f172a}
+summary .meta{font-weight:400;color:var(--graphite);font-size:12.5px}
+.led{font-size:11.5px;color:var(--graphite)} .led b{color:var(--ink)}
 .scroll{overflow-x:auto}
-.veredito{background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #d97706;border-radius:10px;padding:14px 18px;margin:0 0 20px;font-size:14.5px;line-height:1.6}
-.topnav{position:sticky;top:0;z-index:50;background:rgba(248,250,252,.95);backdrop-filter:blur(4px);border-bottom:1px solid #e2e8f0;margin:0 -32px 20px;padding:10px 32px;display:flex;gap:18px;font-size:13px}
-.topnav a{color:#475569;text-decoration:none;font-weight:500} .topnav a:hover{color:#0f172a}
-.grp{border-left:2px solid #e2e8f0}
+.veredito{background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid var(--laranja-deep);border-radius:10px;padding:14px 18px;margin:0 0 20px;font-size:14.5px;line-height:1.6}
+.topnav{position:sticky;top:0;z-index:50;background:rgba(250,246,241,.95);backdrop-filter:blur(4px);border-bottom:1px solid var(--mist);margin:0 -32px 20px;padding:10px 32px;display:flex;gap:18px;font-size:13px}
+.topnav a{color:var(--graphite);text-decoration:none;font-weight:600} .topnav a:hover{color:var(--laranja-deep)}
+.grp{border-left:2px solid var(--mist)}
 body.compact .extra{display:none}
 .toolbar{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap;align-items:center}
-.toolbar button{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer;color:#334155}
-.toolbar button:hover{background:#f1f5f9}
-.contador{font-size:12px;color:#64748b;margin-left:auto}
+.toolbar button{background:var(--paper);border:1px solid var(--mist);border-radius:999px;padding:6px 14px;font-size:12.5px;cursor:pointer;color:var(--ink);font-weight:600}
+.toolbar button:hover{background:var(--laranja-soft);border-color:var(--laranja)}
+.contador{font-size:12px;color:var(--graphite);margin-left:auto}
 .barwrap{position:relative;min-width:120px} .bar{position:absolute;inset:2px auto 2px 0;border-radius:3px;opacity:.15}
-.bar.neg{background:#dc2626} .bar.pos{background:#2563eb}
-.barwrap span{position:relative}
-details:target{outline:2px solid #d97706;outline-offset:2px}
-a.uclink{color:#2563eb;text-decoration:none;font-weight:600} a.uclink:hover{text-decoration:underline}
+.bar.neg{background:var(--neg)} .bar.pos{background:var(--pos)}
+details:target{outline:2px solid var(--laranja);outline-offset:2px}
+a.uclink{color:var(--laranja-deep);text-decoration:none;font-weight:700} a.uclink:hover{text-decoration:underline}
+.como-ler{background:var(--paper);border:1px solid var(--mist);border-radius:12px;padding:16px 20px;margin:0 0 8px;font-size:13px;line-height:1.7;color:var(--graphite)}
+.como-ler b{color:var(--ink)} .como-ler ul{margin:6px 0;padding-left:20px} .como-ler li{margin:3px 0}
+.como-ler .gloss dt{font-weight:700;color:var(--ink);float:left;clear:left;margin-right:6px}
+.como-ler .gloss dt::after{content:" —"} .como-ler .gloss dd{margin:0 0 3px 0}
+.alerta-fora{background:#f5f3ff;border:1px solid #ddd6fe;border-left:4px solid var(--roxo);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:12.5px;line-height:1.6}
 </style></head><body class="compact"><div class="wrap">
 <nav class="topnav">
-<a href="#visao">Visão geral</a><a href="#tipos">Tipos de erro</a><a href="#usinas">Por usina</a>
+<a href="#visao">Visão geral</a><a href="#comoler">Como ler</a><a href="#tipos">Tipos de erro</a><a href="#usinas">Por usina</a>
 <a href="#detalhe">Divergências</a><a href="#drill">Drill-down</a><a href="#qualidade">Qualidade de dados</a>
 </nav>
-<h1 id="visao">Auditoria de Crédito de Geração — Antes × Depois <span style="font-size:14px;color:#64748b">(detalhado)</span></h1>
-<p class="sub">Reconstrução pelo motor de cálculo único (geração líquida §9, FIFO cross-ano §6, expiração §7).
-Reserva reconstruída <b>do zero</b> a partir dos excedentes de geração — déficit sem reserva é pago à concessionária, não compensado.
-ANTES = sistema; DEPOIS = regra correta. Gerado de cópia fiel do banco de produção.</p>
+<h1 id="visao">Auditoria de Crédito de Geração — Antes × Depois</h1>
+<p class="sub">Consórcio Líder Energy · gerado em <?=date('d/m/Y H:i')?> · cópia fiel do banco de produção (dump pré-correção)</p>
+<div class="proposito">
+  <b>O que é este documento:</b> o registro histórico de como os dados de faturamento estavam <b>antes</b> da correção
+  do motor de cálculo. Cada mês de cada usina foi recalculado pela regra correta (o mesmo motor que vai para produção)
+  e comparado com o que o sistema antigo havia creditado. Depois que a correção for aplicada em produção, este relatório
+  é a <b>única evidência preservada</b> do estado anterior — guarde-o junto do dump
+  <code>energia_antes_20260611_164628.dump</code>.
+</div>
 
 <?php $impactoLiq = $creditoAMenos - $creditoAMais; $tipoDominante = array_key_first($porTipo); ?>
 <div class="veredito">
@@ -401,6 +503,37 @@ ANTES = sistema; DEPOIS = regra correta. Gerado de cópia fiel do banco de produ
 O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é parcial, pois só há demonstrativo persistido
 (<code>geracao_faturamento_pdf</code>) para parte dos meses; as maiores correções de crédito caem em meses recentes não cobertos lá.</p>
 
+<h2 id="comoler">Como ler este relatório</h2>
+<div class="como-ler">
+  <b>Método.</b> Para cada usina, a geração real mês a mês foi reprocessada pelo motor de cálculo único
+  (geração líquida §9, FIFO cross-ano §6, expiração §7). A reserva de créditos é reconstruída <b>do zero</b>,
+  só a partir dos excedentes reais — déficit sem reserva é pago à concessionária, não compensado.
+  <b>ANTES</b> = o que o sistema antigo creditou · <b>DEPOIS</b> = o que a regra correta produz · <b>Δ</b> = diferença
+  (DEPOIS − ANTES).
+  <ul>
+    <li><span class="neg">Δ vermelho (negativo)</span> = o sistema creditou <b>a mais</b> — prejuízo ao consórcio.</li>
+    <li><span class="pos">Δ azul (positivo)</span> = o sistema creditou <b>a menos</b> — prejuízo ao cliente.</li>
+  </ul>
+  <b>Garantias de veracidade</b> (o que este relatório promete sobre os próprios números):
+  <ul>
+    <li><b>Cobertura completa do crédito:</b> todo R$ creditado pelo sistema antigo foi auditado — inclusive em meses
+        sem geração real registrada, que aparecem como <span class="bdg" style="background:#7c3aed">Crédito sem geração</span>.</li>
+    <li><b>Valor final DEPOIS não inclui receita de expiração retroativa.</b> Decisão de negócio: crédito que já venceu
+        no passado <b>não</b> é pago retroativamente (indo para frente, o motor converte expiração em receita no mês do vencimento).</li>
+    <li><b>Nenhum número incompleto é exibido como se fosse final:</b> em meses sem demonstrativo ANTES não existe a fatura
+        manual para compor o CUO — o CUO e o valor final DEPOIS aparecem como “—” em vez de um valor enganoso.</li>
+  </ul>
+  <b>Glossário rápido:</b>
+  <dl class="gloss">
+    <dt>Média</dt><dd>geração mensal contratada da usina; abaixo dela há déficit, acima há excedente.</dd>
+    <dt>Líquida</dt><dd>geração bruta menos o consumo da própria usina (com desconto por tipo de rede).</dd>
+    <dt>Faltou</dt><dd>quanto a geração líquida ficou abaixo da média no mês (déficit).</dd>
+    <dt>Reserva</dt><dd>energia excedente guardada em meses anteriores (em kWh).</dd>
+    <dt>FIFO</dt><dd>o crédito mais antigo da reserva é consumido primeiro (vence antes — 180 dias).</dd>
+    <dt>CUO</dt><dd>custo da usina: fatura da concessionária + fio B + adicional.</dd>
+  </dl>
+</div>
+
 <h2 id="tipos">Por tipo de erro</h2>
 <table><thead><tr><th>Tipo de erro</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Quem perde</th></tr></thead><tbody>
 <?php foreach ($porTipo as $tipo=>$x): ?>
@@ -410,10 +543,9 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 <?php endforeach; ?>
 </tbody></table>
 <p class="legenda">
-<b>Crédito sem déficit:</b> geração líquida ≥ média, não faltava energia, mas o sistema creditou.<br>
-<b>Creditou além do déficit:</b> creditou mais do que o necessário para atingir a média.<br>
-<b>Creditou além da reserva:</b> creditou energia que não estava guardada.<br>
-<b>Creditou a menos:</b> havia reserva antiga (de anos anteriores) que não foi usada via FIFO.<br>
+<?php foreach ($porTipo as $tipo=>$x): ?>
+<b><?=htmlspecialchars($rotuloCurto[$tipo] ?? $tipo)?>:</b> <?=htmlspecialchars($explicacao[$tipo] ?? '')?><br>
+<?php endforeach; ?>
 <span class="neg">Vermelho</span> = creditado a mais (prejuízo ao consórcio) · <span class="pos">Azul</span> = creditado a menos (prejuízo ao cliente). Ambos são erros.
 </p>
 
@@ -430,7 +562,10 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 <?php endforeach; ?>
 </tbody></table>
 
-<h2 id="detalhe">Detalhe — divergências com transparência da geração líquida (<?=count($linhas)?>)</h2>
+<h2 id="detalhe">Todas as divergências, mês a mês (<?=count($linhas)?>)</h2>
+<p class="secdesc">Cada linha é um mês em que o crédito do sistema antigo difere da regra correta, com a energia do mês
+ao lado para conferência. Células “—” = dado não registrado no sistema (ver tipo
+<span class="bdg" style="background:#7c3aed">Crédito sem geração</span>).</p>
 <div class="toolbar">
 <input id="busca" style="margin:0;flex:1" placeholder="🔎 Filtrar por UC, cliente, mês ou tipo de erro (filtra também o drill-down)..." onkeyup="filtrar()">
 <span class="contador" id="contador">mostrando <?=count($linhas)?> de <?=count($linhas)?> divergências</span>
@@ -440,19 +575,19 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 <th>UC</th><th>Cliente</th><th>Período</th>
 <th class="right">Bruta (kWh)</th><th class="right">Consumo (kWh)</th><th class="right">Líquida (kWh)</th>
 <th class="right">Média (kWh)</th><th class="right">Faltou (kWh)</th><th class="right">Reserva (kWh)</th>
-<th class="right">Antes (R$)</th><th class="right">Depois (R$)</th><th class="right">Diferença (R$)</th><th>Tipo</th>
+<th class="right">Crédito ANTES (R$)</th><th class="right">Crédito DEPOIS (R$)</th><th class="right">Δ (R$)</th><th>Tipo de erro</th>
 </tr></thead><tbody>
 <?php foreach ($linhas as $l): ?>
 <tr>
 <td><?=htmlspecialchars($l['uc'])?></td>
 <td><?=htmlspecialchars(mb_substr($l['cliente'],0,22))?></td>
 <td><?=$l['mes']?>/<?=$l['ano']?></td>
-<td class="num"><?=$fk($l['bruta'])?></td>
-<td class="num"><?=$fk($l['consumo'])?></td>
-<td class="num"><?=$fk($l['liquida'])?></td>
-<td class="num muted"><?=$fk($l['media'])?></td>
-<td class="num"><?=$fk($l['faltante'])?></td>
-<td class="num muted"><?=$fk($l['reserva'])?></td>
+<td class="num"><?=$fkN($l['bruta'])?></td>
+<td class="num"><?=$fkN($l['consumo'])?></td>
+<td class="num"><?=$fkN($l['liquida'])?></td>
+<td class="num muted"><?=$fkN($l['media'])?></td>
+<td class="num"><?=$fkN($l['faltante'])?></td>
+<td class="num muted"><?=$fkN($l['reserva'])?></td>
 <td class="num">R$ <?=$fmt($l['cred_antes'])?></td>
 <td class="num">R$ <?=$fmt($l['cred_depois'])?></td>
 <td class="num <?=$l['diff']<0?'neg':'pos'?>">R$ <?=$fmt($l['diff'])?></td>
@@ -463,10 +598,12 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 </div>
 
 <h2 id="drill">Drill-down por usina — 4 termos &amp; ledger FIFO</h2>
-<p class="legenda">Cada R$ de crédito é rastreável ao mês-origem consumido via FIFO.
-Nos 4 termos: <b>A</b> = antes (sistema), <b>D</b> = depois (correto), <b>Δ</b> = diferença. Colunas <span class="muted">—</span>
-indicam meses sem demonstrativo persistido (o termo ANTES não existe no banco para comparar).
-O CUO DEPOIS reconcilia a <code>faturaEnergia</code> a partir do CUO ANTES, isolando o efeito em crédito/variável.</p>
+<p class="secdesc">A história completa de cada usina: os 4 termos da fórmula
+(<b>Valor final = Fixo + Variável + Crédito − CUO</b>) mês a mês, e o livro-razão da reserva mostrando de qual mês
+veio cada kWh creditado (FIFO). <b>A</b> = antes (sistema antigo) · <b>D</b> = depois (regra correta) · <b>Δ</b> = D − A.
+Células “—” no ANTES = mês sem demonstrativo persistido no banco; nesse caso o CUO/valor final DEPOIS também são
+omitidos (a fatura manual da concessionária não existe no banco para compor o custo — exibir um valor parcial seria enganoso).
+O valor final DEPOIS <b>não</b> inclui receita de expiração retroativa (não é paga; ver “Como ler”).</p>
 <div class="toolbar">
 <button onclick="expandir(true)">Expandir divergentes</button>
 <button onclick="expandir(false)">Expandir todas</button>
@@ -486,6 +623,15 @@ foreach ($usinasReport as $uc=>$ur):
 <summary><span><?=htmlspecialchars($uc)?> · <?=htmlspecialchars($ur['cliente'])?></span>
 <span class="meta"><?=$ur['casos']>0 ? $ur['casos'].' caso(s) · crédito Δ <b class="'.($ur['diff_credito']<0?'neg':'pos').'">R$ '.$fmt($ur['diff_credito']).'</b>' : '<span class="ok">sem divergência</span>'?> · rede <?=htmlspecialchars($ur['rede']?:'—')?></span></summary>
 
+<?php if (!empty($ur['fora_motor'])): ?>
+<div class="alerta-fora"><b>Crédito fora da reconstrução:</b>
+<?php foreach ($ur['fora_motor'] as $f): ?>
+<?=$MES_LABEL[$f['mes']]?>/<?=$f['ano']?> — <b>R$ <?=$fmt($f['credA'])?></b> creditados num mês <b>sem geração real registrada</b>.
+<?php endforeach; ?>
+Ou o crédito é indevido, ou a geração não foi importada — requer verificação manual. Este valor está contabilizado nas divergências.</div>
+<?php endif; ?>
+
+<?php if ($ur['timeline']): ?>
 <h3>4 termos — Antes × Depois</h3>
 <div class="scroll">
 <table><thead><tr>
@@ -542,6 +688,7 @@ foreach ($usinasReport as $uc=>$ur):
 <?php endforeach; ?>
 </tbody></table>
 </div>
+<?php endif; ?>
 </details>
 <?php endforeach; ?>
 
@@ -554,10 +701,14 @@ foreach ($usinasReport as $uc=>$ur):
 Déficit sem reserva disponível é pago à concessionária (não vira crédito).</td></tr>
 <tr><td>Usinas sem tipo de rede</td><td class="num"><?=count($dq['sem_rede'])?></td>
 <td>Sem desconto de rede aplicável (assume 0). <?=$dq['sem_rede']?htmlspecialchars(implode(', ',$dq['sem_rede'])):'—'?></td></tr>
+<tr><td>Crédito em mês sem geração real registrada</td><td class="num"><?=$porTipo[TIPO_SEM_GERACAO]['n'] ?? 0?></td>
+<td>R$ <?=$fmt(abs($porTipo[TIPO_SEM_GERACAO]['soma'] ?? 0))?> creditados sem geração que os justifique — incluídos nas
+divergências como <span class="bdg" style="background:#7c3aed">Crédito sem geração</span>. Verificar manualmente se a geração
+desses meses deixou de ser importada.</td></tr>
 </tbody></table>
 
-<p class="legenda right">Gerado em <?=date('d/m/Y H:i')?> · fonte: cópia do banco de produção ·
-motor de domínio único · energia em kWh · valores financeiros em R$</p>
+<p class="legenda right">Gerado em <?=date('d/m/Y H:i')?> · fonte: cópia fiel do banco de produção
+(<code>energia_antes_20260611_164628.dump</code>) · motor de domínio único · energia em kWh · valores financeiros em R$</p>
 </div>
 <script>
 var totalLinhas = document.querySelectorAll('#tab tbody tr').length;
