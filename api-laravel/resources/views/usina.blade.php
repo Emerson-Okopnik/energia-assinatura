@@ -21,16 +21,13 @@
       --color-mist: #E5E0D9;
       --color-linen: #FAF6F1;
       --color-paper: #FFFFFF;
-      --grad-sun: linear-gradient(135deg, var(--color-primary-warm) 0%, var(--color-primary) 45%, var(--color-primary-deep) 100%);
       --radius-sm: 6px;
       --radius-md: 12px;
       --radius-lg: 20px;
-      --radius-xl: 28px;
       --radius-pill: 999px;
-      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
       --shadow-xs: 0 1px 2px rgba(61,61,61,0.06);
       --shadow-sm: 0 2px 6px rgba(61,61,61,0.08);
-      --shadow-md: 0 8px 24px rgba(61,61,61,0.10);
       --font-display: 'Nunito', system-ui, sans-serif;
       --font-body: 'Nunito', system-ui, sans-serif;
       --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -49,7 +46,7 @@
       line-height: 1.35;
     }
 
-    .page { padding: 12px 18px 56px; } /* reserva o rodapé fixo */
+    .page { padding: 14px 20px 56px; } /* reserva o rodapé fixo */
 
     .num { font-family: var(--font-mono); }
 
@@ -61,29 +58,17 @@
       padding: var(--space-3) var(--space-4);
     }
 
-    /* ---------- Hierarquia DS: eyebrow (kicker) + título display ---------- */
-    .eyebrow {
-      font-family: var(--font-body);
+    /* ---------- Rótulo de seção único e discreto (eco do header de tabela) ---------- */
+    .section-label {
+      font-family: var(--font-mono);
       font-weight: 700;
       font-size: 7pt;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--color-primary-deep);
-      margin: 0;
+      color: var(--color-slate);
+      margin: var(--space-5) 0 var(--space-2);
     }
-    .eyebrow--leaf { color: var(--color-accent-leaf-deep); }
-    .section-title {
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 12pt;
-      line-height: 1.15;
-      letter-spacing: -0.01em;
-      color: var(--color-ink);
-      margin: 2px 0 0;
-    }
-    .section-head { margin: var(--space-3) 0 var(--space-1); }
-    .card-head { margin: 0 0 var(--space-2); }
-    .card-head .section-title { font-size: 10.5pt; }
+    .card .section-label { margin: 0 0 var(--space-2); }
 
     /* ---------- Cabeçalho ---------- */
     .header {
@@ -91,20 +76,41 @@
       align-items: center;
       gap: var(--space-3);
     }
-    .header .logo img { height: 38px; display: block; }
+    .header .logo img { height: 34px; display: block; }
     .header .divider { width: 1px; align-self: stretch; background: var(--color-mist); }
     .company-info h2 {
       margin: 0 0 2px;
       font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 9pt;
+      font-weight: 700;
+      font-size: 8.5pt;
       letter-spacing: -0.01em;
     }
     .company-info p { margin: 1px 0; font-size: 7pt; color: var(--color-graphite); }
     .details { font-size: 7.5pt; }
     .details p { margin: 2px 0; }
     .details .icon { width: 12px; height: 12px; vertical-align: -2px; margin-right: 3px; }
-    .details strong { color: var(--color-ink); }
+    .details strong { color: var(--color-ink); font-weight: 600; }
+
+    /* Valor a receber: figura discreta no cabeçalho (sem hero) */
+    .valor-bloco { margin-left: auto; text-align: right; }
+    .valor-bloco .valor-label {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 6.5pt;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-slate);
+    }
+    .valor-bloco .valor-num {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 14pt;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      color: var(--color-primary-deep);
+      white-space: nowrap;
+    }
+    .valor-bloco .valor-mes { font-size: 7pt; color: var(--color-graphite); }
 
     .meta-row {
       display: flex;
@@ -112,92 +118,21 @@
       align-items: center;
       flex-wrap: wrap;
       gap: var(--space-2);
-      margin: var(--space-2) 0 var(--space-3);
+      margin: var(--space-2) 0 0;
       font-size: 7pt;
       color: var(--color-graphite);
     }
     .meta-row .icon { width: 11px; height: 11px; vertical-align: -2px; margin-right: 2px; }
+    .meta-row strong { color: var(--color-ink); font-weight: 600; }
     .contact-item { margin-left: var(--space-3); }
-
-    /* ---------- Hero do valor a receber (único uso sancionado do grad-sun) ---------- */
-    .hero {
-      position: relative;
-      overflow: hidden;
-      background: var(--grad-sun);
-      color: var(--color-paper);
-      border-radius: var(--radius-xl);
-      box-shadow: var(--shadow-md);
-      padding: var(--space-3) var(--space-4);
-    }
-    .hero .hero-circle {
-      position: absolute;
-      right: -36px; top: -48px;
-      width: 150px; height: 150px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.15);
-    }
-    .hero .hero-body { position: relative; }
-    .hero .hero-eyebrow {
-      font-family: var(--font-body);
-      font-weight: 700;
-      font-size: 7pt;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.85);
-      margin: 0;
-    }
-    .hero .hero-line {
-      display: flex;
-      align-items: baseline;
-      gap: var(--space-2);
-      margin-top: var(--space-1);
-    }
-    .hero .hero-valor {
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 26pt;
-      line-height: 1;
-      letter-spacing: -0.02em;
-    }
-    .hero .hero-pill {
-      font-family: var(--font-body);
-      font-weight: 700;
-      font-size: 7.5pt;
-      background: rgba(255,255,255,0.25);
-      padding: 3px 10px;
-      border-radius: var(--radius-pill);
-    }
-
-    /* ---------- Faixa de informações (primary-soft: contraste AA) ---------- */
-    .highlight-bar {
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      gap: var(--space-3);
-      background: var(--color-primary-soft);
-      color: var(--color-ink);
-      border-radius: var(--radius-md);
-      padding: var(--space-2) var(--space-4);
-      font-size: 7.5pt;
-      margin-top: var(--space-2);
-    }
-    .highlight-bar p { margin: 0; }
-    .highlight-bar strong { color: var(--color-primary-deep); }
+    .meta-sep { color: var(--color-smoke); margin: 0 var(--space-2); }
 
     /* ---------- Geração ---------- */
     .geracao-container { display: flex; gap: var(--space-3); align-items: stretch; }
     .grafico { flex: 1 1 62%; }
     .grafico canvas { width: 100%; max-width: 460px; height: auto; }
-    .dados-geracao {
-      flex: 1 1 38%;
-      background: var(--color-linen);
-      box-shadow: none;
-      border: 1px solid var(--color-mist);
-    }
-    .dados-geracao .kwh-destaque {
-      font-weight: 800;
-      color: var(--color-primary-deep);
-    }
+    .dados-geracao { flex: 1 1 38%; }
+    .dados-geracao .kwh-destaque { font-weight: 700; color: var(--color-primary-deep); }
     .dados-geracao > p { margin: 0 0 var(--space-2); color: var(--color-graphite); }
     .item-geracao {
       display: flex;
@@ -207,17 +142,17 @@
       padding-top: var(--space-2);
       border-top: 1px solid var(--color-mist);
     }
-    .item-geracao img { width: 30px; height: 30px; }
+    .item-geracao img { width: 24px; height: 24px; }
     .stat-line { display: flex; align-items: baseline; gap: var(--space-1); }
     .stat-num {
       font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 13pt;
-      line-height: 1.1;
-      letter-spacing: -0.02em;
+      font-weight: 700;
+      font-size: 10.5pt;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
       color: var(--color-ink);
     }
-    .stat-unit { font-family: var(--font-mono); font-size: 7.5pt; color: var(--color-graphite); }
+    .stat-unit { font-family: var(--font-mono); font-size: 7pt; color: var(--color-graphite); }
     .stat-caption { font-size: 7.5pt; color: var(--color-graphite); margin-top: 1px; }
 
     /* ---------- Tabelas (DS BillsTable: header claro mono/slate) ---------- */
@@ -249,7 +184,7 @@
     .data-table .valor-final { font-weight: 700; color: var(--color-primary-deep); }
 
     /* ---------- Linha inferior ---------- */
-    .linha-final { display: flex; gap: var(--space-3); margin-top: var(--space-3); align-items: flex-start; }
+    .linha-final { display: flex; gap: var(--space-3); margin-top: var(--space-5); align-items: flex-start; }
     .bloco-creditos { flex: 1.4; }
     .coluna-direita { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); }
 
@@ -264,27 +199,16 @@
     .historico-valores td:last-child {
       text-align: right;
       font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 9.5pt;
+      font-weight: 700;
+      font-size: 8.5pt;
       letter-spacing: -0.01em;
       color: var(--color-ink);
       white-space: nowrap;
     }
     .historico-valores .total-destaque td:last-child { color: var(--color-primary-deep); }
+    .periodo-nota { margin: var(--space-2) 0 0; font-size: 7pt; color: var(--color-slate); }
 
-    .badge-total {
-      display: inline-block;
-      background: var(--color-primary-soft);
-      color: var(--color-primary-deep);
-      font-weight: 700;
-      font-size: 7pt;
-      padding: 4px 12px;
-      border-radius: var(--radius-pill);
-      margin-top: var(--space-2);
-    }
-
-    .bloco-observacoes p { margin: var(--space-1) 0 0; font-size: 7.5pt; color: var(--color-graphite); }
-    .bloco-observacoes strong { color: var(--color-ink); }
+    .bloco-observacoes p { margin: 0; font-size: 7.5pt; color: var(--color-graphite); }
 
     /* ---------- Rodapé ---------- */
     .rodape {
@@ -318,17 +242,22 @@
       <div class="divider"></div>
       <div class="details">
         <p><img src="{{ $iconeSol }}" alt="" class="icon"><strong>Produção:</strong> {{ $mesAnoSelecionado }}</p>
-        <p><img src="{{ $iconeDinheiro }}" alt="" class="icon"><strong>Valor a receber:</strong> <span class="num">@reais($valorReceber)</span></p>
+        <p><strong>Usina:</strong> {{ $usina->cliente->nome }}</p>
+        <p><strong>UC:</strong> <span class="num">{{ $uc }}</span></p>
       </div>
-      <div class="divider"></div>
-      <div class="details">
-        <p><strong>Usina:</strong></p>
-        <p>{{ $usina->cliente->nome }}</p>
+      <div class="valor-bloco">
+        <div class="valor-label">Valor a receber</div>
+        <div class="valor-num">@reais($valorReceber)</div>
+        <div class="valor-mes">{{ $mesAnoSelecionado }}</div>
       </div>
     </div>
 
     <div class="meta-row">
-      <span><img src="{{ $iconeRelogio }}" alt="" class="icon">Data de emissão: <strong class="num">{{ \Carbon\Carbon::now()->format('d/m/Y') }}</strong></span>
+      <span>
+        <img src="{{ $iconeRelogio }}" alt="" class="icon">Data de emissão: <strong class="num">{{ \Carbon\Carbon::now()->format('d/m/Y') }}</strong>
+        <span class="meta-sep">·</span>Fonte de geração: <strong>UFV</strong>
+        <span class="meta-sep">·</span>Valor kWh: <strong class="num">@tarifa($usina->comercializacao->valor_kwh)</strong>
+      </span>
       <span>
         <span class="contact-item"><img src="{{ $iconeWeb }}" alt="" class="icon">www.consorcioliderenergy.com.br</span>
         <span class="contact-item"><img src="{{ $iconeWpp }}" alt="" class="icon"><span class="num">47 99661-4967</span></span>
@@ -336,38 +265,14 @@
       </span>
     </div>
 
-    {{-- Hero do valor (DS SavingsHero — único uso do grad-sun) --}}
-    <div class="hero">
-      <div class="hero-circle"></div>
-      <div class="hero-body">
-        <div class="hero-eyebrow">Valor a receber</div>
-        <div class="hero-line">
-          <span class="hero-valor">@reais($valorReceber)</span>
-          <span class="hero-pill">{{ $mesAnoSelecionado }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="highlight-bar">
-      <p><strong>UC:</strong> <span class="num">{{ $uc }}</span></p>
-      <p><strong>Fonte de geração:</strong> UFV</p>
-      <p><strong>Valor kWh:</strong> <span class="num">@tarifa($usina->comercializacao->valor_kwh)</span></p>
-    </div>
-
-    <div class="section-head">
-      <div class="eyebrow">Geração</div>
-      <div class="section-title">Demonstrativo de geração</div>
-    </div>
+    <div class="section-label">Demonstrativo de geração</div>
 
     <div class="geracao-container">
       <div class="card grafico">
         <canvas id="graficoGeracao"></canvas>
       </div>
       <div class="card dados-geracao">
-        <div class="card-head">
-          <div class="eyebrow eyebrow--leaf">Impacto ambiental</div>
-          <div class="section-title">Dados de geração de energia</div>
-        </div>
+        <div class="section-label">Impacto ambiental</div>
         <p>Sua geração de energia foi de <span class="kwh-destaque num">@kwh($geracaoMes)</span>, isso é igual a:</p>
         <div class="item-geracao">
           <img src="{{ $iconeCo2 }}" alt="">
@@ -386,10 +291,7 @@
       </div>
     </div>
 
-    <div class="section-head">
-      <div class="eyebrow">Faturamento</div>
-      <div class="section-title">Dados de geração e faturamento</div>
-    </div>
+    <div class="section-label">Dados de geração e faturamento</div>
     <div class="card">
       <table class="data-table">
         <thead>
@@ -421,10 +323,7 @@
 
     <div class="linha-final">
       <div class="card bloco-creditos">
-        <div class="card-head">
-          <div class="eyebrow">Créditos</div>
-          <div class="section-title">Demonstrativo de créditos</div>
-        </div>
+        <div class="section-label">Demonstrativo de créditos</div>
         <table class="data-table">
           <thead>
             <tr>
@@ -457,10 +356,7 @@
 
       <div class="coluna-direita">
         <div class="card">
-          <div class="card-head">
-            <div class="eyebrow">Acumulados</div>
-            <div class="section-title">Histórico de valores</div>
-          </div>
+          <div class="section-label">Histórico de valores</div>
           <table class="historico-valores">
             <tbody>
               <tr>
@@ -477,12 +373,12 @@
               </tr>
             </tbody>
           </table>
-          <span class="badge-total">Período: {{ $mesAnoSelecionado }}</span>
+          <p class="periodo-nota">Período: {{ $mesAnoSelecionado }}</p>
         </div>
 
         @if($observacoes !== '')
           <div class="card bloco-observacoes">
-            <strong>Observações:</strong>
+            <div class="section-label">Observações</div>
             <p>{{ $observacoes }}</p>
           </div>
         @endif
