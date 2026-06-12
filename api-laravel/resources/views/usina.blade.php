@@ -20,7 +20,7 @@
       --color-mist: #E5E0D9;
       --color-linen: #FAF6F1;
       --color-paper: #FFFFFF;
-      --grad-sun: linear-gradient(135deg, #F9B566 0%, #F39325 45%, #D97613 100%);
+      --grad-sun: linear-gradient(135deg, var(--color-primary-warm) 0%, var(--color-primary) 45%, var(--color-primary-deep) 100%);
       --radius-sm: 6px;
       --radius-md: 12px;
       --radius-lg: 20px;
@@ -63,6 +63,7 @@
       color: var(--color-primary-deep);
       margin: var(--space-3) 0 var(--space-2);
     }
+    .card > .eyebrow:first-child { margin-top: 0; }
 
     /* ---------- Cabeçalho ---------- */
     .header {
@@ -132,8 +133,6 @@
       padding: 4px 5px;
       border: none;
     }
-    .data-table thead tr th:first-child { border-radius: var(--radius-sm) 0 0 0; }
-    .data-table thead tr th:last-child { border-radius: 0 var(--radius-sm) 0 0; }
     .data-table tbody td {
       padding: 3px 5px;
       border-bottom: 1px solid var(--color-mist);
@@ -271,7 +270,7 @@
 
     <div class="linha-final">
       <div class="card bloco-creditos">
-        <div class="eyebrow" style="margin-top:0;">Demonstrativo de créditos</div>
+        <div class="eyebrow">Demonstrativo de créditos</div>
         <table class="data-table">
           <thead>
             <tr>
@@ -304,7 +303,7 @@
 
       <div class="coluna-direita">
         <div class="card">
-          <div class="eyebrow" style="margin-top:0;">Histórico de valores</div>
+          <div class="eyebrow">Histórico de valores</div>
           <table class="historico-valores">
             <tbody>
               <tr>
@@ -396,6 +395,8 @@
           },
           plugins: [ChartDataLabels]
         });
+      } catch (e) {
+        window.chartError = String(e); // diagnóstico sem quebrar o contrato de não-travar
       } finally {
         window.chartRendered = true; // sinal p/ Browsershot waitForFunction
       }

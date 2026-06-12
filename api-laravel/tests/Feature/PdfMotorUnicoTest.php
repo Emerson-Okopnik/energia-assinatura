@@ -266,6 +266,38 @@ class PdfMotorUnicoTest extends TestCase
         $this->assertStringContainsString('3.615,01', $html);
     }
 
+    public function test_blade_renderiza_coluna_convertido_em_receita_e_escapa_observacoes(): void
+    {
+        $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');
+
+        // Lote ago/2025 vence antes de maio/2026; geração 12000 > média ->
+        // FIFO não consome, o lote expira e vira receita (R$ 500,00).
+        $this->lote((int) $usina->usi_id, '2025-08-01', 1000, 0.50);
+        $this->geracaoReal((int) $usina->usi_id, (int) $usina->cli_id, 2026, ['maio' => 12000]);
+
+        $vm = (new UsinaPdfViewModel($this->service()))->montar($usina, 2026, 5);
+        $this->assertTrue($vm['temConvertidoReceita']);
+
+        $px = 'data:image/png;base64,iVBORw0KGgo=';
+        $html = \View::file(resource_path('views/usina.blade.php'), array_merge($vm, [
+            'logo' => $px, 'iconeSol' => $px, 'iconeRelogio' => $px, 'iconeWeb' => $px,
+            'iconeWpp' => $px, 'iconeEmail' => $px, 'iconeCo2' => $px, 'iconeArvore' => $px,
+            'iconeDinheiro' => $px, 'iconeLampada' => $px, 'iconeInstagram' => $px,
+            'iconeLinkedin' => $px,
+            'uc' => '562606800', 'celescInvoiceBase64' => '', 'celescInvoiceId' => '',
+            'chartJs' => '/*chart*/', 'datalabelsJs' => '/*dl*/', 'fontFaceCss' => '/*fonts*/',
+            'observacoes' => '<script>alert(1)</script>',
+        ]))->render();
+
+        // Ramo TRUE: coluna presente e valor formatado (1000 kWh × 0,50 = R$ 500,00).
+        $this->assertStringContainsString('Convertido em receita (R$)', $html);
+        $this->assertStringContainsString('500,00', $html);
+
+        // Observações entity-escaped pelo Blade ({{ }}): nada de script cru.
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+    }
+
     // ----------------------------------------------------------------------
     // Scaffolding (mesma cadeia de FKs do FaturamentoServiceTest).
     // ----------------------------------------------------------------------

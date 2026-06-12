@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Response;
 use App\Models\DadosGeracaoRealUsina;
 use Carbon\Carbon;
 use Symfony\Component\Process\Process;
+use Illuminate\Support\Str;
 
 class PDFController extends Controller {
 
@@ -71,7 +72,7 @@ class PDFController extends Controller {
         if ($mes < 1 || $mes > 12) { $mes = now()->month; }
         $anoInformado = $request->query('ano');
         $ano = is_numeric($anoInformado) ? (int) $anoInformado : (int) (DadosGeracaoRealUsina::where('usi_id', $id)->max('ano') ?? now()->year);
-        $observacoes = (string) $request->query('observacoes', '');
+        $observacoes = Str::limit((string) $request->query('observacoes', ''), 280);
 
         $anchorData = Carbon::createFromDate($ano, $mes, 1);
         $celescInvoiceBase64 = '';
