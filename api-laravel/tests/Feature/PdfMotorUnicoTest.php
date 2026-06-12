@@ -213,6 +213,59 @@ class PdfMotorUnicoTest extends TestCase
         $this->assertEqualsWithDelta(100 + $fioBTotal, $vm['dadosMensais']['Maio/26']['cuo'], 0.02);
     }
 
+    public function test_blade_renderiza_no_design_system_sem_secoes_removidas(): void
+    {
+        $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');
+        $this->geracaoReal((int) $usina->usi_id, (int) $usina->cli_id, 2026, ['maio' => 8600]);
+
+        $vm = (new UsinaPdfViewModel($this->service()))->montar($usina, 2026, 5);
+
+        $px = 'data:image/png;base64,iVBORw0KGgo=';
+        $html = \View::file(resource_path('views/usina.blade.php'), array_merge($vm, [
+            'logo' => $px, 'iconeSol' => $px, 'iconeRelogio' => $px, 'iconeWeb' => $px,
+            'iconeWpp' => $px, 'iconeEmail' => $px, 'iconeCo2' => $px, 'iconeArvore' => $px,
+            'iconeDinheiro' => $px, 'iconeLampada' => $px, 'iconeInstagram' => $px,
+            'iconeLinkedin' => $px,
+            'uc' => '562606800', 'celescInvoiceBase64' => '', 'celescInvoiceId' => '',
+            'chartJs' => '/*chart*/', 'datalabelsJs' => '/*dl*/', 'fontFaceCss' => '/*fonts*/',
+        ]))->render();
+
+        // Seções removidas (§3.1) ausentes.
+        $this->assertStringNotContainsStringIgnoringCase('auditoria', $html);
+        $this->assertStringNotContainsStringIgnoringCase('parâmetros de cálculo', $html);
+
+        // Rótulos honestos presentes.
+        $this->assertStringContainsString('Guardado (kWh)', $html);
+        $this->assertStringContainsString('Vencimento do crédito', $html);
+        $this->assertStringContainsString('Crédito guardado acumulado (kWh)', $html);
+        $this->assertStringContainsString('CUO acumulado (R$)', $html);
+        $this->assertStringContainsString('Valor a receber acumulado (R$)', $html);
+
+        // Coluna "Convertido em receita" só quando > 0 (cenário sem expiração).
+        $this->assertStringNotContainsString('Convertido em receita', $html);
+
+        // Zero rede: nenhum CDN/Google Fonts; assets inline presentes.
+        $this->assertStringNotContainsString('googleapis.com', $html);
+        $this->assertStringNotContainsString('cdn.jsdelivr.net', $html);
+        $this->assertStringContainsString('/*chart*/', $html);
+        $this->assertStringContainsString('/*fonts*/', $html);
+
+        // Design system aplicado; paleta antiga banida.
+        $this->assertStringContainsString('#F39325', $html);   // Lider Orange
+        $this->assertStringContainsString('Nunito', $html);
+        $this->assertStringNotContainsString('Montserrat', $html);
+        $this->assertStringNotContainsString('#470b07', $html); // marrom antigo
+        $this->assertStringNotContainsString('#f44336', $html); // vermelho antigo
+        $this->assertStringNotContainsString('#d32f2f', $html);
+
+        // Contrato do Browsershot: sinal de render do gráfico em try/finally.
+        $this->assertStringContainsString('window.chartRendered = true', $html);
+        $this->assertStringContainsString('finally', $html);
+
+        // Valor do motor presente formatado (R$ 3.615,01 — mesmo cenário do teste acima).
+        $this->assertStringContainsString('3.615,01', $html);
+    }
+
     // ----------------------------------------------------------------------
     // Scaffolding (mesma cadeia de FKs do FaturamentoServiceTest).
     // ----------------------------------------------------------------------
