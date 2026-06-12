@@ -361,7 +361,9 @@ private function appendPdfPages(Fpdi $out, string $pdfBin): void
     }
 
     if (config('services.browsershot.disable_sandbox')) {
-      $browsershot->addChromiumArguments(['--no-sandbox', '--disable-setuid-sandbox']);
+      // noSandbox() injeta --no-sandbox corretamente. NÃO usar addChromiumArguments(['--no-sandbox'])
+      // pois o Browsershot prefixa '--' em cada arg, gerando '----no-sandbox' (ignorado pelo Chrome).
+      $browsershot->noSandbox();
     }
 
     return $browsershot;
