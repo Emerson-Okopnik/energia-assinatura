@@ -16,6 +16,7 @@
       --color-accent-leaf-deep: #3F8F22;
       --color-ink: #3D3D3D;
       --color-graphite: #5C5C5C;
+      --color-slate: #7A7A7A;
       --color-smoke: #B0B0B0;
       --color-mist: #E5E0D9;
       --color-linen: #FAF6F1;
@@ -26,7 +27,10 @@
       --radius-lg: 20px;
       --radius-pill: 999px;
       --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+      --shadow-xs: 0 1px 2px rgba(61,61,61,0.06);
       --shadow-sm: 0 2px 6px rgba(61,61,61,0.08);
+      --shadow-md: 0 8px 24px rgba(61,61,61,0.10);
+      --font-display: 'Nunito', system-ui, sans-serif;
       --font-body: 'Nunito', system-ui, sans-serif;
       --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     }
@@ -44,26 +48,41 @@
       line-height: 1.35;
     }
 
-    .page { padding: 12px 16px 56px; } /* reserva o rodapé fixo */
+    .page { padding: 12px 18px 56px; } /* reserva o rodapé fixo */
 
     .num { font-family: var(--font-mono); }
 
+    /* ---------- Cards (DS: branco, radius-lg, shadow-sm, sem borda) ---------- */
     .card {
       background: var(--color-paper);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-sm);
-      padding: var(--space-3);
+      padding: var(--space-3) var(--space-4);
     }
 
+    /* ---------- Hierarquia DS: eyebrow (kicker) + título display ---------- */
     .eyebrow {
+      font-family: var(--font-body);
       font-weight: 700;
-      font-size: 7.5pt;
+      font-size: 7pt;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--color-primary-deep);
-      margin: var(--space-3) 0 var(--space-2);
+      margin: 0;
     }
-    .card > .eyebrow:first-child { margin-top: 0; }
+    .eyebrow--leaf { color: var(--color-accent-leaf-deep); }
+    .section-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 12pt;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      color: var(--color-ink);
+      margin: 2px 0 0;
+    }
+    .section-head { margin: var(--space-4) 0 var(--space-2); }
+    .card-head { margin: 0 0 var(--space-2); }
+    .card-head .section-title { font-size: 10.5pt; }
 
     /* ---------- Cabeçalho ---------- */
     .header {
@@ -71,9 +90,15 @@
       align-items: center;
       gap: var(--space-3);
     }
-    .header .logo img { height: 52px; display: block; }
+    .header .logo img { height: 38px; display: block; }
     .header .divider { width: 1px; align-self: stretch; background: var(--color-mist); }
-    .company-info h2 { margin: 0 0 2px; font-size: 9pt; font-weight: 800; }
+    .company-info h2 {
+      margin: 0 0 2px;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 9pt;
+      letter-spacing: -0.01em;
+    }
     .company-info p { margin: 1px 0; font-size: 7pt; color: var(--color-graphite); }
     .details { font-size: 7.5pt; }
     .details p { margin: 2px 0; }
@@ -86,14 +111,63 @@
       align-items: center;
       flex-wrap: wrap;
       gap: var(--space-2);
-      margin: var(--space-2) 0;
+      margin: var(--space-2) 0 var(--space-3);
       font-size: 7pt;
       color: var(--color-graphite);
     }
     .meta-row .icon { width: 11px; height: 11px; vertical-align: -2px; margin-right: 2px; }
     .contact-item { margin-left: var(--space-3); }
 
-    /* ---------- Faixa de destaque (primary-soft: contraste AA, grad-sun é só CTA/hero) ---------- */
+    /* ---------- Hero do valor a receber (único uso sancionado do grad-sun) ---------- */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background: var(--grad-sun);
+      color: var(--color-paper);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-3) var(--space-4);
+    }
+    .hero .hero-circle {
+      position: absolute;
+      right: -36px; top: -48px;
+      width: 150px; height: 150px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+    }
+    .hero .hero-body { position: relative; }
+    .hero .hero-eyebrow {
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 7pt;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      margin: 0;
+    }
+    .hero .hero-line {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-2);
+      margin-top: var(--space-1);
+    }
+    .hero .hero-valor {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 26pt;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .hero .hero-pill {
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 7.5pt;
+      background: rgba(255,255,255,0.25);
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+    }
+
+    /* ---------- Faixa de informações (primary-soft: contraste AA) ---------- */
     .highlight-bar {
       display: flex;
       justify-content: space-around;
@@ -101,26 +175,51 @@
       gap: var(--space-3);
       background: var(--color-primary-soft);
       color: var(--color-ink);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-md);
       padding: var(--space-2) var(--space-4);
-      font-size: 8pt;
+      font-size: 7.5pt;
+      margin-top: var(--space-2);
     }
     .highlight-bar p { margin: 0; }
     .highlight-bar strong { color: var(--color-primary-deep); }
-    .highlight-bar .destaque { font-size: 10pt; font-weight: 800; color: var(--color-primary-deep); }
 
     /* ---------- Geração ---------- */
     .geracao-container { display: flex; gap: var(--space-3); align-items: stretch; }
     .grafico { flex: 1 1 62%; }
     .grafico canvas { width: 100%; max-width: 460px; height: auto; }
-    .dados-geracao { flex: 1 1 38%; background: var(--color-linen); box-shadow: none; border: 1px solid var(--color-mist); }
-    .dados-geracao h3 { margin: 0 0 var(--space-2); font-size: 9.5pt; font-weight: 800; text-align: center; }
-    .dados-geracao .kwh-destaque { color: var(--color-primary-deep); font-weight: 800; }
-    .item-geracao { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; }
-    .item-geracao img { width: 34px; height: 34px; }
-    .item-geracao strong { color: var(--color-accent-leaf-deep); }
+    .dados-geracao {
+      flex: 1 1 38%;
+      background: var(--color-linen);
+      box-shadow: none;
+      border: 1px solid var(--color-mist);
+    }
+    .dados-geracao .kwh-destaque {
+      font-weight: 800;
+      color: var(--color-primary-deep);
+    }
+    .dados-geracao > p { margin: 0 0 var(--space-2); color: var(--color-graphite); }
+    .item-geracao {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin: var(--space-2) 0 0;
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--color-mist);
+    }
+    .item-geracao img { width: 30px; height: 30px; }
+    .stat-line { display: flex; align-items: baseline; gap: var(--space-1); }
+    .stat-num {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 13pt;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+    }
+    .stat-unit { font-family: var(--font-mono); font-size: 7.5pt; color: var(--color-graphite); }
+    .stat-caption { font-size: 7.5pt; color: var(--color-graphite); margin-top: 1px; }
 
-    /* ---------- Tabelas ---------- */
+    /* ---------- Tabelas (DS BillsTable: header claro mono/slate) ---------- */
     .data-table {
       width: 100%;
       border-collapse: collapse;
@@ -128,17 +227,24 @@
       text-align: center;
     }
     .data-table thead th {
-      background: var(--color-ink);
-      color: var(--color-paper);
-      font-weight: 700;
-      padding: 4px;
+      background: transparent;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 6.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--color-slate);
+      padding: 4px 4px 5px;
       border: none;
-    }
-    .data-table tbody td {
-      padding: 4px;
       border-bottom: 1px solid var(--color-mist);
     }
-    .data-table tbody tr:nth-child(even) { background: var(--color-linen); }
+    .data-table tbody td {
+      padding: 4px 4px 5px;
+      border-bottom: 1px solid var(--color-mist);
+      color: var(--color-ink);
+    }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+    .data-table .credito { color: var(--color-accent-leaf-deep); font-weight: 600; }
     .data-table .valor-final { font-weight: 700; color: var(--color-primary-deep); }
 
     /* ---------- Linha inferior ---------- */
@@ -146,9 +252,24 @@
     .bloco-creditos { flex: 1.4; }
     .coluna-direita { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); }
 
-    .historico-valores { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
-    .historico-valores td { padding: 4px; border-bottom: 1px solid var(--color-mist); }
-    .historico-valores td:last-child { text-align: right; font-weight: 700; }
+    .historico-valores { width: 100%; border-collapse: collapse; }
+    .historico-valores td {
+      padding: 5px 0;
+      border-bottom: 1px solid var(--color-mist);
+      font-size: 7.5pt;
+      color: var(--color-graphite);
+    }
+    .historico-valores tr:last-child td { border-bottom: none; }
+    .historico-valores td:last-child {
+      text-align: right;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 9.5pt;
+      letter-spacing: -0.01em;
+      color: var(--color-ink);
+      white-space: nowrap;
+    }
+    .historico-valores .total-destaque td:last-child { color: var(--color-primary-deep); }
 
     .badge-total {
       display: inline-block;
@@ -214,64 +335,95 @@
       </span>
     </div>
 
+    {{-- Hero do valor (DS SavingsHero — único uso do grad-sun) --}}
+    <div class="hero">
+      <div class="hero-circle"></div>
+      <div class="hero-body">
+        <div class="hero-eyebrow">Valor a receber</div>
+        <div class="hero-line">
+          <span class="hero-valor">@reais($valorReceber)</span>
+          <span class="hero-pill">{{ $mesAnoSelecionado }}</span>
+        </div>
+      </div>
+    </div>
+
     <div class="highlight-bar">
       <p><strong>UC:</strong> <span class="num">{{ $uc }}</span></p>
       <p><strong>Fonte de geração:</strong> UFV</p>
       <p><strong>Valor kWh:</strong> <span class="num">@tarifa($usina->comercializacao->valor_kwh)</span></p>
-      <p class="destaque"><span class="num">@reais($valorReceber)</span></p>
     </div>
 
-    <div class="eyebrow">Demonstrativo de geração</div>
+    <div class="section-head">
+      <div class="eyebrow">Geração</div>
+      <div class="section-title">Demonstrativo de geração</div>
+    </div>
 
     <div class="geracao-container">
       <div class="card grafico">
         <canvas id="graficoGeracao"></canvas>
       </div>
       <div class="card dados-geracao">
-        <h3>Dados de geração de energia</h3>
+        <div class="card-head">
+          <div class="eyebrow eyebrow--leaf">Impacto ambiental</div>
+          <div class="section-title">Dados de geração de energia</div>
+        </div>
         <p>Sua geração de energia foi de <span class="kwh-destaque num">@kwh($geracaoMes)</span>, isso é igual a:</p>
         <div class="item-geracao">
           <img src="{{ $iconeCo2 }}" alt="">
-          <span><strong class="num">@numero($co2Evitado, 0) kg</strong> de emissão de CO₂ evitada</span>
+          <div>
+            <div class="stat-line"><span class="stat-num">@numero($co2Evitado, 0)</span><span class="stat-unit">kg</span></div>
+            <div class="stat-caption">de emissão de CO₂ evitada</div>
+          </div>
         </div>
         <div class="item-geracao">
           <img src="{{ $iconeArvore }}" alt="">
-          <span><strong class="num">@numero($arvores, 0)</strong> árvores plantadas</span>
+          <div>
+            <div class="stat-line"><span class="stat-num">@numero($arvores, 0)</span><span class="stat-unit">árvores</span></div>
+            <div class="stat-caption">plantadas, em equivalência</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="eyebrow">Dados de geração e faturamento</div>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Mês</th>
-          <th>Geração (kWh)</th>
-          <th>Valor Fixo (R$)</th>
-          <th>Injetado (R$)</th>
-          <th>Creditado (R$)</th>
-          <th>CUO (R$)</th>
-          <th>Valor Final (R$)</th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach($dadosMensais as $mes => $dados)
+    <div class="section-head">
+      <div class="eyebrow">Faturamento</div>
+      <div class="section-title">Dados de geração e faturamento</div>
+    </div>
+    <div class="card">
+      <table class="data-table">
+        <thead>
           <tr>
-            <td>{{ $mes }}</td>
-            <td class="num">@kwh($dados['geracao_kwh'] ?? 0)</td>
-            <td class="num">@reais($dados['fixo'])</td>
-            <td class="num">@reais($dados['injetado'])</td>
-            <td class="num">@reais($dados['creditado'])</td>
-            <td class="num">@reais($dados['cuo'])</td>
-            <td class="num valor-final">@reais($dados['valor_final'])</td>
+            <th>Mês</th>
+            <th>Geração (kWh)</th>
+            <th>Valor Fixo (R$)</th>
+            <th>Injetado (R$)</th>
+            <th>Creditado (R$)</th>
+            <th>CUO (R$)</th>
+            <th>Valor Final (R$)</th>
           </tr>
-        @endforeach
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          @foreach($dadosMensais as $mes => $dados)
+            <tr>
+              <td>{{ $mes }}</td>
+              <td class="num">@kwh($dados['geracao_kwh'] ?? 0)</td>
+              <td class="num">@reais($dados['fixo'])</td>
+              <td class="num">@reais($dados['injetado'])</td>
+              <td class="num credito">@reais($dados['creditado'])</td>
+              <td class="num">@reais($dados['cuo'])</td>
+              <td class="num valor-final">@reais($dados['valor_final'])</td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </div>
 
     <div class="linha-final">
       <div class="card bloco-creditos">
-        <div class="eyebrow">Demonstrativo de créditos</div>
+        <div class="card-head">
+          <div class="eyebrow">Créditos</div>
+          <div class="section-title">Demonstrativo de créditos</div>
+        </div>
         <table class="data-table">
           <thead>
             <tr>
@@ -294,7 +446,7 @@
                 <td class="num">@kwh($dados['creditado_kwh'] ?? 0)</td>
                 <td class="num">{{ $dados['meses_utilizados'] ?? '-' }}</td>
                 @if($temConvertidoReceita)
-                  <td class="num">{{ $dados['convertido_receita'] > 0 ? \App\Support\Format::reais($dados['convertido_receita']) : '-' }}</td>
+                  <td class="num credito">{{ $dados['convertido_receita'] > 0 ? \App\Support\Format::reais($dados['convertido_receita']) : '-' }}</td>
                 @endif
               </tr>
             @endforeach
@@ -304,20 +456,23 @@
 
       <div class="coluna-direita">
         <div class="card">
-          <div class="eyebrow">Histórico de valores</div>
+          <div class="card-head">
+            <div class="eyebrow">Acumulados</div>
+            <div class="section-title">Histórico de valores</div>
+          </div>
           <table class="historico-valores">
             <tbody>
               <tr>
                 <td>Crédito guardado acumulado (kWh)</td>
-                <td class="num">@kwh($totalGuardadoKwh)</td>
+                <td>@kwh($totalGuardadoKwh)</td>
               </tr>
               <tr>
                 <td>CUO acumulado (R$)</td>
-                <td class="num">@reais($totalCuo)</td>
+                <td>@reais($totalCuo)</td>
               </tr>
-              <tr>
+              <tr class="total-destaque">
                 <td>Valor a receber acumulado (R$)</td>
-                <td class="num">@reais($totalValorFinal)</td>
+                <td>@reais($totalValorFinal)</td>
               </tr>
             </tbody>
           </table>
