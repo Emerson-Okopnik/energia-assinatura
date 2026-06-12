@@ -81,9 +81,18 @@ function classesDaColuna(coluna) {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-slate);
-  text-align: left;
+  text-align: left; /* default; colunas numéricas/à direita sobrescrevem abaixo */
   border-bottom: 1px solid var(--color-mist);
   white-space: nowrap;
+}
+
+/* O cabeçalho segue o alinhamento da coluna (números à direita ficam sobre o valor). */
+.data-table thead th.data-table--right {
+  text-align: right;
+}
+
+.data-table thead th.data-table--center {
+  text-align: center;
 }
 
 .data-table tbody td {

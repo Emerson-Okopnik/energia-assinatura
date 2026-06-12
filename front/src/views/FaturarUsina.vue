@@ -1237,15 +1237,23 @@ async function baixarPdf() {
   min-width: 0;
 }
 
-/* Tabela densa (12×8): células mais justas para caber em largura total sem scroll. */
+/* Tabela densa (12×8): colunas regulares para os números formarem uma grade
+   alinhada (sem vãos irregulares), em vez de cada coluna esticar sozinha. */
+.expectativa__data-table :deep(.data-table) {
+  table-layout: fixed;
+}
+
 .expectativa__data-table :deep(thead th),
 .expectativa__data-table :deep(tbody td) {
   padding-left: var(--space-2);
   padding-right: var(--space-2);
+  font-size: var(--fs-xs);
 }
 
-.expectativa__data-table :deep(tbody td) {
-  font-size: var(--fs-xs);
+/* 1ª coluna (Mês) estreita; as 7 numéricas dividem o resto igualmente. */
+.expectativa__data-table :deep(thead th:first-child),
+.expectativa__data-table :deep(tbody td:first-child) {
+  width: 11%;
 }
 
 .expectativa__data-table :deep(.num) {
