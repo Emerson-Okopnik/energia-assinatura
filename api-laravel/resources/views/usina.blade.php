@@ -25,6 +25,7 @@
       --radius-sm: 6px;
       --radius-md: 12px;
       --radius-lg: 20px;
+      --radius-xl: 28px;
       --radius-pill: 999px;
       --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
       --shadow-xs: 0 1px 2px rgba(61,61,61,0.06);
@@ -80,7 +81,7 @@
       color: var(--color-ink);
       margin: 2px 0 0;
     }
-    .section-head { margin: var(--space-4) 0 var(--space-2); }
+    .section-head { margin: var(--space-3) 0 var(--space-1); }
     .card-head { margin: 0 0 var(--space-2); }
     .card-head .section-title { font-size: 10.5pt; }
 
@@ -124,7 +125,7 @@
       overflow: hidden;
       background: var(--grad-sun);
       color: var(--color-paper);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-xl);
       box-shadow: var(--shadow-md);
       padding: var(--space-3) var(--space-4);
     }
@@ -229,7 +230,7 @@
     .data-table thead th {
       background: transparent;
       font-family: var(--font-mono);
-      font-weight: 600;
+      font-weight: 700;
       font-size: 6.5pt;
       text-transform: uppercase;
       letter-spacing: 0.1em;
