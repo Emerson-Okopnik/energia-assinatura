@@ -133,17 +133,26 @@ class PdfMotorUnicoTest extends TestCase
         $this->assertEqualsWithDelta($r->valorFinal->emReais(), $vm['valorReceber'], 0.01);
         $this->assertEqualsWithDelta(3615.01, $vm['valorReceber'], 0.01);
 
-        // Seção Parâmetros reflete a usina.
-        $this->assertEqualsWithDelta(0.50, $vm['parametros']['tarifa'], 1e-9);
-        $this->assertEqualsWithDelta(10000.0, $vm['parametros']['media'], 1e-9);
-        $this->assertEqualsWithDelta(5000.0, $vm['parametros']['menor_geracao'], 1e-9);
+        // §3.1: auditoria e parâmetros NÃO existem mais no ViewModel.
+        $this->assertArrayNotHasKey('auditoria', $vm);
+        $this->assertArrayNotHasKey('parametros', $vm);
 
-        // Auditoria: faltante = média − líquida (sem déficit aqui, faltante 0).
-        $auditMaio = collect($vm['auditoria'])->firstWhere('label', 'Maio/26');
-        $this->assertNotNull($auditMaio);
-        $this->assertEqualsWithDelta(10000.0, $auditMaio['projetada_media_kwh'], 1e-9);
-        $this->assertEqualsWithDelta(8600.0, $auditMaio['geracao_real_kwh'], 1e-9);
-        $this->assertEqualsWithDelta(1400.0, $auditMaio['faltante_kwh'], 1e-9);
+        // Demonstrativo: dadosCreditos é o slice (≤6 meses) pronto para o Blade.
+        $this->assertArrayHasKey('dadosCreditos', $vm);
+        $this->assertLessThanOrEqual(6, count($vm['dadosCreditos']));
+        $linha = $vm['dadosCreditos']['Maio/26'];
+        $this->assertArrayHasKey('guardado', $linha);
+        $this->assertArrayHasKey('creditado_kwh', $linha);
+        $this->assertArrayHasKey('vencimento', $linha);
+        $this->assertArrayHasKey('meses_utilizados', $linha);
+        // Crédito vencido convertido em receita (R$) — 0 neste cenário.
+        $this->assertEqualsWithDelta(0.0, $linha['convertido_receita'], 0.01);
+        $this->assertFalse($vm['temConvertidoReceita']);
+
+        // Totais com nomes honestos (motor): kWh guardado, CUO, valor final.
+        $this->assertArrayHasKey('totalGuardadoKwh', $vm);
+        $this->assertArrayHasKey('totalCuo', $vm);
+        $this->assertArrayHasKey('totalValorFinal', $vm);
 
         // CO2/árvores vêm do controller/motor (não há @php no Blade).
         $this->assertEqualsWithDelta(round(8600 * 0.4, 2), $vm['co2Evitado'], 0.01);

@@ -6,8 +6,6 @@ namespace App\Http\ViewModels;
 
 use App\Application\Faturamento\DTO\RespostaCalculoMes;
 use App\Application\Faturamento\FaturamentoService;
-use App\Models\DadoConsumo;
-use App\Models\DadoConsumoUsina;
 use App\Models\DadosGeracaoRealUsina;
 use App\Models\GeracaoFaturamentoPdf;
 use App\Models\Usina;
@@ -25,6 +23,9 @@ use Illuminate\Support\Str;
  *
  * Toda a fórmula vive no núcleo (DRY); aqui não há nenhuma operação aritmética
  * de faturamento — apenas somas de totais já calculados pelo motor.
+ *
+ * §3.1: As seções "Auditoria" e "Parâmetros de Cálculo" foram removidas do PDF.
+ * O ViewModel não produz mais `auditoria` nem `parametros`.
  *
  * Extraída do controller para ser testável sem Browsershot/HTTP.
  */
@@ -76,11 +77,8 @@ final class UsinaPdfViewModel
         $dadosMensais = [];
         $valoresGeracao = [];
         $labels = [];
-        $geracaoMensalReal = [];
-        $auditoria = [];
         $totalCuo = 0.0;
         $totalValorFinal = 0.0;
-        $totalReceitaExpiracao = 0.0;
         $totalGuardadoKwh = 0.0;
         $dadosFaturamento = [];
 
@@ -139,41 +137,22 @@ final class UsinaPdfViewModel
 
             $valoresGeracao[] = $resposta->entrada->geracaoBrutaKwh->valor();
             $labels[] = $label;
-            $geracaoMensalReal[$label] = $resposta->entrada->geracaoBrutaKwh->valor();
-
-            // Auditoria §8: projetada × realizada × faltante + crédito expirado.
-            $media = $resposta->entrada->mediaKwh->valor();
-            $liquida = $resposta->entrada->geracaoLiquidaKwh->valor();
-            $auditoria[$label] = [
-                'label' => $label,
-                'geracao_real_kwh' => $resposta->entrada->geracaoBrutaKwh->valor(),
-                'geracao_liquida_kwh' => $liquida,
-                'projetada_media_kwh' => $media,
-                'faltante_kwh' => max($media - $liquida, 0.0),
-                'credito_expirado_kwh' => $this->somaExpiracaoKwh($resposta),
-                'credito_expirado_reais' => $termos->receitaExpiracao->emReais(),
-                'meses_utilizados' => $this->mesesUtilizadosTexto($resposta),
-            ];
 
             // Demonstrativo de créditos (substitui a 2ª simulação FIFO removida).
-            $creditadoKwh = $this->somaConsumoFifoKwh($resposta);
             $vencimento = $data->copy()->startOfMonth()
                 ->addDays(self::vencimentoDias())->format('Y-m-d');
             $dadosFaturamento[$label] = [
-                'competencia' => $label,
-                'geracao' => $resposta->entrada->geracaoBrutaKwh->valor(),
                 'guardado' => $termos->guardadoKwh->valor(),
-                'creditado' => $termos->credito->emReais(),
-                'creditado_kwh' => $creditadoKwh,
-                'pago' => $termos->valorFinal->emReais(),
+                'creditado_kwh' => $this->somaConsumoFifoKwh($resposta),
                 'vencimento' => $this->labelData($vencimento),
-                'mes_creditado' => $termos->credito->emReais() > 0 ? $label : '-',
                 'meses_utilizados' => $this->mesesUtilizadosTexto($resposta),
+                // Crédito vencido PAGO como receita no Valor Final (§3.1 — nunca
+                // rotular como perda; o motor o converte em dinheiro).
+                'convertido_receita' => $termos->receitaExpiracao->emReais(),
             ];
 
             $totalCuo += $termos->cuo->emReais();
             $totalValorFinal += $termos->valorFinal->emReais();
-            $totalReceitaExpiracao += $termos->receitaExpiracao->emReais();
             $totalGuardadoKwh += $termos->guardadoKwh->valor();
 
             if ($mesNum === $mes) {
@@ -185,15 +164,11 @@ final class UsinaPdfViewModel
         $co2Evitado = round($geracaoMesSelecionado * self::FATOR_CO2_KG_POR_KWH, 2);
         $arvores = round($co2Evitado / self::KG_CO2_POR_ARVORE, 2);
 
-        $comercializacao = $usina->comercializacao;
-        $dadoGeracao = $usina->dadoGeracao;
-
         return [
             'usina' => $usina,
             'dadosMensais' => $dadosMensais,
             'valoresGeracao' => $valoresGeracao,
             'nomesMeses' => $labels,
-            'maxGeracao' => count($valoresGeracao) ? max($valoresGeracao) : 0,
 
             'valorReceber' => $valorFinalMesSelecionado,
             'mesAnoSelecionado' => $this->label($ano, $mes),
@@ -201,27 +176,17 @@ final class UsinaPdfViewModel
             'co2Evitado' => $co2Evitado,
             'arvores' => $arvores,
 
-            'dadosFaturamento' => $dadosFaturamento,
-            'auditoria' => array_values($auditoria),
             'observacoes' => $observacoes,
 
-            // Totais somam APENAS valores já calculados pelo motor.
-            'totalEnergiaReceber' => $totalGuardadoKwh,
-            'totalFaturaConcessionaria' => $totalCuo,
-            'totalFaturasEmitidas' => $totalValorFinal,
-            'totalReceitaExpiracao' => $totalReceitaExpiracao,
-            'saldo' => $totalValorFinal,
+            // Demonstrativo de Créditos: últimos 6 meses, pronto (zero lógica no Blade).
+            'dadosCreditos' => array_slice($dadosFaturamento, -6, null, true),
+            'temConvertidoReceita' => collect($dadosFaturamento)
+                ->contains(fn (array $l): bool => $l['convertido_receita'] > 0),
 
-            // Seção "Parâmetros de Cálculo" (§8) — derivados da usina, sem fórmula.
-            'parametros' => [
-                'tarifa' => (float) ($comercializacao->valor_kwh ?? 0),
-                'valor_fixo' => (float) ($comercializacao->valor_fixo ?? 0),
-                'fio_b' => (float) ($comercializacao->fio_b ?? 0),
-                'percentual_lei' => (float) ($comercializacao->percentual_lei ?? 0),
-                'menor_geracao' => (float) ($dadoGeracao->menor_geracao ?? 0),
-                'media' => (float) ($dadoGeracao->media ?? 0),
-                'rede' => $usina->rede,
-            ],
+            // Totais com nomes honestos — somam APENAS valores do motor.
+            'totalGuardadoKwh' => $totalGuardadoKwh,
+            'totalCuo' => $totalCuo,
+            'totalValorFinal' => $totalValorFinal,
         ];
     }
 
@@ -257,14 +222,6 @@ final class UsinaPdfViewModel
         return array_sum(array_map(
             static fn (array $c): float => $c['kwh']->valor(),
             $resposta->resultado->consumosFifo,
-        ));
-    }
-
-    private function somaExpiracaoKwh(RespostaCalculoMes $resposta): float
-    {
-        return array_sum(array_map(
-            static fn (array $e): float => $e['kwh']->valor(),
-            $resposta->resultado->expiracoes,
         ));
     }
 
