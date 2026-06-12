@@ -213,6 +213,30 @@ class PdfMotorUnicoTest extends TestCase
         $this->assertEqualsWithDelta(100 + $fioBTotal, $vm['dadosMensais']['Maio/26']['cuo'], 0.02);
     }
 
+    public function test_viewmodel_prefere_fatura_energia_persistida_sobre_derivacao(): void
+    {
+        $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');
+        $this->geracaoReal((int) $usina->usi_id, (int) $usina->cli_id, 2026, ['maio' => 8600]);
+
+        // Cache com fatura_energia PERSISTIDA (=100) e um CUO que, se derivado,
+        // daria fatura 50 — o valor persistido tem que vencer a derivação.
+        $fioBTotal = 8600 * 0.13275 * 0.60;
+        GeracaoFaturamentoPdf::create([
+            'usi_id' => $usina->usi_id,
+            'competencia' => '2026-05-01',
+            'geracao_kwh' => 8600,
+            'valor_fixo' => 0, 'injetado' => 0, 'creditado' => 0,
+            'cuo' => 50 + $fioBTotal,
+            'valor_final' => 0,
+            'fatura_energia' => 100,
+        ]);
+
+        $vm = (new UsinaPdfViewModel($this->service()))->montar($usina, 2026, 5);
+
+        // CUO recalculado = fatura persistida (100) + fio B total — NÃO 50 + fioB.
+        $this->assertEqualsWithDelta(100 + $fioBTotal, $vm['dadosMensais']['Maio/26']['cuo'], 0.02);
+    }
+
     public function test_blade_renderiza_no_design_system_sem_secoes_removidas(): void
     {
         $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');

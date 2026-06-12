@@ -44,7 +44,7 @@
       line-height: 1.35;
     }
 
-    .page { padding: 14px 16px 58px; } /* reserva o rodapé fixo */
+    .page { padding: 12px 16px 56px; } /* reserva o rodapé fixo */
 
     .num { font-family: var(--font-mono); }
 
@@ -93,20 +93,21 @@
     .meta-row .icon { width: 11px; height: 11px; vertical-align: -2px; margin-right: 2px; }
     .contact-item { margin-left: var(--space-3); }
 
-    /* ---------- Faixa de destaque (gradiente só-laranja, uso único) ---------- */
+    /* ---------- Faixa de destaque (primary-soft: contraste AA, grad-sun é só CTA/hero) ---------- */
     .highlight-bar {
       display: flex;
       justify-content: space-around;
       align-items: center;
       gap: var(--space-3);
-      background: var(--grad-sun);
-      color: #fff;
+      background: var(--color-primary-soft);
+      color: var(--color-ink);
       border-radius: var(--radius-lg);
       padding: var(--space-2) var(--space-4);
       font-size: 8pt;
     }
     .highlight-bar p { margin: 0; }
-    .highlight-bar .destaque { font-size: 10pt; font-weight: 800; }
+    .highlight-bar strong { color: var(--color-primary-deep); }
+    .highlight-bar .destaque { font-size: 10pt; font-weight: 800; color: var(--color-primary-deep); }
 
     /* ---------- Geração ---------- */
     .geracao-container { display: flex; gap: var(--space-3); align-items: stretch; }
@@ -128,13 +129,13 @@
     }
     .data-table thead th {
       background: var(--color-ink);
-      color: #fff;
+      color: var(--color-paper);
       font-weight: 700;
-      padding: 4px 5px;
+      padding: 4px;
       border: none;
     }
     .data-table tbody td {
-      padding: 3px 5px;
+      padding: 4px;
       border-bottom: 1px solid var(--color-mist);
     }
     .data-table tbody tr:nth-child(even) { background: var(--color-linen); }
@@ -146,7 +147,7 @@
     .coluna-direita { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); }
 
     .historico-valores { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
-    .historico-valores td { padding: 3px 4px; border-bottom: 1px solid var(--color-mist); }
+    .historico-valores td { padding: 4px; border-bottom: 1px solid var(--color-mist); }
     .historico-valores td:last-child { text-align: right; font-weight: 700; }
 
     .badge-total {
@@ -155,7 +156,7 @@
       color: var(--color-primary-deep);
       font-weight: 700;
       font-size: 7pt;
-      padding: 3px 10px;
+      padding: 4px 12px;
       border-radius: var(--radius-pill);
       margin-top: var(--space-2);
     }
@@ -168,7 +169,7 @@
       position: fixed;
       bottom: 0; left: 0; right: 0;
       background: var(--color-ink);
-      color: #fff;
+      color: var(--color-paper);
       font-size: 7.5pt;
       display: flex;
       justify-content: space-between;
@@ -177,7 +178,7 @@
     }
     .rodape .icon { width: 14px; height: 14px; vertical-align: -3px; margin-right: 4px; }
     .rodape .icon-social { width: 16px; height: 16px; vertical-align: middle; margin-left: 6px; }
-    .rodape a { color: #fff; }
+    .rodape a { color: var(--color-paper); }
   </style>
 </head>
 <body>
@@ -288,10 +289,10 @@
             @foreach($dadosCreditos as $mes => $dados)
               <tr>
                 <td>{{ $mes }}</td>
-                <td>{{ $dados['vencimento'] ?? '-' }}</td>
+                <td class="num">{{ $dados['vencimento'] ?? '-' }}</td>
                 <td class="num">@kwh($dados['guardado'])</td>
                 <td class="num">@kwh($dados['creditado_kwh'] ?? 0)</td>
-                <td>{{ $dados['meses_utilizados'] ?? '-' }}</td>
+                <td class="num">{{ $dados['meses_utilizados'] ?? '-' }}</td>
                 @if($temConvertidoReceita)
                   <td class="num">{{ $dados['convertido_receita'] > 0 ? \App\Support\Format::reais($dados['convertido_receita']) : '-' }}</td>
                 @endif
@@ -348,8 +349,8 @@
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       try {
-        const valores = {!! json_encode($valoresGeracao) !!};
-        const labels = {!! json_encode($nomesMeses) !!};
+        const valores = {!! json_encode($valoresGeracao, JSON_HEX_TAG | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' !!};
+        const labels = {!! json_encode($nomesMeses, JSON_HEX_TAG | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' !!};
         const maxY = valores.length ? Math.max(...valores) * 1.1 : 10;
 
         new Chart(document.getElementById('graficoGeracao').getContext('2d'), {
@@ -360,7 +361,7 @@
               label: 'Geração Mensal (kWh)',
               data: valores,
               fill: true,
-              backgroundColor: 'rgba(243, 147, 37, 0.10)',
+              backgroundColor: 'rgba(243, 147, 37, 0.08)',
               borderColor: '#F39325',
               tension: 0.3,
               pointBackgroundColor: '#F39325',

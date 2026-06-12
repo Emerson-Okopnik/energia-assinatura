@@ -164,6 +164,11 @@ final class UsinaPdfViewModel
         $co2Evitado = round($geracaoMesSelecionado * self::FATOR_CO2_KG_POR_KWH, 2);
         $arvores = round($co2Evitado / self::KG_CO2_POR_ARVORE, 2);
 
+        // Demonstrativo de Créditos: últimos 6 meses, pronto (zero lógica no Blade).
+        // temConvertidoReceita olha o MESMO slice exibido — senão a coluna
+        // renderizaria com todas as células visíveis em '-'.
+        $dadosCreditos = array_slice($linhasCreditos, -6, null, true);
+
         return [
             'usina' => $usina,
             'dadosMensais' => $dadosMensais,
@@ -178,9 +183,8 @@ final class UsinaPdfViewModel
 
             'observacoes' => $observacoes,
 
-            // Demonstrativo de Créditos: últimos 6 meses, pronto (zero lógica no Blade).
-            'dadosCreditos' => array_slice($linhasCreditos, -6, null, true),
-            'temConvertidoReceita' => collect($linhasCreditos)
+            'dadosCreditos' => $dadosCreditos,
+            'temConvertidoReceita' => collect($dadosCreditos)
                 ->contains(fn (array $l): bool => $l['convertido_receita'] > 0),
 
             // Totais com nomes honestos — somam APENAS valores do motor.
@@ -200,14 +204,22 @@ final class UsinaPdfViewModel
     }
 
     /**
-     * Reconstrói a fatura da concessionária a partir do CUO já gravado no cache
-     * (Fase 6, transitório). Se não há cache, retorna 0 — o motor calcula com
-     * fatura 0 até a próxima persistência gravar o CUO definitivo.
+     * Usa a fatura_energia PERSISTIDA quando disponível (coluna adicionada na
+     * migration 2026_06_11_210000; o FaturamentoService a grava ao persistir);
+     * deriva do CUO apenas para cache antigo (Fase 6, transitório). Como a
+     * coluna tem default 0 (linhas antigas recebem 0, nunca NULL), o valor
+     * persistido só é considerado autoritativo quando > 0 — para fatura
+     * realmente salva como 0 a derivação devolve o mesmo ~0, pois o motor
+     * grava CUO = fatura + fioB total. Se não há cache, retorna 0.
      */
     private function faturaEnergiaDerivada(?GeracaoFaturamentoPdf $cache, Usina $usina, float $geracao): float
     {
         if ($cache === null) {
             return 0.0;
+        }
+
+        if ($cache->fatura_energia !== null && (float) $cache->fatura_energia > 0.0) {
+            return (float) $cache->fatura_energia;
         }
 
         $fioB = (float) ($usina->comercializacao->fio_b ?? 0);
