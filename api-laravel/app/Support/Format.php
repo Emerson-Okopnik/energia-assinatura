@@ -36,4 +36,10 @@ final class Format
     {
         return number_format((float) ($valor ?? 0), $casas, ',', '.') . '%';
     }
+
+    /** Número puro pt-BR (contagens, kg): 3943.2 -> "3.943,20". */
+    public static function numero(float|int|null $valor, int $casas = 2): string
+    {
+        return number_format((float) ($valor ?? 0), $casas, ',', '.');
+    }
 }

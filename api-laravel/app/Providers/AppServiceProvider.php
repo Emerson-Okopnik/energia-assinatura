@@ -29,5 +29,6 @@ class AppServiceProvider extends ServiceProvider
         Blade::directive('reais', fn (string $expr) => "<?php echo \\App\\Support\\Format::reais($expr); ?>");
         Blade::directive('tarifa', fn (string $expr) => "<?php echo \\App\\Support\\Format::tarifa($expr); ?>");
         Blade::directive('percentual', fn (string $expr) => "<?php echo \\App\\Support\\Format::percentual($expr); ?>");
+        Blade::directive('numero', fn (string $expr) => "<?php echo \\App\\Support\\Format::numero($expr); ?>");
     }
 }
