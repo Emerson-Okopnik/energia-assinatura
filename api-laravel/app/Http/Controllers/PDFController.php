@@ -106,7 +106,7 @@ class PDFController extends Controller {
             }
         }
 
-        // Imagens inline (sem depender de fileinfo/mime_content_type)
+        // Imagens inline como data URI (mime via fileinfo quando disponível, com fallback)
         $imagensInline = [
             'logo' => 'img/logo-lider-energy-color.png',
             'iconeSol' => 'img/sol.png',
@@ -146,8 +146,8 @@ class PDFController extends Controller {
             'uc' => $uc,
             'celescInvoiceBase64' => $celescInvoiceBase64,
             'celescInvoiceId' => $celescInvoiceId,
-            'chartJs' => $this->publicFileContents('vendor/chart.umd.js') ?? '',
-            'datalabelsJs' => $this->publicFileContents('vendor/chartjs-plugin-datalabels.min.js') ?? '',
+            'chartJs' => $this->publicJsContents('vendor/chart.umd.js'),
+            'datalabelsJs' => $this->publicJsContents('vendor/chartjs-plugin-datalabels.min.js'),
             'fontFaceCss' => $this->buildFontFaceCss(),
         ]);
 
@@ -158,7 +158,7 @@ class PDFController extends Controller {
             ->showBackground()
             ->deviceScaleFactor(1)
             // Sem CDN/Google Fonts no HTML: nada de waitUntilNetworkIdle/setDelay.
-            // O Blade seta window.chartRendered ao terminar o gráfico (try/finally).
+            // Contrato: o Blade novo seta window.chartRendered em try/finally ao terminar o gráfico.
             ->waitForFunction('window.chartRendered === true')
             ->timeout(30)
             ->pdf();
@@ -186,11 +186,11 @@ class PDFController extends Controller {
     if ($contents === null) {
         return self::TRANSPARENT_PIXEL;
     }
-    $mime = mime_content_type(public_path($relativePath)) ?: $mimeFallback;
+    $mime = (function_exists('mime_content_type') ? mime_content_type(public_path($relativePath)) : null) ?: $mimeFallback;
     return 'data:' . $mime . ';base64,' . base64_encode($contents);
   }
 
-  /** Conteúdo bruto de um arquivo em public/ (JS inline), ou null. */
+  /** Conteúdo bruto de um arquivo em public/, ou null se ausente/ilegível. */
   private function publicFileContents(string $relativePath): ?string {
     $path = public_path($relativePath);
     if (!is_file($path)) {
@@ -198,6 +198,16 @@ class PDFController extends Controller {
     }
     $contents = file_get_contents($path);
     return $contents === false ? null : $contents;
+  }
+
+  /** JS de public/ para inline no Blade; loga warning se o arquivo estiver ausente. */
+  private function publicJsContents(string $relativePath): string {
+    $contents = $this->publicFileContents($relativePath);
+    if ($contents === null) {
+        \Log::warning('Asset JS do PDF ausente', ['path' => $relativePath]);
+        return '';
+    }
+    return $contents;
   }
 
   private function inlinePublicImage(string $relativePath): string {
@@ -217,9 +227,14 @@ class PDFController extends Controller {
 
     return collect($fontes)->map(function (array $f) {
         [$family, $weight, $path] = $f;
-        $uri = $this->inlineAsset($path, 'font/woff2');
+        $contents = $this->publicFileContents($path);
+        if ($contents === null) {
+            \Log::warning('Fonte do PDF ausente', ['path' => $path]);
+            return null;
+        }
+        $uri = 'data:font/woff2;base64,' . base64_encode($contents);
         return "@font-face{font-family:'$family';font-weight:$weight;font-style:normal;src:url($uri) format('woff2');}";
-    })->implode("\n");
+    })->filter()->implode("\n");
   }
 
 private function anexarFaturaCelesc(string $pdfPrincipal, string $celescBase64): string
@@ -351,7 +366,6 @@ private function mergePdfsWithPdfLib(string $pdfA, string $pdfB): ?string
         ->margins(10, 10, 10, 10)
         ->showBackground()
         ->deviceScaleFactor(1)
-        //->waitUntilNetworkIdle()
         ->timeout(60)
         ->landscape()
         ->pdf();
