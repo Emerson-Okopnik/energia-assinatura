@@ -79,7 +79,7 @@ class PDFController extends Controller {
         $celescBillingPeriod = $anchorData->format('Y/m');
 
         // Fase 6: o PDF LÊ do motor único (FaturamentoService). Toda a montagem do
-        // ViewModel — termos, demonstrativo, auditoria — vive em UsinaPdfViewModel,
+        // ViewModel — termos e demonstrativo — vive em UsinaPdfViewModel,
         // que apenas orquestra o serviço. ZERO recálculo aqui (DRY).
         $viewModel = (new UsinaPdfViewModel($this->faturamentoService))
             ->montar($usina, $ano, $mes, $observacoes);

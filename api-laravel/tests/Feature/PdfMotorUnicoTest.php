@@ -138,13 +138,14 @@ class PdfMotorUnicoTest extends TestCase
         $this->assertArrayNotHasKey('parametros', $vm);
 
         // Demonstrativo: dadosCreditos é o slice (≤6 meses) pronto para o Blade.
+        // Sem excedente (8600 < média) nem reserva: guardado 0, FIFO vazio.
         $this->assertArrayHasKey('dadosCreditos', $vm);
         $this->assertLessThanOrEqual(6, count($vm['dadosCreditos']));
         $linha = $vm['dadosCreditos']['Maio/26'];
-        $this->assertArrayHasKey('guardado', $linha);
-        $this->assertArrayHasKey('creditado_kwh', $linha);
+        $this->assertEqualsWithDelta(0.0, $linha['guardado'], 1e-9);
+        $this->assertEqualsWithDelta(0.0, $linha['creditado_kwh'], 1e-9);
         $this->assertArrayHasKey('vencimento', $linha);
-        $this->assertArrayHasKey('meses_utilizados', $linha);
+        $this->assertSame('-', $linha['meses_utilizados']);
         // Crédito vencido convertido em receita (R$) — 0 neste cenário.
         $this->assertEqualsWithDelta(0.0, $linha['convertido_receita'], 0.01);
         $this->assertFalse($vm['temConvertidoReceita']);
@@ -157,6 +158,36 @@ class PdfMotorUnicoTest extends TestCase
         // CO2/árvores vêm do controller/motor (não há @php no Blade).
         $this->assertEqualsWithDelta(round(8600 * 0.4, 2), $vm['co2Evitado'], 0.01);
         $this->assertEqualsWithDelta(round((8600 * 0.4) / 20, 2), $vm['arvores'], 0.01);
+    }
+
+    public function test_viewmodel_expoe_credito_vencido_convertido_em_receita(): void
+    {
+        $usina = $this->usina(media: 10000, menor: 5000, tarifa: 0.50, rede: 'Trifásico');
+
+        // Lote ago/2025 (vencimento 2026-01-28 < fim de maio/2026) -> expira.
+        $this->lote((int) $usina->usi_id, '2025-08-01', 1000, 0.50);
+
+        // Geração 12000 > média 10000: faltante 0, FIFO não consome o lote —
+        // ele expira inteiro e o motor o PAGA como receita no Valor Final.
+        $this->geracaoReal((int) $usina->usi_id, (int) $usina->cli_id, 2026, ['maio' => 12000]);
+
+        $vm = (new UsinaPdfViewModel($this->service()))->montar($usina, 2026, 5);
+
+        // Referência: mesma chamada direta ao motor (preview).
+        $resposta = $this->service()->calcularMes(
+            $usina, 2026, 5,
+            ['geracao_bruta_kwh' => 12000, 'fatura_energia' => 0],
+            persistir: false,
+        );
+        $receitaEsperada = $resposta->resultado->receitaExpiracao->emReais();
+
+        // 1000 kWh × 0,50 = R$ 500,00 convertidos em receita (§3.1 — nunca "perda").
+        $this->assertGreaterThan(0.0, $receitaEsperada);
+        $this->assertEqualsWithDelta(500.0, $receitaEsperada, 0.01);
+
+        $linha = $vm['dadosCreditos']['Maio/26'];
+        $this->assertEqualsWithDelta($receitaEsperada, $linha['convertido_receita'], 0.01);
+        $this->assertTrue($vm['temConvertidoReceita']);
     }
 
     public function test_viewmodel_deriva_fatura_do_cache_existente(): void

@@ -80,7 +80,7 @@ final class UsinaPdfViewModel
         $totalCuo = 0.0;
         $totalValorFinal = 0.0;
         $totalGuardadoKwh = 0.0;
-        $dadosFaturamento = [];
+        $linhasCreditos = [];
 
         $valorFinalMesSelecionado = 0.0;
         $geracaoMesSelecionado = 0.0;
@@ -141,7 +141,7 @@ final class UsinaPdfViewModel
             // Demonstrativo de créditos (substitui a 2ª simulação FIFO removida).
             $vencimento = $data->copy()->startOfMonth()
                 ->addDays(self::vencimentoDias())->format('Y-m-d');
-            $dadosFaturamento[$label] = [
+            $linhasCreditos[$label] = [
                 'guardado' => $termos->guardadoKwh->valor(),
                 'creditado_kwh' => $this->somaConsumoFifoKwh($resposta),
                 'vencimento' => $this->labelData($vencimento),
@@ -179,8 +179,8 @@ final class UsinaPdfViewModel
             'observacoes' => $observacoes,
 
             // Demonstrativo de Créditos: últimos 6 meses, pronto (zero lógica no Blade).
-            'dadosCreditos' => array_slice($dadosFaturamento, -6, null, true),
-            'temConvertidoReceita' => collect($dadosFaturamento)
+            'dadosCreditos' => array_slice($linhasCreditos, -6, null, true),
+            'temConvertidoReceita' => collect($linhasCreditos)
                 ->contains(fn (array $l): bool => $l['convertido_receita'] > 0),
 
             // Totais com nomes honestos — somam APENAS valores do motor.
