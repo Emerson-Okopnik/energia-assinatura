@@ -206,12 +206,12 @@ const mesRevertivel = computed(
 const colunasExpectativa = [
   { key: 'mes', label: 'Mês' },
   { key: 'geracao', label: 'Geração', numeric: true },
-  { key: 'media', label: 'Média geração', numeric: true },
+  { key: 'media', label: 'Média', numeric: true },
   { key: 'fixo', label: 'Fixo', numeric: true },
   { key: 'injetado', label: 'Injetado', numeric: true },
   { key: 'creditado', label: 'Creditado', numeric: true },
   { key: 'cuo', label: 'CUO', numeric: true },
-  { key: 'valorFinal', label: 'Valor final a receber', numeric: true },
+  { key: 'valorFinal', label: 'Valor final', numeric: true },
 ]
 
 function ucfirst(str) {
@@ -856,7 +856,7 @@ async function baixarPdf() {
 
           <div class="expectativa__grid">
             <div class="expectativa__tabela">
-              <DataTable :columns="colunasExpectativa" :rows="linhasExpectativa">
+              <DataTable class="expectativa__data-table" :columns="colunasExpectativa" :rows="linhasExpectativa">
                 <template #cell-mes="{ row, value }">
                   <span
                     class="expectativa__mes"
@@ -1224,15 +1224,32 @@ async function baixarPdf() {
   border-bottom: 1px solid var(--color-mist);
 }
 
+/* Tabela de 12 meses × 8 colunas e gráfico empilhados em largura total:
+   lado a lado, a tabela não cabia em 50% e gerava scroll horizontal. */
 .expectativa__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-6);
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  align-items: stretch;
 }
 
 .expectativa__tabela {
   min-width: 0;
+}
+
+/* Tabela densa (12×8): células mais justas para caber em largura total sem scroll. */
+.expectativa__data-table :deep(thead th),
+.expectativa__data-table :deep(tbody td) {
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.expectativa__data-table :deep(tbody td) {
+  font-size: var(--fs-xs);
+}
+
+.expectativa__data-table :deep(.num) {
+  font-size: var(--fs-xs);
 }
 
 .expectativa__grafico {
@@ -1253,14 +1270,10 @@ async function baixarPdf() {
   font-weight: var(--fw-bold);
 }
 
-@media (max-width: 1024px) {
-  .expectativa__grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Gráfico primeiro quando empilha (<1024px). */
+@media (max-width: 640px) {
+  /* Em telas estreitas o gráfico fica mais baixo para não espremer as barras. */
   .expectativa__grafico {
-    order: -1;
+    height: 300px;
   }
 }
 
