@@ -108,7 +108,7 @@ class PDFController extends Controller {
 
         // Imagens inline (sem depender de fileinfo/mime_content_type)
         $imagensInline = [
-            'logo' => 'img/logo-consorcio-lider-energy.png',
+            'logo' => 'img/logo-lider-energy-color.png',
             'iconeSol' => 'img/sol.png',
             'iconeRelogio' => 'img/relogio.png',
             'iconeWeb' => 'img/web.png',
@@ -146,6 +146,9 @@ class PDFController extends Controller {
             'uc' => $uc,
             'celescInvoiceBase64' => $celescInvoiceBase64,
             'celescInvoiceId' => $celescInvoiceId,
+            'chartJs' => $this->publicFileContents('vendor/chart.umd.js') ?? '',
+            'datalabelsJs' => $this->publicFileContents('vendor/chartjs-plugin-datalabels.min.js') ?? '',
+            'fontFaceCss' => $this->buildFontFaceCss(),
         ]);
 
         $html = View::file(resource_path('views/usina.blade.php'), $dados)->render();
@@ -154,9 +157,10 @@ class PDFController extends Controller {
             ->format('A4')
             ->showBackground()
             ->deviceScaleFactor(1)
-            ->waitUntilNetworkIdle()
-            ->setDelay(1500) // aguarda render do pdf.js
-            ->timeout(90)
+            // Sem CDN/Google Fonts no HTML: nada de waitUntilNetworkIdle/setDelay.
+            // O Blade seta window.chartRendered ao terminar o gráfico (try/finally).
+            ->waitForFunction('window.chartRendered === true')
+            ->timeout(30)
             ->pdf();
 
         if (!empty($celescInvoiceBase64)) {
@@ -176,21 +180,46 @@ class PDFController extends Controller {
     }
   }
 
-  //Gera um Data URI de uma imagem no public/ sem depender do fileinfo.
+  /** Gera um Data URI de qualquer asset em public/ (imagem, fonte). */
+  private function inlineAsset(string $relativePath, string $mimeFallback = 'application/octet-stream'): string {
+    $contents = $this->publicFileContents($relativePath);
+    if ($contents === null) {
+        return self::TRANSPARENT_PIXEL;
+    }
+    $mime = mime_content_type(public_path($relativePath)) ?: $mimeFallback;
+    return 'data:' . $mime . ';base64,' . base64_encode($contents);
+  }
+
+  /** Conteúdo bruto de um arquivo em public/ (JS inline), ou null. */
+  private function publicFileContents(string $relativePath): ?string {
+    $path = public_path($relativePath);
+    if (!is_file($path)) {
+        return null;
+    }
+    $contents = file_get_contents($path);
+    return $contents === false ? null : $contents;
+  }
 
   private function inlinePublicImage(string $relativePath): string {
-    $path = public_path($relativePath);
-    if (is_file($path)) {
-        $mime = mime_content_type($path) ?: 'image/png';
-        $contents = file_get_contents($path);
+    return $this->inlineAsset($relativePath, 'image/png');
+  }
 
-        if ($contents === false) {
-            return self::TRANSPARENT_PIXEL;
-        }
+  /** CSS @font-face com woff2 embutido (zero rede no Browsershot). */
+  private function buildFontFaceCss(): string {
+    $fontes = [
+        ['Nunito', 400, 'fonts/nunito-400.woff2'],
+        ['Nunito', 600, 'fonts/nunito-600.woff2'],
+        ['Nunito', 700, 'fonts/nunito-700.woff2'],
+        ['Nunito', 800, 'fonts/nunito-800.woff2'],
+        ['JetBrains Mono', 400, 'fonts/jetbrains-mono-400.woff2'],
+        ['JetBrains Mono', 700, 'fonts/jetbrains-mono-700.woff2'],
+    ];
 
-        return 'data:' . $mime . ';base64,' . base64_encode($contents);
-    }
-    return self::TRANSPARENT_PIXEL;
+    return collect($fontes)->map(function (array $f) {
+        [$family, $weight, $path] = $f;
+        $uri = $this->inlineAsset($path, 'font/woff2');
+        return "@font-face{font-family:'$family';font-weight:$weight;font-style:normal;src:url($uri) format('woff2');}";
+    })->implode("\n");
   }
 
 private function anexarFaturaCelesc(string $pdfPrincipal, string $celescBase64): string
@@ -275,23 +304,6 @@ private function mergePdfsWithPdfLib(string $pdfA, string $pdfB): ?string
         @unlink($tmpA);
         @unlink($tmpB);
         @unlink($tmpOut);
-    }
-}
-
-
-/**
- * Importa todas as páginas de um PDF binário para o PDF de saída.
- */
-private function appendPdfPages(Fpdi $out, string $pdfBin): void
-{
-    $pageCount = $out->setSourceFile(StreamReader::createByString($pdfBin));
-
-    for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
-        $tpl = $out->importPage($pageNo);
-        $size = $out->getTemplateSize($tpl);
-
-        $out->AddPage($size['orientation'], [$size['width'], $size['height']]);
-        $out->useTemplate($tpl);
     }
 }
 
