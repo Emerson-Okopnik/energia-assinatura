@@ -139,7 +139,7 @@ final class AuditoriaService
                 INNER JOIN auditoria_baseline ab ON ab.usi_id = u.usi_id {$whereUsinaBaseline}
                 LEFT JOIN geracao_faturamento_pdf g
                     ON g.usi_id = ab.usi_id
-                    AND substr(g.competencia, 1, 7) = substr(ab.competencia, 1, 7)
+                    AND substr(CAST(g.competencia AS TEXT), 1, 7) = substr(CAST(ab.competencia AS TEXT), 1, 7)
 
                 UNION
 
@@ -163,7 +163,7 @@ final class AuditoriaService
                 WHERE NOT EXISTS (
                     SELECT 1 FROM auditoria_baseline ab
                     WHERE ab.usi_id = g.usi_id
-                    AND substr(ab.competencia, 1, 7) = substr(g.competencia, 1, 7)
+                    AND substr(CAST(ab.competencia AS TEXT), 1, 7) = substr(CAST(g.competencia AS TEXT), 1, 7)
                 )
                 {$whereUsinaPdf}
             ) AS combined
