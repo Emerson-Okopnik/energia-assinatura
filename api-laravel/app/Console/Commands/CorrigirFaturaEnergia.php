@@ -67,9 +67,8 @@ final class CorrigirFaturaEnergia extends Command
                     continue;
                 }
 
-                $faturaProd = $this->faturasDeProd($usiId);
+                ['antes' => $valorAntes, 'fatura' => $faturaProd] = $this->dadosPdf($usiId);
                 $faturaFonte = $this->faturasDeFonte((string) $u->uc);
-                $valorAntes = $this->valoresAntes($usiId);
 
                 foreach ($this->timeline($usiId) as $mes) {
                     [$ano, $num, $geracao] = [$mes['ano'], $mes['mes'], $mes['geracao']];
@@ -117,26 +116,24 @@ final class CorrigirFaturaEnergia extends Command
         return self::SUCCESS;
     }
 
-    /** @return array<string, float> ym => geracao_faturamento_pdf.valor_final atual (antes) */
-    private function valoresAntes(int $usiId): array
+    /**
+     * Lê GeracaoFaturamentoPdf uma única vez por usina e devolve dois mapas:
+     *   'antes'  => ym => valor_final  (snapshot antes da correção)
+     *   'fatura' => ym => fatura_energia (para precedência prod)
+     *
+     * @return array{antes: array<string, float>, fatura: array<string, float>}
+     */
+    private function dadosPdf(int $usiId): array
     {
-        $out = [];
+        $antes = [];
+        $fatura = [];
         foreach (GeracaoFaturamentoPdf::where('usi_id', $usiId)->get() as $r) {
-            $out[Carbon::parse($r->competencia)->format('Y-m')] = (float) $r->valor_final;
+            $ym = Carbon::parse($r->competencia)->format('Y-m');
+            $antes[$ym]  = (float) $r->valor_final;
+            $fatura[$ym] = (float) $r->fatura_energia;
         }
 
-        return $out;
-    }
-
-    /** @return array<string, float> ym => fatura_energia de prod */
-    private function faturasDeProd(int $usiId): array
-    {
-        $out = [];
-        foreach (GeracaoFaturamentoPdf::where('usi_id', $usiId)->get() as $r) {
-            $out[Carbon::parse($r->competencia)->format('Y-m')] = (float) $r->fatura_energia;
-        }
-
-        return $out;
+        return ['antes' => $antes, 'fatura' => $fatura];
     }
 
     /** @return array<string, float> ym => fatura derivada do dump */
@@ -184,6 +181,9 @@ final class CorrigirFaturaEnergia extends Command
         }
         $caminho = $dir . '/correcao-fatura-antes-depois.csv';
         $handle = fopen($caminho, 'w');
+        if ($handle === false) {
+            throw new \RuntimeException("Não foi possível escrever o CSV: {$caminho}");
+        }
         fputcsv($handle, ['uc', 'competencia', 'valor_antes', 'valor_depois', 'delta', 'fatura_origem']);
 
         $totalDelta = 0.0;
