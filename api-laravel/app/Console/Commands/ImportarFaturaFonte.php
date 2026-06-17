@@ -24,6 +24,11 @@ final class ImportarFaturaFonte extends Command
         }
 
         $handle = fopen($arquivo, 'r');
+        if ($handle === false) {
+            $this->error("Não foi possível abrir o arquivo: {$arquivo}");
+
+            return self::FAILURE;
+        }
         $cabecalho = fgetcsv($handle);
         $idx = array_flip(array_map('trim', $cabecalho));
 
