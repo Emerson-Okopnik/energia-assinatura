@@ -119,6 +119,7 @@ class CorrigirFaturaEnergiaTest extends TestCase
 
         $usiId = $this->usiId($uc);
         $ledgerAntes = \App\Models\CreditoLedger::doUsina($usiId)->count();
+        $this->assertGreaterThan(0, $ledgerAntes, 'a 1ª rodada deve gerar lançamentos no ledger');
         $pdf1 = \App\Models\GeracaoFaturamentoPdf::where('usi_id', $usiId)->orderBy('competencia')
             ->pluck('valor_final')->map(fn ($v) => round((float) $v, 2))->all();
 
