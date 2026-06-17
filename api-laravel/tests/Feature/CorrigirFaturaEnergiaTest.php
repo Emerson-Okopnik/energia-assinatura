@@ -134,6 +134,26 @@ class CorrigirFaturaEnergiaTest extends TestCase
         $this->assertSame($pdf1, $pdf2, 'valores devem ser idênticos ao re-rodar');
     }
 
+    public function test_guard_futuro_nao_materializa_competencia_futura(): void
+    {
+        // Usina cuja geração está num ano claramente futuro (2099).
+        // O comando corrigir-fatura não deve criar nenhuma linha em geracao_faturamento_pdf
+        // para essa competência — o guard de mês futuro deve bloqueá-la.
+        $uc = $this->criarUsina(media: 1000, geracaoPorAno: [
+            2099 => ['janeiro' => 1200],
+        ]);
+
+        $this->artisan('ledger:reconstruir', ['--usina' => $uc])->assertOk();
+        $this->artisan('faturamento:corrigir-fatura', ['--usina' => $uc])->assertOk();
+
+        $usiId = $this->usiId($uc);
+        $count = \App\Models\GeracaoFaturamentoPdf::where('usi_id', $usiId)
+            ->where('competencia', '>=', '2099-01-01')
+            ->count();
+
+        $this->assertSame(0, $count, 'competência futura (2099-01) não deve ser materializada pelo guard');
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private function usiId(string $uc): int
