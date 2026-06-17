@@ -152,4 +152,7 @@ Route::middleware('auth:api')->group(function () {
   Route::get('/gerar-pdf-consumidores/{usi_id}', [PDFController::class, 'gerarConsumidoresPDF']);
 
   Route::post('/celesc/fatura', [CelescController::class, 'emitirFatura']);
+
+  Route::get('/auditoria/usinas', [\App\Http\Controllers\AuditoriaController::class, 'usinas']);
+  Route::get('/auditoria/usinas/{usiId}', [\App\Http\Controllers\AuditoriaController::class, 'usina']);
 });
