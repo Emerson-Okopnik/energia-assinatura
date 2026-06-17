@@ -28,12 +28,15 @@ const colunas = [
 ]
 
 function rotuloTexto(m) {
+  if (m.status === 'inconclusivo' || m.diferenca == null) return 'inconclusivo (sem fatura)'
   const r = rotuloDiferenca(m.pago, m.atual)
-  if (r.tipo === 'inconclusivo') return 'inconclusivo (sem fatura)'
   if (r.tipo === 'igual') return 'ok'
   return (r.tipo === 'a_menos' ? 'pagamos a menos ' : 'pagamos a mais ') + formatReais(r.valor)
 }
-function rotuloTipo(m) { return rotuloDiferenca(m.pago, m.atual).tipo }
+function rotuloTipo(m) {
+  if (m.status === 'inconclusivo' || m.diferenca == null) return 'inconclusivo'
+  return rotuloDiferenca(m.pago, m.atual).tipo
+}
 function conta(m) { return linhaConta(m.termos) }
 function toggleConta(comp) {
   const s = new Set(contaAberta.value)
