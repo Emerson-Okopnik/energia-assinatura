@@ -31,37 +31,46 @@ def brl(s):
 # fatura de referência p/ swap
 fat = {}
 if FATREF and os.path.isfile(FATREF):
-    for row in csv.DictReader(open(FATREF, encoding='utf-8')):
-        v_fat = row.get('fatura') or row.get('fatura_energia') or '0'
-        fat[(re.sub(r'\D','',row['uc']), row['competencia'][:7])] = float(v_fat)
+    with open(FATREF, encoding='utf-8') as f:
+        for row in csv.DictReader(f):
+            v_fat = row.get('fatura') or row.get('fatura_energia') or '0'
+            fat[(re.sub(r'\D','',row['uc']), row['competencia'][:7])] = float(v_fat)
 
-rows = list(csv.reader(open(PLAN, encoding='utf-8')))
-out = open(SAIDA, 'w', newline='')
-w = csv.writer(out); w.writerow(['uc','competencia','valor'])
-n = 0; swaps = 0
-for i in range(2, len(rows)):
-    r = rows[i]; nome = (r[0] or '').strip()
-    if not nome or nome.upper().startswith('USINAS EM PROCESSO'):
-        if nome.upper().startswith('USINAS EM PROCESSO'): break
-        continue
-    uc = re.sub(r'\D','', (r[3] or '')); buc = MANUAL.get(uc, uc)
-    if not buc: continue
-    for m, idx in UNI:
-        if idx < len(r):
-            v = brl(r[idx])
-            if v is not None: w.writerow([buc, m, f"{v:.2f}"]); n += 1
-    for m, cp, cc in PARES:
-        a = brl(r[cp]) if cp < len(r) else None
-        b = brl(r[cc]) if cc < len(r) else None
-        if a is None and b is None: continue
-        if a is None: pago = b
-        elif b is None: pago = a
-        else:
-            kf = fat.get((buc, m))
-            if kf is not None and abs(b - kf) > abs(a - kf):
-                pago = b; swaps += 1   # coluna "pago" é a fatura -> swap
+with open(PLAN, encoding='utf-8') as f:
+    rows = list(csv.reader(f))
+
+sem_ref = []
+with open(SAIDA, 'w', newline='') as out:
+    w = csv.writer(out); w.writerow(['uc','competencia','valor'])
+    n = 0; swaps = 0
+    for i in range(2, len(rows)):
+        r = rows[i]; nome = (r[0] or '').strip()
+        if not nome or nome.upper().startswith('USINAS EM PROCESSO'):
+            if nome.upper().startswith('USINAS EM PROCESSO'): break
+            continue
+        uc = re.sub(r'\D','', (r[3] or '')); buc = MANUAL.get(uc, uc)
+        if not buc: continue
+        for m, idx in UNI:
+            if idx < len(r):
+                v = brl(r[idx])
+                if v is not None: w.writerow([buc, m, f"{v:.2f}"]); n += 1
+        for m, cp, cc in PARES:
+            a = brl(r[cp]) if cp < len(r) else None
+            b = brl(r[cc]) if cc < len(r) else None
+            if a is None and b is None: continue
+            if a is None: pago = b
+            elif b is None: pago = a
             else:
-                pago = a
-        w.writerow([buc, m, f"{pago:.2f}"]); n += 1
-out.close()
+                kf = fat.get((buc, m))
+                if kf is not None and abs(b - kf) > abs(a - kf):
+                    pago = b; swaps += 1   # coluna "pago" é a fatura -> swap
+                else:
+                    pago = a
+                    if kf is None:
+                        sem_ref.append((buc, m))
+            w.writerow([buc, m, f"{pago:.2f}"]); n += 1
+
 print(f"Geradas {n} linhas ({swaps} swaps de maio resolvidos): {SAIDA}")
+if sem_ref:
+    pares_str = ', '.join([f"{uc} {m}" for uc, m in sem_ref])
+    print(f"AVISO: {len(sem_ref)} pares sem referência de fatura (coluna 'pago' assumida): {pares_str}")
