@@ -15,7 +15,12 @@ class FaturaFonte extends Model
     protected $fillable = ['uc', 'competencia', 'fatura_energia'];
 
     protected $casts = [
-        'competencia' => 'date',
+        'competencia' => 'date:Y-m-d',
         'fatura_energia' => 'float',
     ];
+
+    protected function setCompetenciaAttribute($value): void
+    {
+        $this->attributes['competencia'] = \Carbon\Carbon::parse($value)->format('Y-m-d');
+    }
 }
