@@ -243,9 +243,9 @@ foreach ($usinas as $u) {
         // final DEPOIS sairiam incompletos (fatura manual = 0) — omitimos (null → "—")
         // em vez de exibir um número que NÃO é o valor pagável real.
         $cuoD  = $fa !== null ? $res->cuo->emReais() : null;
-        // Valor final SEM a receita de expiração retroativa: decisão de negócio é que
-        // expiração retroativa NÃO é paga (o motor só a paga indo para frente).
-        $finalD = $fa !== null ? $res->valorFinal->emReais() - $res->receitaExpiracao->emReais() : null;
+        // PAGA TUDO (decisão 2026-06-17): expiração SEMPRE vira pagamento no mês do
+        // vencimento, inclusive retroativo. O valor final correto é o cheio do motor.
+        $finalD = $fa !== null ? $res->valorFinal->emReais() : null;
         if ($finalA !== null && $finalD !== null) { $totDiffFinal += round($finalD - $finalA, 2); }
 
         // consumo cru do mês (para a coluna de transparência)
