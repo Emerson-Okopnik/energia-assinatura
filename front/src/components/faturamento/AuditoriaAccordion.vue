@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import DataTable from '../base/DataTable.vue'
 import { formatReais, formatKwh, formatNumero } from '../../utils/formatters'
+import { valorEmReais } from '../../utils/detalhamentoFatura'
 
 const props = defineProps({
   // shape: { geracao: {...}, consumo_fifo: [...], expiracao: [...] }
@@ -36,8 +37,10 @@ const expiracao = computed(() =>
 
 const colunasOrigem = [
   { key: 'origem', label: 'Mês de origem' },
-  { key: 'kwh', label: 'Energia', numeric: true },
+  { key: 'kwh', label: 'Valor (R$)', numeric: true },
 ]
+
+const tarifa = computed(() => props.parametros?.tarifa ?? null)
 </script>
 
 <template>
@@ -119,15 +122,23 @@ const colunasOrigem = [
         </table>
         <p v-else class="auditoria__vazio">Sem dados de geração para este mês.</p>
 
-        <h4 class="auditoria__titulo">Crédito resgatado por origem (FIFO)</h4>
+        <h4 class="auditoria__titulo">Crédito resgatado da reserva (compensa o déficit do mês)</h4>
         <DataTable :columns="colunasOrigem" :rows="consumoFifo">
-          <template #cell-kwh="{ value }">{{ formatKwh(value) }}</template>
+          <template #cell-kwh="{ value }">
+            <span :title="`${formatKwh(value)}`">
+              {{ valorEmReais(value, tarifa) === null ? formatKwh(value) : formatReais(valorEmReais(value, tarifa)) }}
+            </span>
+          </template>
           <template #empty>Nenhum crédito resgatado neste mês.</template>
         </DataTable>
 
-        <h4 class="auditoria__titulo">Crédito expirado</h4>
+        <h4 class="auditoria__titulo">Crédito expirado e pago (180 dias sem uso)</h4>
         <DataTable :columns="colunasOrigem" :rows="expiracao">
-          <template #cell-kwh="{ value }">{{ formatKwh(value) }}</template>
+          <template #cell-kwh="{ value }">
+            <span :title="`${formatKwh(value)}`">
+              {{ valorEmReais(value, tarifa) === null ? formatKwh(value) : formatReais(valorEmReais(value, tarifa)) }}
+            </span>
+          </template>
           <template #empty>Nenhum crédito expirado neste mês.</template>
         </DataTable>
       </div>
