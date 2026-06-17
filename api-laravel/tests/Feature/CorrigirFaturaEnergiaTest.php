@@ -107,6 +107,32 @@ class CorrigirFaturaEnergiaTest extends TestCase
         $this->assertEqualsWithDelta(0.0, (float) $jan->fatura_energia, 0.001); // dry-run: continua 0
     }
 
+    public function test_corrigir_e_idempotente(): void
+    {
+        $uc = $this->criarUsina(media: 1000, geracaoPorAno: [
+            2026 => ['janeiro' => 1500, 'fevereiro' => 800],
+        ]);
+        $this->artisan('ledger:reconstruir', ['--usina' => $uc])->assertOk();
+        \App\Models\FaturaFonte::create(['uc' => $uc, 'competencia' => '2026-01-01', 'fatura_energia' => 30]);
+
+        $this->artisan('faturamento:corrigir-fatura', ['--usina' => $uc])->assertOk();
+
+        $usiId = $this->usiId($uc);
+        $ledgerAntes = \App\Models\CreditoLedger::doUsina($usiId)->count();
+        $pdf1 = \App\Models\GeracaoFaturamentoPdf::where('usi_id', $usiId)->orderBy('competencia')
+            ->pluck('valor_final')->map(fn ($v) => round((float) $v, 2))->all();
+
+        // re-rodar
+        $this->artisan('faturamento:corrigir-fatura', ['--usina' => $uc])->assertOk();
+
+        $ledgerDepois = \App\Models\CreditoLedger::doUsina($usiId)->count();
+        $pdf2 = \App\Models\GeracaoFaturamentoPdf::where('usi_id', $usiId)->orderBy('competencia')
+            ->pluck('valor_final')->map(fn ($v) => round((float) $v, 2))->all();
+
+        $this->assertSame($ledgerAntes, $ledgerDepois, 'ledger não pode duplicar ao re-rodar');
+        $this->assertSame($pdf1, $pdf2, 'valores devem ser idênticos ao re-rodar');
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private function usiId(string $uc): int
