@@ -305,6 +305,13 @@ foreach ($usinas as $u) {
         fn($f) => !isset($cobertos[$f['ano'].'-'.$f['mes']])));
     $registrarForaMotor($u, $foraMeses);
 
+    // Valor final por usina (só meses com finalA E finalD — comparáveis):
+    //   diff = finalD − finalA. diff>0 = pagamos a MENOS; diff<0 = pagamos a MAIS.
+    $vfComparaveis = array_filter($timeline, fn($t)=>$t['finalA']!==null && $t['finalD']!==null);
+    $diffFinalUsina = array_sum(array_map(fn($t)=>round($t['finalD']-$t['finalA'],2), $vfComparaveis));
+    $aMaisUsina  = array_sum(array_map(fn($t)=>($t['finalD']-$t['finalA'])<-0.005?round($t['finalA']-$t['finalD'],2):0.0, $vfComparaveis));
+    $aMenosUsina = array_sum(array_map(fn($t)=>($t['finalD']-$t['finalA'])> 0.005?round($t['finalD']-$t['finalA'],2):0.0, $vfComparaveis));
+
     $usinasReport[$uc] = [
         'cliente'=>$u['cliente'] ?? '-', 'rede'=>$u['rede'], 'migrada'=>false,
         'tarifa'=>$tarifa, 'media'=>$media, 'menor'=>(float)$u['menor_geracao'],
@@ -312,6 +319,10 @@ foreach ($usinas as $u) {
         'fora_motor'=>$foraMeses,
         'diff_credito'=>array_sum(array_map(fn($t)=>$t['diff'], $timeline))
             - array_sum(array_column($foraMeses, 'credA')),
+        'diff_final'=>round($diffFinalUsina,2),
+        'final_a_mais'=>round($aMaisUsina,2),
+        'final_a_menos'=>round($aMenosUsina,2),
+        'meses_vf'=>count($vfComparaveis),
         'casos'=>count(array_filter($timeline, fn($t)=>$t['tipo']!==null)) + count($foraMeses),
     ];
 }
@@ -331,12 +342,25 @@ if ($ucFiltro) {
     exit;
 }
 
+// Agregados de VALOR FINAL (métrica principal): só meses comparáveis (finalA E finalD).
+$vfAMais  = array_sum(array_map(fn($ur)=>$ur['final_a_mais']  ?? 0, $usinasReport));
+$vfAMenos = array_sum(array_map(fn($ur)=>$ur['final_a_menos'] ?? 0, $usinasReport));
+$vfSaldo  = round($vfAMenos - $vfAMais, 2); // >0 = no agregado pagamos a MENOS
+$vfMeses  = array_sum(array_map(fn($ur)=>$ur['meses_vf'] ?? 0, $usinasReport));
+$vfUsinas = count(array_filter($usinasReport, fn($ur)=>abs($ur['diff_final'] ?? 0) >= 0.01));
+
 echo "=== RESUMO ===\n";
 echo "Usinas analisadas: ".count($usinas)." | com divergência: ".count($usinasAfetadas)."\n";
 echo "Linhas divergentes: ".count($linhas)."\n";
+echo "\n--- VALOR FINAL (pago × correto, ".$vfMeses." meses comparáveis) ---\n";
+printf("Pago a MAIS  (correto < pago):  R\$ %s\n", number_format($vfAMais,2,',','.'));
+printf("Pago a MENOS (correto > pago):  R\$ %s\n", number_format($vfAMenos,2,',','.'));
+printf("SALDO (a menos − a mais):       R\$ %s  (%s)\n", number_format($vfSaldo,2,',','.'), $vfSaldo>=0?'pagamos a menos no total':'pagamos a mais no total');
+printf("Usinas com diferença de valor final: %d\n", $vfUsinas);
+echo "\n--- CRÉDITO (secundário) ---\n";
 $impactoCredito = array_sum(array_map(fn($l)=>$l['diff'], $linhas));
 printf("Impacto líquido no crédito (cobertura completa): R\$ %s\n", number_format($impactoCredito,2,',','.'));
-printf("Impacto no valor final (PARCIAL, só meses com PDF): R\$ %s\n", number_format($totDiffFinal,2,',','.'));
+printf("Soma das diferenças de valor final (Δ): R\$ %s\n", number_format($totDiffFinal,2,',','.'));
 echo "\nPor tipo de erro:\n";
 uasort($porTipo, fn($a,$b)=>$a['soma']<=>$b['soma']);
 foreach ($porTipo as $tipo=>$x) {
@@ -475,7 +499,7 @@ a.uclink{color:var(--laranja-deep);text-decoration:none;font-weight:700} a.uclin
 <a href="#visao">Visão geral</a><a href="#comoler">Como ler</a><a href="#tipos">Tipos de erro</a><a href="#usinas">Por usina</a>
 <a href="#detalhe">Divergências</a><a href="#drill">Drill-down</a><a href="#qualidade">Qualidade de dados</a>
 </nav>
-<h1 id="visao">Auditoria de Crédito de Geração — Antes × Depois</h1>
+<h1 id="visao">Auditoria de Faturamento — Valor Final Pago × Correto</h1>
 <p class="sub">Consórcio Líder Energy · gerado em <?=date('d/m/Y H:i')?> · cópia fiel do banco de produção (dump pré-correção)</p>
 <div class="proposito">
   <b>O que é este documento:</b> o registro histórico de como os dados de faturamento estavam <b>antes</b> da correção
@@ -485,23 +509,25 @@ a.uclink{color:var(--laranja-deep);text-decoration:none;font-weight:700} a.uclin
   <code>energia_antes_20260611_164628.dump</code>.
 </div>
 
-<?php $impactoLiq = $creditoAMenos - $creditoAMais; $tipoDominante = array_key_first($porTipo); ?>
+<?php $tipoDominante = array_key_first($porTipo); ?>
 <div class="veredito">
-  <b>Veredito:</b> o sistema creditou <b>R$ <?=$fmt(abs($impactoLiq))?> <?=$impactoLiq<0?'a MAIS':'a MENOS'?></b> do que a regra correta permite,
-  em <b><?=$totAfetadas?> de <?=$totUsinas?></b> usinas (<?=count($linhas)?> meses divergentes).
-  Erro dominante: <?=$badge($tipoDominante)?> com R$ <?=$fmt($porTipo[$tipoDominante]['soma'] ?? 0)?>.
+  <b>Veredito (valor final pago × correto):</b>
+  o sistema pagou <b class="<?=$vfSaldo>=0?'pos':'neg'?>">R$ <?=$fmt(abs($vfSaldo))?> <?=$vfSaldo>=0?'a MENOS':'a MAIS'?></b>
+  do que a regra correta indica, no saldo líquido — pagou <b>R$ <?=$fmt($vfAMais)?> a mais</b> e <b>R$ <?=$fmt($vfAMenos)?> a menos</b>,
+  em <b><?=$vfUsinas?></b> usinas com diferença de valor final (<?=$vfMeses?> meses comparáveis com valor pago registrado).
 </div>
 
 <div class="cards">
+  <div class="card"><div class="lbl">Pago a MAIS</div><div class="val red">R$ <?=$fmt($vfAMais)?></div></div>
+  <div class="card"><div class="lbl">Pago a MENOS</div><div class="val blue">R$ <?=$fmt($vfAMenos)?></div></div>
+  <div class="card"><div class="lbl">Saldo (a menos − a mais)</div><div class="val <?=$vfSaldo>=0?'blue':'red'?>">R$ <?=$fmt($vfSaldo)?></div></div>
   <div class="card"><div class="lbl">Usinas analisadas</div><div class="val"><?=$totUsinas?></div></div>
-  <div class="card"><div class="lbl">Usinas com erro</div><div class="val red"><?=$totAfetadas?></div></div>
-  <div class="card"><div class="lbl">Creditado a MAIS</div><div class="val red">R$ <?=$fmt($creditoAMais)?></div></div>
-  <div class="card"><div class="lbl">Creditado a MENOS</div><div class="val blue">R$ <?=$fmt($creditoAMenos)?></div></div>
-  <div class="card"><div class="lbl">Impacto líquido no crédito</div><div class="val <?=($creditoAMenos-$creditoAMais)<0?'red':'blue'?>">R$ <?=$fmt($creditoAMenos-$creditoAMais)?></div></div>
+  <div class="card"><div class="lbl">Meses comparáveis</div><div class="val"><?=$vfMeses?></div></div>
 </div>
-<p class="legenda">Impacto líquido negativo = o sistema creditou a mais (cobertura completa, via <code>creditos_distribuidos</code>).
-O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é parcial, pois só há demonstrativo persistido
-(<code>geracao_faturamento_pdf</code>) para parte dos meses; as maiores correções de crédito caem em meses recentes não cobertos lá.</p>
+<p class="legenda"><b>Valor final</b> = o que foi efetivamente pago ao cliente (<code>geracao_faturamento_pdf.valor_final</code>) × o que a regra correta produz.
+<span class="neg">Pago a mais</span> = prejuízo ao consórcio · <span class="pos">Pago a menos</span> = prejuízo ao cliente.
+Cobre <?=$vfMeses?> meses com demonstrativo persistido (a fatura da concessionária, necessária para o CUO, só existe nesses meses).
+As métricas de <b>crédito</b> (termo isolado) seguem na seção “Por tipo de erro”, como informação secundária.</p>
 
 <h2 id="comoler">Como ler este relatório</h2>
 <div class="como-ler">
@@ -518,8 +544,8 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
   <ul>
     <li><b>Cobertura completa do crédito:</b> todo R$ creditado pelo sistema antigo foi auditado — inclusive em meses
         sem geração real registrada, que aparecem como <span class="bdg" style="background:#7c3aed">Crédito sem geração</span>.</li>
-    <li><b>Valor final DEPOIS não inclui receita de expiração retroativa.</b> Decisão de negócio: crédito que já venceu
-        no passado <b>não</b> é pago retroativamente (indo para frente, o motor converte expiração em receita no mês do vencimento).</li>
+    <li><b>Valor final DEPOIS inclui a receita de expiração (PAGA TUDO).</b> Decisão de negócio (2026-06-17): crédito que
+        expira vira pagamento ao cliente no mês do vencimento, <b>inclusive retroativamente</b>.</li>
     <li><b>Nenhum número incompleto é exibido como se fosse final:</b> em meses sem demonstrativo ANTES não existe a fatura
         manual para compor o CUO — o CUO e o valor final DEPOIS aparecem como “—” em vez de um valor enganoso.</li>
   </ul>
@@ -549,17 +575,45 @@ O impacto no <b>valor final</b> aparece por mês na seção de 4 termos — é p
 <span class="neg">Vermelho</span> = creditado a mais (prejuízo ao consórcio) · <span class="pos">Azul</span> = creditado a menos (prejuízo ao cliente). Ambos são erros.
 </p>
 
-<h2 id="usinas">Resumo por usina</h2>
-<p class="legenda">Clique na UC para abrir o drill-down completo da usina. Barra = proporção do impacto.</p>
-<?php $maxAbs = max(array_map(fn($x)=>abs($x['diff']), $porUsina) ?: [1]); ?>
-<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Casos</th><th class="right">Impacto no crédito (R$)</th><th>Proporção</th></tr></thead><tbody>
-<?php foreach ($porUsina as $uc=>$x): $pctBar = $maxAbs>0 ? round(abs($x['diff'])/$maxAbs*100) : 0; ?>
+<h2 id="usinas">Resumo por usina — diferença de valor final</h2>
+<p class="legenda">Diferença total entre o que foi <b>pago</b> e o que a regra correta indica, por usina (Δ = correto − pago).
+<span class="pos">Azul (+)</span> = pagamos a menos · <span class="neg">Vermelho (−)</span> = pagamos a mais.
+Clique na UC para o drill-down. Coluna de crédito ao lado, como referência secundária.</p>
+<?php
+// Monta o resumo por VALOR FINAL a partir do usinasReport (só usinas com diferença de valor final).
+$porUsinaVF = [];
+foreach ($usinasReport as $uc=>$ur) {
+    if (abs($ur['diff_final'] ?? 0) < 0.01) { continue; }
+    $porUsinaVF[$uc] = [
+        'cliente'=>$ur['cliente'],
+        'diff_final'=>$ur['diff_final'],
+        'a_mais'=>$ur['final_a_mais'], 'a_menos'=>$ur['final_a_menos'],
+        'meses'=>$ur['meses_vf'],
+        'diff_credito'=>$ur['diff_credito'],
+    ];
+}
+uasort($porUsinaVF, fn($a,$b)=>$a['diff_final']<=>$b['diff_final']); // mais negativo (pago a mais) no topo
+$maxAbsVF = max(array_map(fn($x)=>abs($x['diff_final']), $porUsinaVF) ?: [1]);
+?>
+<table><thead><tr><th>UC</th><th>Cliente</th><th class="right">Meses</th>
+<th class="right">Pago a mais (R$)</th><th class="right">Pago a menos (R$)</th><th class="right">Δ valor final (R$)</th>
+<th class="right">Δ crédito (R$)</th><th>Proporção</th></tr></thead><tbody>
+<?php foreach ($porUsinaVF as $uc=>$x): $pctBar = $maxAbsVF>0 ? round(abs($x['diff_final'])/$maxAbsVF*100) : 0; ?>
 <tr><td><a class="uclink" href="#u-<?=htmlspecialchars($uc)?>" onclick="abrirUsina('u-<?=htmlspecialchars($uc)?>')"><?=htmlspecialchars($uc)?></a></td>
 <td><?=htmlspecialchars($x['cliente'])?></td>
-<td class="num"><?=$x['casos']?></td>
-<td class="num <?=$x['diff']<0?'neg':'pos'?>">R$ <?=$fmt($x['diff'])?></td>
-<td class="barwrap"><div class="bar <?=$x['diff']<0?'neg':'pos'?>" style="width:<?=$pctBar?>%"></div></td></tr>
+<td class="num"><?=$x['meses']?></td>
+<td class="num <?=$x['a_mais']>0?'neg':'muted'?>">R$ <?=$fmt($x['a_mais'])?></td>
+<td class="num <?=$x['a_menos']>0?'pos':'muted'?>">R$ <?=$fmt($x['a_menos'])?></td>
+<td class="num <?=$x['diff_final']<0?'neg':'pos'?>">R$ <?=$fmt($x['diff_final'])?></td>
+<td class="num muted">R$ <?=$fmt($x['diff_credito'])?></td>
+<td class="barwrap"><div class="bar <?=$x['diff_final']<0?'neg':'pos'?>" style="width:<?=$pctBar?>%"></div></td></tr>
 <?php endforeach; ?>
+<tr style="border-top:2px solid var(--mist);font-weight:800">
+<td colspan="3">TOTAL (<?=count($porUsinaVF)?> usinas · <?=$vfMeses?> meses)</td>
+<td class="num neg">R$ <?=$fmt($vfAMais)?></td>
+<td class="num pos">R$ <?=$fmt($vfAMenos)?></td>
+<td class="num <?=$vfSaldo<0?'neg':'pos'?>">R$ <?=$fmt($vfSaldo)?></td>
+<td class="num muted">—</td><td></td></tr>
 </tbody></table>
 
 <h2 id="detalhe">Todas as divergências, mês a mês (<?=count($linhas)?>)</h2>
@@ -603,7 +657,7 @@ ao lado para conferência. Células “—” = dado não registrado no sistema 
 veio cada kWh creditado (FIFO). <b>A</b> = antes (sistema antigo) · <b>D</b> = depois (regra correta) · <b>Δ</b> = D − A.
 Células “—” no ANTES = mês sem demonstrativo persistido no banco; nesse caso o CUO/valor final DEPOIS também são
 omitidos (a fatura manual da concessionária não existe no banco para compor o custo — exibir um valor parcial seria enganoso).
-O valor final DEPOIS <b>não</b> inclui receita de expiração retroativa (não é paga; ver “Como ler”).</p>
+O valor final DEPOIS <b>inclui</b> a receita de expiração paga no mês do vencimento (PAGA TUDO; ver “Como ler”).</p>
 <div class="toolbar">
 <button onclick="expandir(true)">Expandir divergentes</button>
 <button onclick="expandir(false)">Expandir todas</button>
@@ -611,17 +665,28 @@ O valor final DEPOIS <b>não</b> inclui receita de expiração retroativa (não 
 <button id="btnTermos" onclick="alternarTermos()">Mostrar todos os termos</button>
 </div>
 <?php
-// ordena: divergentes primeiro (por impacto), depois as ok
+// ordena: com diferença de valor final primeiro (mais negativo = pago a mais no topo), depois as ok
 uasort($usinasReport, function($a,$b){
-    $ad = $a['casos']>0?0:1; $bd = $b['casos']>0?0:1;
+    $ad = abs($a['diff_final'] ?? 0) >= 0.01 ? 0 : 1; $bd = abs($b['diff_final'] ?? 0) >= 0.01 ? 0 : 1;
     if ($ad !== $bd) { return $ad <=> $bd; }
-    return $a['diff_credito'] <=> $b['diff_credito'];
+    return ($a['diff_final'] ?? 0) <=> ($b['diff_final'] ?? 0);
 });
 foreach ($usinasReport as $uc=>$ur):
 ?>
 <details id="u-<?=htmlspecialchars($uc)?>" data-div="<?=$ur['casos']>0?1:0?>">
 <summary><span><?=htmlspecialchars($uc)?> · <?=htmlspecialchars($ur['cliente'])?></span>
-<span class="meta"><?=$ur['casos']>0 ? $ur['casos'].' caso(s) · crédito Δ <b class="'.($ur['diff_credito']<0?'neg':'pos').'">R$ '.$fmt($ur['diff_credito']).'</b>' : '<span class="ok">sem divergência</span>'?> · rede <?=htmlspecialchars($ur['rede']?:'—')?></span></summary>
+<span class="meta"><?php
+  $dvf = $ur['diff_final'] ?? 0;
+  if (abs($dvf) >= 0.01) {
+    echo 'valor final Δ <b class="'.($dvf<0?'neg':'pos').'">R$ '.$fmt($dvf).'</b>';
+    echo ' <span class="muted">(a mais R$ '.$fmt($ur['final_a_mais']??0).' · a menos R$ '.$fmt($ur['final_a_menos']??0).')</span>';
+    echo ' · crédito Δ <b class="'.($ur['diff_credito']<0?'neg':'pos').'">R$ '.$fmt($ur['diff_credito']).'</b>';
+  } elseif (($ur['casos']??0) > 0) {
+    echo $ur['casos'].' caso(s) · crédito Δ <b class="'.($ur['diff_credito']<0?'neg':'pos').'">R$ '.$fmt($ur['diff_credito']).'</b>';
+  } else {
+    echo '<span class="ok">sem divergência</span>';
+  }
+?> · rede <?=htmlspecialchars($ur['rede']?:'—')?></span></summary>
 
 <?php if (!empty($ur['fora_motor'])): ?>
 <div class="alerta-fora"><b>Crédito fora da reconstrução:</b>
