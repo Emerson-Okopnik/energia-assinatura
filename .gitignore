@@ -5,3 +5,4 @@
 # Database dumps (dados de produção — nunca versionar)
 *.dump
 *.sql.gz
+.superpowers/
