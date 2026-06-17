@@ -29,18 +29,21 @@ só o front por enquanto). O componente já tem o esqueleto de validação inlin
 
 ## Mudanças (mínimas, DRY)
 
-Fonte única de verdade da validação: os computeds `formValido` / `erroFatura` /
-`erroConsumo`. O submit (`aoConfirmar`/`executarFaturamento`) já depende de `formValido`
-— logo o bloqueio passa a respeitar a nova regra automaticamente.
+**SOLID/DRY — uma fonte única por campo.** Hoje a regra de cada campo está duplicada
+entre `formValido` e `erroX`. Para não repetir "fatura > 0" em dois lugares, a regra de
+cada campo vira **um predicado próprio** (SRP: cada predicado decide a validade de um
+campo), e todo o resto **deriva** dele:
 
-1. **`erroFatura`** — erro quando `faturaEnergia === null || faturaEnergia <= 0`.
-   Mensagem: `Informe a fatura de energia (maior que zero).`
-2. **`erroConsumo`** — mantém: erro só quando `consumoUsinaMes === null`. (`0` é válido.)
-3. **`formValido`** — passa a exigir:
-   `consumoUsinaMes !== null && faturaEnergia !== null && faturaEnergia > 0`.
+1. **`consumoValido`** (computed) — `consumoUsinaMes.value !== null`. (`0` é válido.)
+2. **`faturaValida`** (computed) — `faturaEnergia.value !== null && faturaEnergia.value > 0`.
+3. **`erroConsumo`** — `tocado.consumo && !consumoValido.value` → `Informe o consumo da usina no mês.`
+4. **`erroFatura`** — `tocado.fatura && !faturaValida.value` → `Informe a fatura de energia (maior que zero).`
+5. **`formValido`** — `consumoValido.value && faturaValida.value`.
 
-Nada mais muda: o `aoConfirmar()` já marca `tocado.consumo/fatura = true` e retorna se
-`!formValido`, exibindo as mensagens; o `executarFaturamento()` reconfere `formValido`.
+A regra de cada campo aparece **uma só vez** (no predicado); mensagens e `formValido`
+consomem o predicado. O submit (`aoConfirmar`/`executarFaturamento`) já depende de
+`formValido` e marca `tocado.* = true` antes de checar — logo o bloqueio passa a
+respeitar a nova regra automaticamente, sem tocar no fluxo de submit.
 
 ## Comportamento esperado
 
