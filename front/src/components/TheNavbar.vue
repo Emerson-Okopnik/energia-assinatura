@@ -76,6 +76,9 @@
           <li>
             <router-link class="app-nav-link" to="/relatorio" @click="closeAll">Relatórios</router-link>
           </li>
+          <li>
+            <router-link class="app-nav-link" to="/auditoria" @click="closeAll">Auditoria</router-link>
+          </li>
         </ul>
         <ul class="app-navbar-links" v-else></ul>
 

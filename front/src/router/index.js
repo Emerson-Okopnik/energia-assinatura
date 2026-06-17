@@ -17,6 +17,7 @@ import AtualizarUsina from '@/components/AtualizarUsina.vue'
 import Relatorios from '@/components/Relatorios.vue'
 import FaturarUsina from '@/views/FaturarUsina.vue'
 import UsinasFaturamento from '@/views/UsinasFaturamento.vue'
+import Auditoria from '@/components/Auditoria.vue'
 
 
 const routes = [
@@ -83,6 +84,12 @@ const routes = [
     name: 'relatorio',
     component: Relatorios,
     meta: { requiresAuth: true, titulo: 'Relatórios' },
+  },
+  {
+    path: '/auditoria',
+    name: 'auditoria',
+    component: Auditoria,
+    meta: { requiresAuth: true, titulo: 'Auditoria' },
   },
   {
     // Estado (usina/ano/mês) vive na rota: F5, deep-link e voltar funcionam.
