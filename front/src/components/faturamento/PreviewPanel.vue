@@ -4,6 +4,7 @@ import BaseBadge from '../base/BaseBadge.vue'
 import BaseButton from '../base/BaseButton.vue'
 import StatValue from '../base/StatValue.vue'
 import { formatReais, formatKwh, formatNumero } from '../../utils/formatters'
+import { partesFormula } from '../../utils/detalhamentoFatura'
 
 const props = defineProps({
   // shape: { termos: {...}, geracao: {...}, reserva: {...}, parametros: {...} }
@@ -18,16 +19,20 @@ defineEmits(['retry'])
 
 const termos = computed(() => props.preview?.termos ?? null)
 
+const temExpiracao = computed(
+  () => Number(termos.value?.receita_expiracao_reais) > 0
+)
+
 const formulaLinha = computed(() => {
   if (!termos.value) return ''
-  const t = termos.value
-  return [
-    `Fixo ${formatReais(t.valor_fixo_reais)}`,
-    `+ Injetado ${formatReais(t.valor_variavel_reais)}`,
-    `+ Crédito ${formatReais(t.credito_reais)}`,
-    `− CUO ${formatReais(t.cuo_reais)}`,
-    `= ${formatReais(t.valor_final_reais)}`,
-  ].join(' ')
+  const partes = partesFormula(termos.value)
+  const corpo = partes
+    .map((p, i) => {
+      const sinal = i === 0 ? '' : p.valor < 0 ? '− ' : '+ '
+      return `${sinal}${p.label} ${formatReais(Math.abs(p.valor))}`
+    })
+    .join(' ')
+  return `${corpo} = ${formatReais(termos.value.valor_final_reais)}`
 })
 
 const guardadoKwh = computed(() => props.preview?.reserva?.guardado_kwh)
@@ -74,6 +79,11 @@ const arvores = computed(() => props.preview?.parametros?.arvores_equivalentes)
         <StatValue label="Injetado" :value="formatReais(termos.valor_variavel_reais)" />
         <StatValue label="Crédito" :value="formatReais(termos.credito_reais)" />
         <StatValue label="CUO" tone="danger" :value="formatReais(termos.cuo_reais)" />
+        <StatValue
+          v-if="temExpiracao"
+          label="Crédito expirado"
+          :value="formatReais(termos.receita_expiracao_reais)"
+        />
       </div>
 
       <div class="preview-panel__final">
