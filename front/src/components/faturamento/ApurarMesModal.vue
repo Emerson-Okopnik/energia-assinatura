@@ -6,6 +6,7 @@ import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 
 import swal from '../../utils/swal.js'
 import { formatReais } from '../../utils/formatters.js'
+import { consumoValido, faturaValida } from '../../utils/validacaoLancamento.js'
 import * as api from '../../services/faturamentoApi.js'
 
 import BaseBadge from '../base/BaseBadge.vue'
@@ -63,20 +64,22 @@ const geracaoVemDoCadastro = computed(
   () => props.geracaoCadastrada !== null && Number(props.geracaoCadastrada) > 0
 )
 
-// Validação inline por blur (F7).
+// Validade de cada campo — fonte única em utils/validacaoLancamento (SOLID/DRY).
+const consumoEhValido = computed(() => consumoValido(consumoUsinaMes.value))
+const faturaEhValida = computed(() => faturaValida(faturaEnergia.value))
+
+// Validação inline por blur (F7): mensagem só após o campo ser tocado.
 const erroConsumo = computed(() =>
-  tocado.consumo && consumoUsinaMes.value === null
+  tocado.consumo && !consumoEhValido.value
     ? 'Informe o consumo da usina no mês.'
     : ''
 )
 const erroFatura = computed(() =>
-  tocado.fatura && faturaEnergia.value === null
-    ? 'Informe a fatura de energia do mês.'
+  tocado.fatura && !faturaEhValida.value
+    ? 'Informe a fatura de energia (maior que zero).'
     : ''
 )
-const formValido = computed(
-  () => consumoUsinaMes.value !== null && faturaEnergia.value !== null
-)
+const formValido = computed(() => consumoEhValido.value && faturaEhValida.value)
 
 function numeroOuNulo(valor) {
   if (valor === null || valor === undefined || valor === '') return null
