@@ -52,6 +52,51 @@ class AuditoriaApiTest extends TestCase
         $this->assertSame(1, $u['meses_divergentes']);
     }
 
+    public function test_mes_so_baseline_sem_pdf_e_inconclusivo(): void
+    {
+        $usiId = $this->seedUsina('UC901', 'Cliente 901');
+        // Apenas baseline — nenhum seedPdf: atual será null → inconclusivo
+        $this->seedBaseline($usiId, '2026-03-01', antes: 800.0, pago: 750.0);
+
+        // detalheUsina: mês aparece com status inconclusivo e atual null
+        $resp = $this->withoutMiddleware()->getJson("/api/auditoria/usinas/{$usiId}");
+        $resp->assertOk();
+        $meses = collect($resp->json('meses'))->keyBy('competencia');
+        $mar = $meses['2026-03'];
+        $this->assertSame('inconclusivo', $mar['status']);
+        $this->assertNull($mar['atual']);
+        $this->assertNull($mar['diferenca']);
+
+        // listaUsinas: contado em inconclusivos e NÃO contribui ao saldo
+        $lista = $this->withoutMiddleware()->getJson('/api/auditoria/usinas');
+        $lista->assertOk();
+        $u = collect($lista->json('usinas'))->firstWhere('usi_id', $usiId);
+        $this->assertSame(1, $u['inconclusivos']);
+        $this->assertEqualsWithDelta(0.0, $u['saldo'], 0.01);
+    }
+
+    public function test_mes_so_pdf_sem_baseline_e_inconclusivo(): void
+    {
+        $usiId = $this->seedUsina('UC902', 'Cliente 902');
+        // Apenas pdf — nenhum seedBaseline: pago será null → inconclusivo
+        $this->seedPdf($usiId, '2026-04-01', fixo: 1000, injetado: 500, creditado: 0, cuo: 200, valorFinal: 1300, fatura: 650);
+
+        // detalheUsina: mês aparece com status inconclusivo (pago null)
+        $resp = $this->withoutMiddleware()->getJson("/api/auditoria/usinas/{$usiId}");
+        $resp->assertOk();
+        $meses = collect($resp->json('meses'))->keyBy('competencia');
+        $abr = $meses['2026-04'];
+        $this->assertSame('inconclusivo', $abr['status']);
+        $this->assertNull($abr['diferenca']);
+
+        // listaUsinas: contado em inconclusivos e NÃO contribui ao saldo
+        $lista = $this->withoutMiddleware()->getJson('/api/auditoria/usinas');
+        $lista->assertOk();
+        $u = collect($lista->json('usinas'))->firstWhere('usi_id', $usiId);
+        $this->assertSame(1, $u['inconclusivos']);
+        $this->assertEqualsWithDelta(0.0, $u['saldo'], 0.01);
+    }
+
     // ---- helpers ----
     private function seedUsina(string $uc, string $nome): int
     {

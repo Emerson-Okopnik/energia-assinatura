@@ -23,6 +23,7 @@ use App\Http\Controllers\DadoConsumoUsinaController;
 use App\Http\Controllers\CalculoGeracaoController;
 use App\Http\Controllers\CelescController;
 use App\Http\Controllers\NotaEmitidaTesteController;
+use App\Http\Controllers\AuditoriaController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -153,6 +154,6 @@ Route::middleware('auth:api')->group(function () {
 
   Route::post('/celesc/fatura', [CelescController::class, 'emitirFatura']);
 
-  Route::get('/auditoria/usinas', [\App\Http\Controllers\AuditoriaController::class, 'usinas']);
-  Route::get('/auditoria/usinas/{usiId}', [\App\Http\Controllers\AuditoriaController::class, 'usina']);
+  Route::get('/auditoria/usinas', [AuditoriaController::class, 'usinas']);
+  Route::get('/auditoria/usinas/{usiId}', [AuditoriaController::class, 'usina']);
 });

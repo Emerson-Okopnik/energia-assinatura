@@ -35,9 +35,6 @@ final class AuditoriaService
                 $u['inconclusivos']++;
                 continue;
             }
-            if ($l->pago === null) {
-                continue;
-            }
             $dif = round((float) $l->pago - (float) $l->atual, 2);
             $u['saldo'] = round($u['saldo'] + $dif, 2);
             if (abs($dif) >= self::TOL) {
@@ -68,7 +65,7 @@ final class AuditoriaService
     /** @return array{usina: array, resumo: array, meses: array} */
     public function detalheUsina(int $usiId): array
     {
-        $linhas = array_values(array_filter($this->linhas(), fn ($l) => (int) $l->usi_id === $usiId));
+        $linhas = array_values($this->linhas($usiId));
         usort($linhas, fn ($a, $b) => strcmp((string) $a->competencia, (string) $b->competencia));
 
         $meses = [];
@@ -77,8 +74,8 @@ final class AuditoriaService
         foreach ($linhas as $l) {
             $uc ??= $l->uc; $cliente ??= $l->cliente;
             $inconc = $this->inconclusivo($l);
-            $dif = (! $inconc && $l->pago !== null) ? round((float) $l->pago - (float) $l->atual, 2) : null;
-            if (! $inconc && $l->pago !== null) {
+            $dif = $inconc ? null : round((float) $l->pago - (float) $l->atual, 2);
+            if (! $inconc) {
                 $pagoTotal += (float) $l->pago; $atualTotal += (float) $l->atual;
             }
             $meses[] = [
@@ -113,9 +110,14 @@ final class AuditoriaService
      * baseline e/ou em geracao_faturamento_pdf.
      *
      * O ORDER BY fica na subquery externa para evitar conflito SQLite com UNION.
+     *
+     * @param int|null $usiId  Quando fornecido, restringe a query a esta usina (WHERE u.usi_id = ?).
      */
-    private function linhas(): array
+    private function linhas(?int $usiId = null): array
     {
+        $whereUsinaBaseline = $usiId !== null ? 'AND u.usi_id = ?' : '';
+        $whereUsinaPdf      = $usiId !== null ? 'AND g.usi_id = ?' : '';
+
         $sql = "
             SELECT * FROM (
                 -- Lado 1: meses presentes no baseline (com ou sem pdf correspondente)
@@ -134,7 +136,7 @@ final class AuditoriaService
                     g.cuo
                 FROM usina u
                 LEFT JOIN cliente cli ON cli.cli_id = u.cli_id
-                INNER JOIN auditoria_baseline ab ON ab.usi_id = u.usi_id
+                INNER JOIN auditoria_baseline ab ON ab.usi_id = u.usi_id {$whereUsinaBaseline}
                 LEFT JOIN geracao_faturamento_pdf g
                     ON g.usi_id = ab.usi_id
                     AND substr(g.competencia, 1, 7) = substr(ab.competencia, 1, 7)
@@ -156,23 +158,26 @@ final class AuditoriaService
                     g.creditado,
                     g.cuo
                 FROM geracao_faturamento_pdf g
-                LEFT JOIN usina u ON u.usi_id = g.usi_id
+                INNER JOIN usina u ON u.usi_id = g.usi_id
                 LEFT JOIN cliente cli ON cli.cli_id = u.cli_id
                 WHERE NOT EXISTS (
                     SELECT 1 FROM auditoria_baseline ab
                     WHERE ab.usi_id = g.usi_id
                     AND substr(ab.competencia, 1, 7) = substr(g.competencia, 1, 7)
                 )
+                {$whereUsinaPdf}
             ) AS combined
             ORDER BY usi_id, competencia
         ";
 
-        return DB::select($sql);
+        $bindings = $usiId !== null ? [$usiId, $usiId] : [];
+
+        return DB::select($sql, $bindings);
     }
 
     private function inconclusivo(object $l): bool
     {
-        return $l->atual === null || $l->fatura === null || (float) $l->fatura == 0.0;
+        return $l->atual === null || $l->fatura === null || (float) $l->fatura == 0.0 || $l->pago === null;
     }
 
     /** @return array<string, float> */
