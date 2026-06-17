@@ -50,6 +50,12 @@ class AuditoriaApiTest extends TestCase
         $this->assertEqualsWithDelta(-200.0, $u['saldo'], 0.01);
         $this->assertSame(1, $u['inconclusivos']);
         $this->assertSame(1, $u['meses_divergentes']);
+
+        // totais: saldo<0 ("a menos") deve cair em pago_a_menos, NÃO em pago_a_mais
+        $totais = $resp->json('totais');
+        $this->assertEqualsWithDelta(200.0, $totais['pago_a_menos'], 0.01);
+        $this->assertEqualsWithDelta(0.0, $totais['pago_a_mais'], 0.01);
+        $this->assertEqualsWithDelta(-200.0, $totais['saldo'], 0.01);
     }
 
     public function test_mes_so_baseline_sem_pdf_e_inconclusivo(): void

@@ -46,8 +46,8 @@ final class AuditoriaService
 
         $pagoAMais = 0.0; $pagoAMenos = 0.0; $inconc = 0;
         foreach ($usinas as $u) {
-            if ($u['saldo'] < 0) { $pagoAMais += -$u['saldo']; }
-            elseif ($u['saldo'] > 0) { $pagoAMenos += $u['saldo']; }
+            if ($u['saldo'] > 0) { $pagoAMais += $u['saldo']; }
+            elseif ($u['saldo'] < 0) { $pagoAMenos += -$u['saldo']; }
             $inconc += $u['inconclusivos'];
         }
 
@@ -55,7 +55,7 @@ final class AuditoriaService
             'totais' => [
                 'pago_a_mais' => round($pagoAMais, 2),
                 'pago_a_menos' => round($pagoAMenos, 2),
-                'saldo' => round($pagoAMenos - $pagoAMais, 2),
+                'saldo' => round($pagoAMais - $pagoAMenos, 2),
                 'total_inconclusivos' => $inconc,
             ],
             'usinas' => $usinas,
