@@ -192,7 +192,7 @@ watch(() => [props.aberto, props.usiId], () => { if (props.aberto) carregar() })
                 <!-- Linha de detalhe da conta -->
                 <template #row-details="{ row }">
                   <div class="aud-modal__linha-conta">
-                    <span class="aud-modal__linha-conta-label">Calculo atual:</span>
+                    <span class="aud-modal__linha-conta-label">Cálculo atual:</span>
                     <code class="aud-modal__linha-conta-formula">{{ conta(row) }}</code>
                   </div>
                 </template>
