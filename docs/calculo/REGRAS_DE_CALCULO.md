@@ -141,13 +141,11 @@ mais próximo do vencimento; consumi-lo primeiro evita expiração desnecessári
 
 - **Prazo:** o crédito guardado expira em **180 dias** a partir do mês de origem (regra do consórcio).
 - **Ordem:** a expiração é avaliada **após** o consumo FIFO do mês — só expira o que **sobrou** sem uso.
-- **Destino (operação normal, indo pra frente):** o crédito expirado **vira receita em dinheiro**
-  (`kwh_expirado × tarifa`) no mês do vencimento, somado ao Valor a Receber (linha própria do demonstrativo).
-  **Não** é contado em dobro (não soma ao termo Crédito e ao faturamento simultaneamente).
-- **Exceção — backfill retroativo (§12):** crédito que **já venceu no passado**, ao reconstruir o histórico,
-  é apenas **removido da reserva (lançamento `EXPIRACAO` no ledger) SEM pagamento** — não geramos receita
-  retroativa. O backfill escreve só no `credito_ledger`, nunca em `faturamento_usina`. Assim, créditos vencidos
-  antes do go-live não são pagos; apenas os que vencerem **a partir** do go-live geram receita.
+- **Destino (PAGA TUDO):** o crédito expirado **vira receita em dinheiro**
+  (`kwh_expirado × tarifa`) no **mês do vencimento**, somado ao Valor a Receber —
+  **inclusive retroativamente** (crédito que venceu antes do go-live também é pago).
+  **Não** é contado em dobro (não soma ao termo Crédito e ao faturamento simultaneamente;
+  o serviço de expiração só considera o que **sobrou** após o consumo FIFO do mês).
 
 ---
 
@@ -228,6 +226,11 @@ reconstruído a partir da **geração real mês a mês** (não dos saldos atuais
 - Usinas com **saldo inicial migrado** (21 de 66 — déficit histórico > excedente): exigem um lançamento
   `SALDO_INICIAL` no ledger, investigado caso a caso (ver `storage/CALCULO_CONTEXTO.md`).
 
+> **Decisão 2026-06-17 (PAGA TUDO):** o backfill paga a expiração no mês do vencimento,
+> inclusive retroativo. O `valorFinal` persistido inclui a `receitaExpiracao` — o sistema
+> reflete o que **deveria** ter sido pago. (O que já foi pago ao cliente no passado não é
+> reajustado; a auditoria pago-antigo × correto é a prova histórica.)
+
 ---
 
 ## 13. Casos de Validação (Golden)
@@ -255,7 +258,7 @@ Usados como oráculo nos testes automatizados:
 - **1.1** (2026-06-11) — Implementação concluída (Fases 0-7). Cálculo unificado numa fonte única
   (`App\Domain\Faturamento\CalculadoraGeracaoLinear`); ledger `credito_ledger` com expiração; precisão decimal;
   frontend e PDF apenas leem; save e preview no mesmo motor (engine antigo removido). Esclarecida a expiração
-  (paga indo pra frente, perde no backfill retroativo) e a inexistência de saldos iniciais migrados (reserva
+  (expiração paga inclusive retroativo — decisão PAGA TUDO 2026-06-17 em §7/§12) e a inexistência de saldos iniciais migrados (reserva
   sempre nasce em 0). Relatório de consolidação em `storage/reconstrucao/RELATORIO_FINAL.md` e antes×depois em
   `relatorio.html` (impacto −R$ 65.265 creditados a mais). 61 testes verdes.
 - **1.0** (2026-06-11) — Versão inicial. Formaliza fórmula de 4 termos, FIFO cross-ano, expiração→receita (180 dias),
